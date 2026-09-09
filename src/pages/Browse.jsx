@@ -153,17 +153,17 @@ export default function Browse() {
         )}
 
         {/* Filters row */}
-        <div className="flex flex-wrap gap-3 mb-4 items-center">
+        <div className="flex gap-3 mb-4 items-center overflow-x-auto pb-1 -mx-4 px-4 sm:mx-0 sm:px-0 sm:flex-wrap">
           <select value={location} onChange={e => setLocation(e.target.value)}
-            className="select-dark text-sm h-10">
+            className="select-dark text-sm h-10 flex-shrink-0" style={{ minWidth: 140 }}>
             {LOCATIONS.map(l => <option key={l}>{l}</option>)}
           </select>
           <select value={sortBy} onChange={e => setSortBy(e.target.value)}
-            className="select-dark text-sm h-10">
+            className="select-dark text-sm h-10 flex-shrink-0" style={{ minWidth: 150 }}>
             {SORT_OPTIONS.map(o => <option key={o}>{o}</option>)}
           </select>
           <button onClick={() => setShowFilters(!showFilters)}
-            className="flex items-center gap-2 h-10 px-4 rounded-xl text-sm font-display font-semibold transition-all duration-300"
+            className="flex items-center gap-2 h-10 px-4 rounded-xl text-sm font-display font-semibold transition-all duration-300 flex-shrink-0 whitespace-nowrap"
             style={{
               background: showFilters ? 'rgba(255,46,109,0.12)' : 'rgba(255,255,255,0.04)',
               border:     `1px solid ${showFilters ? 'rgba(255,46,109,0.35)' : 'rgba(255,255,255,0.08)'}`,

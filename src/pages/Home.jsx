@@ -174,8 +174,8 @@ export default function Home() {
         </div>
 
         {/* Headline */}
-        <h1 className="font-bungee leading-none mb-6"
-          style={{ fontSize: 'clamp(2.8rem, 8vw, 6rem)' }}>
+        <h1 className="font-bungee leading-none mb-6 px-2"
+          style={{ fontSize: 'clamp(2.2rem, 8vw, 6rem)' }}>
           <span className="block text-white neon-headline">लोकल Den</span>
           <span className="block gradient-text" style={{ fontSize: '55%', marginTop: 8, letterSpacing: '0.04em' }}>
             Rent. Play. Earn. Repeat.
@@ -192,17 +192,17 @@ export default function Home() {
         </p>
 
         {/* CTAs */}
-        <div className="flex flex-wrap items-center justify-center gap-4 mb-14">
-          <Link to="/browse" className="btn-primary text-base px-8 py-4">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-center gap-3 sm:gap-4 mb-14 w-full max-w-xs sm:max-w-none mx-auto">
+          <Link to="/browse" className="btn-primary text-base px-8 py-4 text-center">
             <Gamepad2 size={18} /> Browse Gear <ChevronRight size={15} />
           </Link>
-          <Link to="/list-item" className="btn-secondary text-base px-8 py-4">
+          <Link to="/list-item" className="btn-secondary text-base px-8 py-4 text-center">
             <Music size={18} /> List Your Item
           </Link>
         </div>
 
         {/* Trust badges */}
-        <div className="flex flex-wrap justify-center gap-3">
+        <div className="flex flex-col sm:flex-row flex-wrap justify-center gap-3">
           <TrustBadge icon={<Shield size={16}/>} value="KYC Verified"      label="All renters verified" />
           <TrustBadge icon={<Star size={16}/>}   value="4.9★ Avg Rating"   label="200+ completed rentals" />
           <TrustBadge icon={<Zap size={16}/>}    value="Same-day Delivery" label="Across Bangalore" />

@@ -12,6 +12,10 @@ body { overflow-x: hidden; }
   .input-dark, .select-dark { min-height: 44px; font-size: 16px; } /* prevents iOS zoom */
 }
 
+/* Hide scrollbar on horizontal scroll containers (tabs, filters) */
+.overflow-x-auto::-webkit-scrollbar { display: none; }
+.overflow-x-auto { -ms-overflow-style: none; scrollbar-width: none; }
+
 /* ─── Root Variables ──────────────────────────────── */
 :root {
   --magenta:    #ff2e6d;

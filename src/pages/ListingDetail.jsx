@@ -89,8 +89,44 @@ function PhotoGallery({ photos, emoji, accent }) {
   )
 }
 
+/* ── Share Link Box ─────────────────────────────────── */
+function ShareLinkBox() {
+  const [copied, setCopied] = useState(false)
+  const url = window.location.href
+
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(url)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    } catch {
+      window.prompt('Copy this link:', url)
+    }
+  }
+
+  return (
+    <div className="flex items-center gap-2 p-2 rounded-xl mb-1"
+      style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}>
+      <span className="text-xs font-display flex-1 truncate text-left px-1"
+        style={{ color: 'rgba(255,255,255,0.35)' }}>
+        {url.replace('http://', '').replace('https://', '')}
+      </span>
+      <button onClick={copy}
+        className="flex-shrink-0 px-3 py-1.5 rounded-lg text-xs font-display font-bold transition-all duration-200"
+        style={{
+          background: copied ? 'rgba(0,255,148,0.15)' : 'rgba(255,46,109,0.12)',
+          border:     `1px solid ${copied ? 'rgba(0,255,148,0.4)' : 'rgba(255,46,109,0.3)'}`,
+          color:      copied ? '#00ff94' : '#ff6b9d',
+          minWidth:   64,
+        }}>
+        {copied ? '✓ Copied' : 'Copy'}
+      </button>
+    </div>
+  )
+}
+
 /* ── Booking Widget ─────────────────────────────────── */
-function BookingWidget({ listing, accent }) {
+function BookingWidget({ listing, accent, mobile = false }) {
   const { isAuthenticated, user } = useAuth()
   const navigate = useNavigate()
 
@@ -125,10 +161,14 @@ function BookingWidget({ listing, accent }) {
         style={{ border: `1px solid ${accent}25` }}>
         <div className="text-4xl mb-3">🏠</div>
         <h3 className="font-bungee text-lg text-white mb-2">Your Listing</h3>
-        <p className="font-display text-sm mb-5" style={{ color: 'rgba(255,255,255,0.4)' }}>
-          You can't rent your own item. Share this link with others!
+        <p className="font-display text-sm mb-4" style={{ color: 'rgba(255,255,255,0.4)' }}>
+          You can't rent your own item. Share the link to get your first renter!
         </p>
-        <Link to="/dashboard" className="btn-primary w-full py-3 text-sm">
+
+        {/* Share link box */}
+        <ShareLinkBox />
+
+        <Link to="/dashboard" className="btn-outline w-full py-2.5 text-sm mt-3 flex items-center justify-center gap-2">
           Manage in Dashboard →
         </Link>
       </div>
@@ -144,6 +184,28 @@ function BookingWidget({ listing, accent }) {
         <p className="font-display text-sm" style={{ color: 'rgba(255,255,255,0.5)' }}>
           The lister will confirm shortly. Payment via Razorpay coming soon.
         </p>
+      </div>
+    )
+  }
+
+  // Mobile compact bottom bar version
+  if (mobile) {
+    return (
+      <div className="flex items-center gap-3">
+        <div className="flex-1">
+          <div className="flex items-baseline gap-1">
+            <span className="font-bungee text-xl" style={{ color: accent }}>₹{listing.price_day}</span>
+            <span className="text-xs font-display" style={{ color: 'rgba(255,255,255,0.4)' }}>/day</span>
+          </div>
+          {!isAuthenticated && (
+            <p className="text-xs font-display" style={{ color: 'rgba(255,255,255,0.3)' }}>Sign in to book</p>
+          )}
+        </div>
+        <button
+          onClick={() => isAuthenticated ? navigate(`/listing/${listing.id}`) : navigate('/login')}
+          className="btn-primary px-6 py-3 text-sm whitespace-nowrap">
+          {isAuthenticated ? 'Book Now' : 'Sign In'}
+        </button>
       </div>
     )
   }
@@ -227,7 +289,24 @@ export default function ListingDetail() {
   const { id }     = useParams()
   const navigate   = useNavigate()
   const { listing, loading, error } = useListingById(id)
-  const [saved, setSaved] = useState(false)
+  const [saved,      setSaved]      = useState(false)
+  const [shareToast, setShareToast] = useState(false) // 'copied' | false
+
+  const handleShare = async () => {
+    const url = window.location.href
+    try {
+      if (navigator.share) {
+        await navigator.share({ title: listing?.title, url })
+      } else {
+        await navigator.clipboard.writeText(url)
+        setShareToast(true)
+        setTimeout(() => setShareToast(false), 2500)
+      }
+    } catch {
+      // fallback: show URL in prompt
+      window.prompt('Copy this link:', url)
+    }
+  }
 
   const isGaming = listing?.category === 'gaming'
   const accent   = isGaming ? '#ff2e6d' : '#00e5ff'
@@ -289,10 +368,29 @@ export default function ListingDetail() {
               style={{ color: saved ? '#ff2e6d' : 'rgba(255,255,255,0.4)' }}>
               <Heart size={16} fill={saved ? '#ff2e6d' : 'none'} />
             </button>
-            <button className="w-9 h-9 rounded-xl glass flex items-center justify-center transition-all hover:scale-110"
-              style={{ color: 'rgba(255,255,255,0.4)' }}>
-              <Share2 size={16} />
-            </button>
+
+            {/* Share button with toast */}
+            <div className="relative">
+              <button
+                onClick={handleShare}
+                className="w-9 h-9 rounded-xl glass flex items-center justify-center transition-all hover:scale-110"
+                style={{ color: shareToast ? '#00ff94' : 'rgba(255,255,255,0.4)' }}>
+                <Share2 size={16} />
+              </button>
+              {/* Toast popup */}
+              {shareToast && (
+                <div
+                  className="absolute right-0 top-11 flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-display font-semibold whitespace-nowrap z-50"
+                  style={{
+                    background: 'rgba(0,255,148,0.12)',
+                    border:     '1px solid rgba(0,255,148,0.35)',
+                    color:      '#00ff94',
+                    boxShadow:  '0 8px 24px rgba(0,0,0,0.4)',
+                  }}>
+                  ✓ Link copied!
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
@@ -473,11 +571,20 @@ export default function ListingDetail() {
             </div>
           </div>
 
-          {/* ── Right column — Booking widget ── */}
-          <div>
+          {/* ── Right column — Booking widget (desktop sidebar) ── */}
+          <div className="hidden lg:block">
             <BookingWidget listing={listing} accent={accent} />
           </div>
         </div>
+
+        {/* ── Mobile bottom bar — Booking widget ── */}
+        <div className="lg:hidden fixed bottom-0 left-0 right-0 z-40 p-4"
+          style={{ background: 'rgba(10,10,20,0.97)', borderTop: '1px solid rgba(255,46,109,0.2)', backdropFilter: 'blur(20px)' }}>
+          <BookingWidget listing={listing} accent={accent} mobile />
+        </div>
+        {/* Spacer so content isn't hidden behind bottom bar on mobile */}
+        <div className="lg:hidden h-28" />
+
       </div>
     </div>
   )

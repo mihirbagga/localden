@@ -285,7 +285,7 @@ export default function ListItem() {
               {/* Condition */}
               <div>
                 <label className="field-label mb-2 block">CONDITION *</label>
-                <div className="grid grid-cols-3 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   {CONDITIONS.map(c => (
                     <button key={c.value} type="button" onClick={() => setForm(f => ({ ...f, condition: c.value }))}
                       className="p-3 rounded-xl text-left transition-all duration-200"
@@ -364,29 +364,29 @@ export default function ListItem() {
                 You keep <strong style={{ color: '#ffd23f' }}>80%</strong> of every rental. Platform takes 20%.
               </p>
 
-              <div className="grid grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div>
                   <label className="field-label">PER DAY *</label>
                   <div className="relative">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 font-bungee text-sm pointer-events-none" style={{ color: '#ff2e6d' }}>₹</span>
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 font-bungee text-sm pointer-events-none select-none z-10" style={{ color: '#ff2e6d' }}>₹</span>
                     <input type="number" value={form.priceDay} onChange={set('priceDay')} required min={50} max={5000}
-                      placeholder="499" className="input-dark pl-7" />
+                      placeholder="499" className="input-dark" style={{ paddingLeft: '1.6rem' }} />
                   </div>
                 </div>
                 <div>
                   <label className="field-label">WEEKEND</label>
                   <div className="relative">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 font-bungee text-sm pointer-events-none" style={{ color: '#00e5ff' }}>₹</span>
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 font-bungee text-sm pointer-events-none select-none z-10" style={{ color: '#00e5ff' }}>₹</span>
                     <input type="number" value={form.priceWeekend} onChange={set('priceWeekend')} min={50}
-                      placeholder="799" className="input-dark pl-7" />
+                      placeholder="799" className="input-dark" style={{ paddingLeft: '1.6rem' }} />
                   </div>
                 </div>
                 <div>
                   <label className="field-label">PER WEEK</label>
                   <div className="relative">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 font-bungee text-sm pointer-events-none" style={{ color: '#ffd23f' }}>₹</span>
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 font-bungee text-sm pointer-events-none select-none z-10" style={{ color: '#ffd23f' }}>₹</span>
                     <input type="number" value={form.priceWeek} onChange={set('priceWeek')} min={50}
-                      placeholder="2499" className="input-dark pl-7" />
+                      placeholder="2499" className="input-dark" style={{ paddingLeft: '1.6rem' }} />
                   </div>
                 </div>
               </div>
@@ -398,7 +398,7 @@ export default function ListItem() {
                   <p className="text-xs font-display mb-3" style={{ color: 'rgba(255,255,255,0.4)', letterSpacing: '0.06em' }}>
                     YOUR ESTIMATED EARNINGS
                   </p>
-                  <div className="grid grid-cols-3 gap-3 text-center">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-center">
                     {[
                       { label: 'Per Day', amount: Math.floor(form.priceDay * 0.8) },
                       { label: 'Per Week (×7)', amount: Math.floor(form.priceDay * 0.8 * 7) },

@@ -130,7 +130,7 @@ function StatCard({ icon, label, value, color, sub }) {
 function Tab({ label, icon, active, onClick, count }) {
   return (
     <button onClick={onClick}
-      className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-display font-bold transition-all duration-300"
+      className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-display font-bold transition-all duration-300 flex-shrink-0 whitespace-nowrap"
       style={{
         background: active ? 'rgba(255,46,109,0.12)' : 'rgba(255,255,255,0.04)',
         border:     `1px solid ${active ? 'rgba(255,46,109,0.4)' : 'rgba(255,255,255,0.08)'}`,
@@ -346,7 +346,7 @@ export default function Dashboard() {
         </div>
 
         {/* ── Stats row ────────────────────── */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 mb-8">
           <StatCard icon={<Package size={18}/>}     label="My Listings"       value={myListings.length}    color="#ff2e6d" sub={`${activeListings} active`} />
           <StatCard icon={<Calendar size={18}/>}    label="Bookings Made"     value={myBookings.length}    color="#00e5ff" sub={`${completedBookings} completed`} />
           <StatCard icon={<TrendingUp size={18}/>}  label="Est. Earnings"     value={`₹${totalEarned}`}   color="#ffd23f" sub="from your listings" />
@@ -354,7 +354,7 @@ export default function Dashboard() {
         </div>
 
         {/* ── Tabs ─────────────────────────── */}
-        <div className="flex flex-wrap gap-3 mb-6">
+        <div className="flex gap-3 mb-6 overflow-x-auto pb-1 -mx-4 px-4 sm:mx-0 sm:px-0 sm:flex-wrap">
           <Tab label="Overview"    icon={<User size={14}/>}     active={tab==='overview'} onClick={() => setTab('overview')} count={0} />
           <Tab label="My Listings" icon={<Package size={14}/>}  active={tab==='listings'} onClick={() => setTab('listings')} count={myListings.length} />
           <Tab label="My Bookings" icon={<Calendar size={14}/>} active={tab==='bookings'} onClick={() => setTab('bookings')} count={myBookings.length} />
