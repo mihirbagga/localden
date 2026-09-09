@@ -1,0 +1,459 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ─── Mobile base fixes ──────────────────────────── */
+html { -webkit-tap-highlight-color: transparent; }
+body { overflow-x: hidden; }
+
+@media (max-width: 640px) {
+  .font-bungee { letter-spacing: -0.01em; }
+  .btn-primary, .btn-secondary, .btn-outline { min-height: 44px; }
+  .input-dark, .select-dark { min-height: 44px; font-size: 16px; } /* prevents iOS zoom */
+}
+
+/* ─── Root Variables ──────────────────────────────── */
+:root {
+  --magenta:    #ff2e6d;
+  --cyan:       #00e5ff;
+  --gold:       #ffd23f;
+  --purple:     #bf00ff;
+  --bg-900:     #0a0a14;
+  --bg-800:     #0f0f1e;
+  --bg-700:     #14142a;
+  --bg-600:     #1c1c38;
+}
+
+/* ─── Base ────────────────────────────────────────── */
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+
+body {
+  background-color: var(--bg-900);
+  color: #e2e8f0;
+  font-family: 'Rajdhani', sans-serif;
+  overflow-x: hidden;
+  position: relative;
+}
+
+/* ─── Scrollbar ───────────────────────────────────── */
+::-webkit-scrollbar { width: 5px; }
+::-webkit-scrollbar-track { background: var(--bg-800); }
+::-webkit-scrollbar-thumb {
+  background: linear-gradient(var(--magenta), var(--cyan));
+  border-radius: 3px;
+}
+
+/* ─── Grid Floor Background ───────────────────────── */
+.grid-floor {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background-image:
+    linear-gradient(rgba(0, 229, 255, 0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0, 229, 255, 0.04) 1px, transparent 1px);
+  background-size: 50px 50px;
+  animation: gridMove 25s linear infinite;
+}
+.grid-floor::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse at 50% 100%, rgba(255,46,109,0.06) 0%, transparent 60%),
+              radial-gradient(ellipse at 50% 0%,   rgba(0,229,255,0.04) 0%, transparent 60%);
+}
+@keyframes gridMove {
+  from { background-position: 0 0, 0 0; }
+  to   { background-position: 50px 50px, 50px 50px; }
+}
+
+/* ─── Gradient Text ───────────────────────────────── */
+.gradient-text {
+  background: linear-gradient(90deg, var(--magenta) 0%, var(--cyan) 100%);
+  background-size: 300%;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.gradient-text-gold {
+  background: linear-gradient(90deg, var(--gold), #ffaa00);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* ─── Pulsing Neon Headline ───────────────────────── */
+.neon-headline {
+  color: white;
+  animation: neonPulse 2.5s ease-in-out infinite;
+}
+@keyframes neonPulse {
+  0%, 100% {
+    text-shadow:
+      0 0 8px  var(--magenta),
+      0 0 20px rgba(255,46,109,0.6),
+      0 0 50px rgba(255,46,109,0.3);
+  }
+  50% {
+    text-shadow:
+      0 0 8px  var(--cyan),
+      0 0 20px rgba(0,229,255,0.6),
+      0 0 50px rgba(0,229,255,0.3);
+  }
+}
+
+/* ─── THE Button (magenta → cyan gradient) ────────── */
+.btn-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px 28px;
+  border-radius: 10px;
+  border: none;
+  cursor: pointer;
+  font-family: 'Rajdhani', sans-serif;
+  font-weight: 700;
+  font-size: 1rem;
+  color: #0a0a14;
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(90deg, var(--magenta) 0%, var(--cyan) 100%);
+  background-size: 200% auto;
+  transition: transform 0.2s ease, box-shadow 0.25s ease;
+  text-decoration: none;
+}
+.btn-primary::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.2) 50%, transparent 100%);
+  background-size: 200% auto;
+  animation: shimmer 2.5s linear infinite;
+  pointer-events: none;
+}
+.btn-primary:hover {
+  transform: translateY(-2px) scale(1.02);
+  box-shadow: 0 0 20px rgba(255,46,109,0.5), 0 0 40px rgba(0,229,255,0.3), 0 4px 20px rgba(0,0,0,0.4);
+}
+.btn-primary:active { transform: translateY(0) scale(0.98); }
+
+@keyframes shimmer {
+  0%   { background-position:  200% center; }
+  100% { background-position: -200% center; }
+}
+
+/* ─── Secondary Button ────────────────────────────── */
+.btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px 28px;
+  border-radius: 10px;
+  font-family: 'Rajdhani', sans-serif;
+  font-weight: 700;
+  font-size: 1rem;
+  color: var(--cyan);
+  background: rgba(0, 229, 255, 0.06);
+  border: 1px solid rgba(0, 229, 255, 0.35);
+  cursor: pointer;
+  text-decoration: none;
+  transition: all 0.25s ease;
+}
+.btn-secondary:hover {
+  background: rgba(0, 229, 255, 0.14);
+  border-color: var(--cyan);
+  box-shadow: 0 0 20px rgba(0, 229, 255, 0.3);
+  transform: translateY(-2px);
+}
+
+/* ─── Outline Button ──────────────────────────────── */
+.btn-outline {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 24px;
+  border-radius: 10px;
+  font-family: 'Rajdhani', sans-serif;
+  font-weight: 600;
+  color: rgba(255,255,255,0.65);
+  background: transparent;
+  border: 1px solid rgba(255,255,255,0.12);
+  cursor: pointer;
+  text-decoration: none;
+  transition: all 0.25s ease;
+}
+.btn-outline:hover {
+  border-color: rgba(255,46,109,0.5);
+  color: white;
+  background: rgba(255,46,109,0.07);
+  box-shadow: 0 0 16px rgba(255,46,109,0.2);
+}
+
+/* ─── Gold Button ─────────────────────────────────── */
+.btn-gold {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px 28px;
+  border-radius: 10px;
+  font-family: 'Rajdhani', sans-serif;
+  font-weight: 700;
+  font-size: 1rem;
+  color: #0a0a14;
+  background: linear-gradient(90deg, var(--gold), #ffaa00);
+  cursor: pointer;
+  text-decoration: none;
+  transition: all 0.25s ease;
+  box-shadow: 0 0 18px rgba(255,210,63,0.35);
+}
+.btn-gold:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 0 30px rgba(255,210,63,0.55);
+}
+
+/* ─── Glass ───────────────────────────────────────── */
+.glass {
+  background: rgba(255, 255, 255, 0.03);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+.glass-magenta {
+  background: rgba(255, 46, 109, 0.05);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 46, 109, 0.15);
+}
+.glass-cyan {
+  background: rgba(0, 229, 255, 0.04);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(0, 229, 255, 0.12);
+}
+
+/* ─── Neon Glows ──────────────────────────────────── */
+.glow-magenta { box-shadow: 0 0 20px rgba(255,46,109,0.45), 0 0 40px rgba(255,46,109,0.2); }
+.glow-cyan    { box-shadow: 0 0 20px rgba(0,229,255,0.45),  0 0 40px rgba(0,229,255,0.2);  }
+.glow-gold    { box-shadow: 0 0 20px rgba(255,210,63,0.45), 0 0 40px rgba(255,210,63,0.2); }
+
+/* ─── Neon Border ─────────────────────────────────── */
+.neon-border-card {
+  position: relative;
+  border-radius: 16px;
+  border: 1px solid transparent;
+  background: linear-gradient(var(--bg-800), var(--bg-800)) padding-box,
+              linear-gradient(135deg, var(--magenta), var(--cyan)) border-box;
+}
+
+/* ─── Gradient Border Card ────────────────────────── */
+.gradient-border {
+  position: relative;
+  background: var(--bg-700);
+  border-radius: 16px;
+}
+.gradient-border::before {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  border-radius: 17px;
+  background: linear-gradient(135deg, var(--magenta), var(--cyan), var(--gold), var(--magenta));
+  background-size: 300% 300%;
+  animation: gradientX 4s ease infinite;
+  z-index: -1;
+}
+@keyframes gradientX {
+  0%, 100% { background-position: 0% 50%; }
+  50%       { background-position: 100% 50%; }
+}
+
+/* ─── Card Hover ──────────────────────────────────── */
+.card-hover {
+  transition: transform 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease;
+}
+.card-hover:hover {
+  transform: translateY(-6px);
+}
+
+/* ─── Tags ────────────────────────────────────────── */
+.tag-gaming {
+  font-size: 0.7rem;
+  font-weight: 700;
+  padding: 3px 10px;
+  border-radius: 20px;
+  background: rgba(255,46,109,0.12);
+  border: 1px solid rgba(255,46,109,0.3);
+  color: #ff6b9d;
+  font-family: 'Rajdhani', sans-serif;
+  letter-spacing: 0.05em;
+}
+.tag-music {
+  font-size: 0.7rem;
+  font-weight: 700;
+  padding: 3px 10px;
+  border-radius: 20px;
+  background: rgba(0,229,255,0.10);
+  border: 1px solid rgba(0,229,255,0.25);
+  color: #00e5ff;
+  font-family: 'Rajdhani', sans-serif;
+  letter-spacing: 0.05em;
+}
+.tag-gold {
+  font-size: 0.7rem;
+  font-weight: 700;
+  padding: 3px 10px;
+  border-radius: 20px;
+  background: rgba(255,210,63,0.12);
+  border: 1px solid rgba(255,210,63,0.3);
+  color: var(--gold);
+  font-family: 'Rajdhani', sans-serif;
+}
+
+/* ─── Section Label ───────────────────────────────── */
+.section-label {
+  font-family: 'Rajdhani', sans-serif;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.35em;
+  text-transform: uppercase;
+  color: var(--cyan);
+}
+
+/* ─── Inputs ──────────────────────────────────────── */
+.input-dark {
+  width: 100%;
+  padding: 12px 16px;
+  border-radius: 10px;
+  outline: none;
+  transition: all 0.25s ease;
+  color: white;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.08);
+  font-family: 'Rajdhani', sans-serif;
+  font-size: 0.95rem;
+}
+.input-dark::placeholder { color: rgba(255,255,255,0.28); }
+.input-dark:focus {
+  border-color: rgba(255,46,109,0.5);
+  background: rgba(255,46,109,0.05);
+  box-shadow: 0 0 0 3px rgba(255,46,109,0.1), 0 0 20px rgba(255,46,109,0.12);
+}
+
+/* ─── Select ──────────────────────────────────────── */
+.select-dark {
+  width: 100%;
+  padding: 10px 16px;
+  border-radius: 10px;
+  outline: none;
+  transition: all 0.25s ease;
+  color: white;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.08);
+  -webkit-appearance: none;
+  appearance: none;
+  font-family: 'Rajdhani', sans-serif;
+  cursor: pointer;
+}
+.select-dark:focus {
+  border-color: rgba(255,46,109,0.5);
+  box-shadow: 0 0 0 3px rgba(255,46,109,0.1);
+}
+.select-dark option { background: #14142a; color: white; }
+
+/* ─── Scanlines ───────────────────────────────────── */
+.scanlines {
+  position: relative;
+}
+.scanlines::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 3px,
+    rgba(0,0,0,0.04) 3px,
+    rgba(0,0,0,0.04) 6px
+  );
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* ─── Arcade Divider ──────────────────────────────── */
+.neon-divider {
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--magenta), var(--cyan), transparent);
+}
+
+/* ─── Stat Card ───────────────────────────────────── */
+.stat-card {
+  text-align: center;
+  padding: 24px;
+  border-radius: 16px;
+  background: rgba(255,255,255,0.02);
+  border: 1px solid rgba(255,255,255,0.06);
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+.stat-card:hover { transform: translateY(-4px); }
+
+/* ─── Utilities ───────────────────────────────────── */
+.font-bungee  { font-family: 'Bungee', cursive; }
+.font-display { font-family: 'Rajdhani', sans-serif; }
+
+/* ─── Flicker ─────────────────────────────────────── */
+@keyframes flicker {
+  0%, 95%, 100% { opacity: 1; }
+  96%           { opacity: 0.4; }
+  97%           { opacity: 1; }
+  98%           { opacity: 0.6; }
+}
+.flicker { animation: flicker 5s step-start infinite; }
+
+/* ─── Field Label ──────────────────────────────────── */
+.field-label {
+  display: block;
+  font-family: 'Rajdhani', sans-serif;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  color: rgba(255,255,255,0.45);
+  margin-bottom: 6px;
+  text-transform: uppercase;
+}
+
+/* ─── Outline Button ───────────────────────────────── */
+.btn-outline {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 20px;
+  border-radius: 10px;
+  font-family: 'Rajdhani', sans-serif;
+  font-weight: 700;
+  font-size: 0.9rem;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  transition: all 0.25s ease;
+  background: transparent;
+  border: 1px solid rgba(255,46,109,0.35);
+  color: rgba(255,255,255,0.6);
+}
+.btn-outline:hover {
+  background: rgba(255,46,109,0.08);
+  border-color: rgba(255,46,109,0.6);
+  color: white;
+}
+
+/* ─── Line clamp ───────────────────────────────────── */
+.line-clamp-1 {
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 1;
+  -webkit-box-orient: vertical;
+}

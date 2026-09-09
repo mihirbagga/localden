@@ -1,0 +1,60 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 500" width="100%" height="100%">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0e1017" />
+      <stop offset="50%" stop-color="#0a0a0f" />
+      <stop offset="100%" stop-color="#06070a" />
+    </linearGradient>
+    <linearGradient id="hexGradient" x1="0%" y1="50%" x2="100%" y2="50%">
+      <stop offset="0%" stop-color="#ff1666" />
+      <stop offset="45%" stop-color="#bf24c7" />
+      <stop offset="55%" stop-color="#5486f7" />
+      <stop offset="100%" stop-color="#00e5ff" />
+    </linearGradient>
+    <filter id="neonGlow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="5" result="blur1" />
+      <feGaussianBlur stdDeviation="12" result="blur2" />
+      <feMerge>
+        <feMergeNode in="blur2" />
+        <feMergeNode in="blur1" />
+        <feMergeNode in="SourceGraphic" />
+      </feMerge>
+    </filter>
+    <radialGradient id="pinkAura" cx="35%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#ff1666" stop-opacity="0.35" />
+      <stop offset="100%" stop-color="#ff1666" stop-opacity="0" />
+    </radialGradient>
+    <radialGradient id="cyanAura" cx="65%" cy="40%" r="50%">
+      <stop offset="0%" stop-color="#00e5ff" stop-opacity="0.35" />
+      <stop offset="100%" stop-color="#00e5ff" stop-opacity="0" />
+    </radialGradient>
+  </defs>
+  <rect width="500" height="500" fill="url(#bgGrad)" rx="30" />
+  <circle cx="210" cy="250" r="140" fill="url(#pinkAura)" />
+  <circle cx="290" cy="210" r="140" fill="url(#cyanAura)" />
+  <polygon points="250,55 395,140 395,308 250,392 105,308 105,140"
+           fill="#0d0f16"
+           stroke="url(#hexGradient)"
+           stroke-width="9"
+           stroke-linejoin="round"
+           stroke-linecap="round"
+           filter="url(#neonGlow)" />
+  <polyline points="180,215 250,150 320,215"
+            fill="none"
+            stroke="#00e5ff"
+            stroke-width="13"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            filter="url(#neonGlow)" />
+  <polyline points="200,270 250,225 300,270"
+            fill="none"
+            stroke="#ff1666"
+            stroke-width="13"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            filter="url(#neonGlow)" />
+  <circle cx="250" cy="320"
+          r="9"
+          fill="#ffffff"
+          filter="url(#neonGlow)" />
+</svg>
