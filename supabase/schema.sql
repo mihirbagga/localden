@@ -18,6 +18,9 @@ create table if not exists public.profiles (
   kyc_status    text default 'pending' check (kyc_status in ('pending', 'submitted', 'verified', 'rejected')),
   aadhaar_last4 text,
   is_lister     boolean default false,
+  is_admin      boolean default false,
+  admin_role    text default 'none' check (admin_role in ('none', 'admin', 'super_admin')),
+  is_banned     boolean default false,
   rating        numeric(2,1) default 0,
   total_reviews integer default 0,
   created_at    timestamptz default now(),
@@ -71,10 +74,15 @@ create table if not exists public.listings (
   photos          text[] default '{}',
   emoji           text default '🎮',
 
+  -- Inventory
+  stock_qty       integer default 1,
+  stock_total     integer default 1,
+
   -- Status
   is_available    boolean default true,
   is_verified     boolean default false,
   is_featured     boolean default false,
+  is_published    boolean default true,
 
   -- Contact
   contact_phone   text,
@@ -140,6 +148,7 @@ create table if not exists public.reviews (
   rating        integer not null check (rating between 1 and 5),
   comment       text,
   review_type   text check (review_type in ('renter_to_lister', 'lister_to_renter')),
+  is_hidden     boolean default false,
   created_at    timestamptz default now()
 );
 
@@ -202,6 +211,46 @@ create index if not exists listings_available_idx  on public.listings (is_availa
 create index if not exists bookings_renter_idx     on public.bookings (renter_id);
 create index if not exists bookings_lister_idx     on public.bookings (lister_id);
 create index if not exists bookings_listing_idx    on public.bookings (listing_id);
+create index if not exists listings_published_idx  on public.listings (is_published);
+create index if not exists listings_stock_idx      on public.listings (stock_qty);
+create index if not exists profiles_admin_idx      on public.profiles (is_admin);
+create index if not exists reviews_hidden_idx      on public.reviews (is_hidden);
+
+-- ── Admin helpers + policies ─────────────────────────
+create or replace function public.current_user_is_admin()
+returns boolean
+language sql
+security definer
+set search_path = public
+stable
+as $$
+  select coalesce(
+    (select p.is_admin from public.profiles p where p.id = auth.uid()),
+    false
+  );
+$$;
+
+create policy "Admins can update any profile"
+  on public.profiles for update
+  using (public.current_user_is_admin());
+create policy "Admins can delete any listing"
+  on public.listings for delete
+  using (public.current_user_is_admin());
+create policy "Admins can update any listing"
+  on public.listings for update
+  using (public.current_user_is_admin());
+create policy "Admins can view all bookings"
+  on public.bookings for select
+  using (public.current_user_is_admin());
+create policy "Admins can update any booking"
+  on public.bookings for update
+  using (public.current_user_is_admin());
+create policy "Admins can update reviews"
+  on public.reviews for update
+  using (public.current_user_is_admin());
+create policy "Admins can delete reviews"
+  on public.reviews for delete
+  using (public.current_user_is_admin());
 
 -- ── Storage Buckets ──────────────────────────────────────────
 -- Run separately in Supabase Dashboard → Storage:

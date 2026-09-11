@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Link, useLocation } from 'react-router-dom'
-import { Menu, X, ChevronRight, LogOut, User } from 'lucide-react'
+import { Menu, X, ChevronRight, LogOut, User, Shield } from 'lucide-react'
 import LogoMark from './LogoMark'
 import { useAuth } from '../contexts/AuthContext'
 
@@ -12,7 +12,7 @@ const navLinks = [
 ]
 
 function NavbarAuth() {
-  const { isAuthenticated, profile, signOut } = useAuth()
+  const { isAuthenticated, profile, signOut, isAdmin } = useAuth()
   const [open, setOpen] = useState(false)
 
   if (isAuthenticated) {
@@ -24,7 +24,9 @@ function NavbarAuth() {
         {/* Avatar dropdown */}
         <button onClick={() => setOpen(!open)}
           className="w-9 h-9 rounded-full flex items-center justify-center font-bungee text-sm text-white flex-shrink-0 transition-transform hover:scale-105"
-          style={{ background: 'linear-gradient(135deg, #ff2e6d, #00e5ff)' }}>
+          style={{ background: 'linear-gradient(135deg, #ff2e6d, #00e5ff)' }}
+          aria-label="Open account menu"
+          aria-expanded={open}>
           {profile?.full_name?.[0]?.toUpperCase() || <User size={16} />}
         </button>
         {open && (
@@ -39,6 +41,14 @@ function NavbarAuth() {
               className="w-full flex items-center gap-2 px-2 py-2 rounded-lg text-sm font-display transition-colors hover:bg-white/5 text-white">
               <User size={14} /> My Dashboard
             </Link>
+            {isAdmin ? (
+              <Link to="/admin"
+                onClick={() => setOpen(false)}
+                className="w-full flex items-center gap-2 px-2 py-2 rounded-lg text-sm font-display transition-colors hover:bg-white/5 text-white"
+                aria-label="Open admin panel">
+                <Shield size={14} /> Admin Panel
+              </Link>
+            ) : null}
             <button onClick={() => { signOut(); setOpen(false) }}
               className="w-full flex items-center gap-2 px-2 py-2 rounded-lg text-sm font-display transition-colors hover:bg-red-500/10"
               style={{ color: '#ff6b9d' }}>
@@ -66,6 +76,7 @@ export default function Navbar() {
   const [open, setOpen]         = useState(false)
   const [scrolled, setScrolled] = useState(false)
   const { pathname }            = useLocation()
+  const { isAuthenticated, isAdmin } = useAuth()
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 20)
@@ -154,6 +165,7 @@ export default function Navbar() {
             className="md:hidden p-2 rounded-lg transition-colors"
             style={{ color: 'rgba(255,255,255,0.6)' }}
             onClick={() => setOpen(!open)}
+            aria-label={open ? 'Close navigation menu' : 'Open navigation menu'}
           >
             {open ? <X size={22} /> : <Menu size={22} />}
           </button>
@@ -178,6 +190,23 @@ export default function Navbar() {
               <ChevronRight size={14} style={{ opacity: 0.4 }} />
             </Link>
           ))}
+          {isAuthenticated ? (
+            <Link to="/dashboard"
+              className="flex items-center justify-between px-4 py-3 rounded-xl text-sm font-display font-semibold"
+              style={{ color: pathname === '/dashboard' ? '#ff2e6d' : 'rgba(255,255,255,0.65)' }}>
+              My Dashboard
+              <ChevronRight size={14} style={{ opacity: 0.4 }} />
+            </Link>
+          ) : null}
+          {isAdmin ? (
+            <Link to="/admin"
+              className="flex items-center justify-between px-4 py-3 rounded-xl text-sm font-display font-semibold"
+              style={{ color: pathname === '/admin' ? '#ff2e6d' : 'rgba(255,255,255,0.65)' }}
+              aria-label="Open admin panel">
+              Admin Panel
+              <ChevronRight size={14} style={{ opacity: 0.4 }} />
+            </Link>
+          ) : null}
           <div className="pt-2">
             <Link to="/list-item" className="btn-primary w-full text-sm py-3 text-center block">
               + List Your Gear

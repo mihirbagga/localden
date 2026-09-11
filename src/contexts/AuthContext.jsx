@@ -111,12 +111,19 @@ export function AuthProvider({ children }) {
     return publicUrl
   }
 
+  const adminRole = profile?.admin_role
+  const isAdmin = Boolean(profile?.is_admin) || adminRole === 'admin' || adminRole === 'super_admin'
+  const isSuperAdmin = adminRole === 'super_admin' || (Boolean(profile?.is_admin) && adminRole !== 'admin')
+
   return (
     <AuthContext.Provider value={{
       user, profile, loading,
       signUp, signIn, signInWithGoogle, signOut,
       updateProfile, uploadAvatar,
       isAuthenticated: !!user,
+      isAdmin,
+      isSuperAdmin,
+      isBanned: Boolean(profile?.is_banned),
     }}>
       {children}
     </AuthContext.Provider>

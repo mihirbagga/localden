@@ -40,6 +40,7 @@ export function useListings(filters = {}) {
             )
           `)
           .eq('is_available', true)
+          .eq('is_published', true)
 
         if (category && category !== 'all') {
           query = query.eq('category', category)

@@ -3,12 +3,13 @@ import { useParams, useNavigate, Link } from 'react-router-dom'
 import {
   ArrowLeft, MapPin, Star, Shield, Clock, Calendar,
   ChevronLeft, ChevronRight, Share2, Heart, Gamepad2,
-  Music, CheckCircle, AlertCircle, User, Phone
+  Music, CheckCircle, AlertCircle, User, Phone, CreditCard, X
 } from 'lucide-react'
 import GameBackground from '../components/GameBackground'
 import { useListingById } from '../hooks/useListings'
 import { useAuth } from '../contexts/AuthContext'
 import { supabase } from '../lib/supabase'
+import { useRazorpay } from '../hooks/useRazorpay'
 
 /* ── Photo Gallery ──────────────────────────────────── */
 function PhotoGallery({ photos, emoji, accent }) {
@@ -127,34 +128,103 @@ function ShareLinkBox() {
 
 /* ── Booking Widget ─────────────────────────────────── */
 function BookingWidget({ listing, accent, mobile = false }) {
-  const { isAuthenticated, user } = useAuth()
+  const { isAuthenticated, user, profile, isBanned } = useAuth()
   const navigate = useNavigate()
+  const { openCheckout, loading: rzpLoading } = useRazorpay()
 
-  // Owner cannot book their own listing
   const isOwner = isAuthenticated && user?.id === listing.user_id
 
   const today = new Date().toISOString().split('T')[0]
-  const [startDate, setStartDate] = useState('')
-  const [endDate, setEndDate]     = useState('')
-  const [booked, setBooked]       = useState(false)
+  const [startDate, setStartDate]   = useState('')
+  const [endDate,   setEndDate]     = useState('')
+  const [booking,   setBooking]     = useState(null)   // confirmed booking record
+  const [payError,  setPayError]    = useState('')
+  const [saving,    setSaving]      = useState(false)
 
-  const days = startDate && endDate
+  const days        = startDate && endDate
     ? Math.max(1, Math.ceil((new Date(endDate) - new Date(startDate)) / 86400000))
     : 0
+  const subtotal    = days * (listing.price_day || 0)
+  const platformFee = Math.round(subtotal * 0.2)
+  const deposit     = listing.deposit_amount || 5000
+  const total       = subtotal + platformFee + deposit
 
-  const subtotal     = days * (listing.price_day || 0)
-  const platformFee  = Math.round(subtotal * 0.2)
-  const deposit      = listing.deposit_amount || 5000
-  const total        = subtotal + platformFee + deposit
-
-  const handleBook = () => {
-    if (!isAuthenticated) return navigate('/login')
-    if (!startDate || !endDate) return
-    // Razorpay will go here — for now show confirmation
-    setBooked(true)
+  /* ── Save confirmed booking to Supabase ── */
+  const saveBooking = async (paymentId) => {
+    setSaving(true)
+    const bookingId = crypto.randomUUID()
+    const { error } = await supabase.from('bookings').insert({
+      id:                 bookingId,
+      listing_id:         listing.id,
+      renter_id:          user.id,
+      lister_id:          listing.user_id,
+      start_date:         startDate,
+      end_date:           endDate,
+      total_days:         days,
+      price_per_day:      listing.price_day,
+      subtotal,
+      platform_fee:       platformFee,
+      deposit,
+      total_amount:       total,
+      status:             'confirmed',
+      payment_status:     'paid',
+      razorpay_payment_id: paymentId,
+    })
+    setSaving(false)
+    if (error) {
+      console.error('Booking save error:', error)
+      setPayError('Payment successful but booking save failed. Contact support.')
+      return
+    }
+    const nextQty = Math.max(0, (listing.stock_qty ?? 1) - 1)
+    await supabase.from('listings').update({
+      stock_qty: nextQty,
+      is_available: nextQty > 0,
+      total_bookings: (listing.total_bookings || 0) + 1,
+      updated_at: new Date().toISOString(),
+    }).eq('id', listing.id)
+    setBooking({ id: bookingId, startDate, endDate, days, total, paymentId })
   }
 
-  // Owner sees manage card, not booking widget
+  /* ── Open Razorpay checkout ─────────────── */
+  const handleBook = async () => {
+    if (!isAuthenticated) return navigate('/login')
+    if (isBanned) {
+      setPayError('Account banned. Contact support.')
+      return
+    }
+    if ((listing.stock_qty ?? 1) < 1) {
+      setPayError('This item is out of stock.')
+      return
+    }
+    if (!startDate || !endDate || days < 1) return
+    setPayError('')
+
+    await openCheckout({
+      amount:      total,
+      name:        listing.title,
+      description: `${days} day${days > 1 ? 's' : ''} rental · ${startDate} to ${endDate}`,
+      prefill: {
+        name:    profile?.full_name || '',
+        email:   user?.email        || '',
+        contact: profile?.phone     || '',
+      },
+      notes: {
+        listing_id: listing.id,
+        renter_id:  user.id,
+        start_date: startDate,
+        end_date:   endDate,
+      },
+      onSuccess: (paymentId) => saveBooking(paymentId),
+      onFailure: (err) => {
+        if (err.message !== 'Payment dismissed') {
+          setPayError(err.description || err.message || 'Payment failed. Please try again.')
+        }
+      },
+    })
+  }
+
+  /* ── Owner card ─────────────────────────── */
   if (isOwner) {
     return (
       <div className="glass rounded-3xl p-6 text-center sticky top-24"
@@ -164,10 +234,7 @@ function BookingWidget({ listing, accent, mobile = false }) {
         <p className="font-display text-sm mb-4" style={{ color: 'rgba(255,255,255,0.4)' }}>
           You can't rent your own item. Share the link to get your first renter!
         </p>
-
-        {/* Share link box */}
         <ShareLinkBox />
-
         <Link to="/dashboard" className="btn-outline w-full py-2.5 text-sm mt-3 flex items-center justify-center gap-2">
           Manage in Dashboard →
         </Link>
@@ -175,20 +242,44 @@ function BookingWidget({ listing, accent, mobile = false }) {
     )
   }
 
-  if (booked) {
+  /* ── Payment success screen ─────────────── */
+  if (booking) {
     return (
-      <div className="glass rounded-3xl p-6 text-center"
-        style={{ border: `1px solid rgba(0,255,148,0.3)` }}>
-        <div className="text-4xl mb-3">🎉</div>
-        <h3 className="font-bungee text-xl text-white mb-2">Booking Requested!</h3>
-        <p className="font-display text-sm" style={{ color: 'rgba(255,255,255,0.5)' }}>
-          The lister will confirm shortly. Payment via Razorpay coming soon.
+      <div className="glass rounded-3xl p-6 text-center sticky top-24"
+        style={{ border: '1px solid rgba(0,255,148,0.35)', boxShadow: '0 0 40px rgba(0,255,148,0.1)' }}>
+        <div className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4"
+          style={{ background: 'rgba(0,255,148,0.12)', border: '1px solid rgba(0,255,148,0.3)' }}>
+          <CheckCircle size={32} style={{ color: '#00ff94' }} />
+        </div>
+        <h3 className="font-bungee text-xl text-white mb-2">Booking Confirmed! 🎉</h3>
+        <p className="font-display text-sm mb-5" style={{ color: 'rgba(255,255,255,0.5)' }}>
+          Payment successful. The lister will contact you shortly.
         </p>
+
+        {/* Booking summary */}
+        <div className="rounded-2xl p-4 mb-4 text-left space-y-2"
+          style={{ background: 'rgba(0,255,148,0.05)', border: '1px solid rgba(0,255,148,0.15)' }}>
+          {[
+            ['📅 Dates',   `${booking.startDate} → ${booking.endDate}`],
+            ['🌙 Duration', `${booking.days} day${booking.days > 1 ? 's' : ''}`],
+            ['💳 Paid',    `₹${booking.total}`],
+            ['🔖 ID',      booking.paymentId?.slice(0, 16) + '…'],
+          ].map(([k, v]) => (
+            <div key={k} className="flex justify-between text-sm font-display">
+              <span style={{ color: 'rgba(255,255,255,0.4)' }}>{k}</span>
+              <span className="text-white font-semibold">{v}</span>
+            </div>
+          ))}
+        </div>
+
+        <Link to="/dashboard" className="btn-primary w-full py-3 text-sm">
+          View in My Bookings →
+        </Link>
       </div>
     )
   }
 
-  // Mobile compact bottom bar version
+  /* ── Mobile compact bar ─────────────────── */
   if (mobile) {
     return (
       <div className="flex items-center gap-3">
@@ -210,16 +301,22 @@ function BookingWidget({ listing, accent, mobile = false }) {
     )
   }
 
+  /* ── Desktop booking card ───────────────── */
+  const isProcessing = rzpLoading || saving
+
   return (
     <div className="glass rounded-3xl p-6 sticky top-24"
       style={{ border: `1px solid ${accent}25` }}>
 
       {/* Price headline */}
       <div className="flex items-baseline gap-2 mb-5">
-        <span className="font-bungee text-3xl" style={{ color: accent }}>
-          ₹{listing.price_day}
-        </span>
+        <span className="font-bungee text-3xl" style={{ color: accent }}>₹{listing.price_day}</span>
         <span className="font-display text-sm" style={{ color: 'rgba(255,255,255,0.4)' }}>/day</span>
+        {listing.price_weekend > 0 && (
+          <span className="text-xs font-display ml-auto" style={{ color: 'rgba(255,255,255,0.3)' }}>
+            Wknd ₹{listing.price_weekend}
+          </span>
+        )}
       </div>
 
       {/* Date pickers */}
@@ -265,21 +362,45 @@ function BookingWidget({ listing, accent, mobile = false }) {
         </div>
       )}
 
-      {/* Book button */}
+      {/* Error */}
+      {payError && (
+        <div className="flex items-center gap-2 p-3 rounded-xl mb-4 text-sm font-display"
+          style={{ background: 'rgba(255,46,109,0.08)', border: '1px solid rgba(255,46,109,0.25)', color: '#ff6b9d' }}>
+          <AlertCircle size={14} className="flex-shrink-0" />
+          <span>{payError}</span>
+          <button onClick={() => setPayError('')} className="ml-auto flex-shrink-0"><X size={12}/></button>
+        </div>
+      )}
+
+      {/* Book / Pay button */}
       <button onClick={handleBook}
-        disabled={!startDate || !endDate}
-        className="btn-primary w-full py-4 text-base"
-        style={{ opacity: (!startDate || !endDate) ? 0.5 : 1 }}>
-        <Calendar size={16} />
-        {!isAuthenticated ? 'Sign In to Book' : days > 0 ? `Book for ₹${total}` : 'Select Dates'}
+        disabled={isProcessing || (!startDate || !endDate)}
+        className="btn-primary w-full py-4 text-base relative overflow-hidden"
+        style={{ opacity: (!startDate || !endDate) ? 0.55 : 1 }}>
+        {isProcessing ? (
+          <span className="flex items-center justify-center gap-2">
+            <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+            {saving ? 'Confirming booking…' : 'Opening payment…'}
+          </span>
+        ) : !isAuthenticated ? (
+          <span className="flex items-center justify-center gap-2"><CreditCard size={16}/> Sign In to Book</span>
+        ) : days > 0 ? (
+          <span className="flex items-center justify-center gap-2"><CreditCard size={16}/> Pay ₹{total} via Razorpay</span>
+        ) : (
+          <span className="flex items-center justify-center gap-2"><Calendar size={16}/> Select Dates to Book</span>
+        )}
       </button>
 
-      {/* Trust note */}
-      <p className="text-center text-xs font-display mt-3"
-        style={{ color: 'rgba(255,255,255,0.25)' }}>
-        <Shield size={10} className="inline mr-1" />
-        Free cancellation · Deposit protected
-      </p>
+      {/* Trust badges */}
+      <div className="flex items-center justify-center gap-4 mt-3">
+        <span className="flex items-center gap-1 text-xs font-display" style={{ color: 'rgba(255,255,255,0.25)' }}>
+          <Shield size={10}/> Deposit protected
+        </span>
+        <span className="text-xs font-display" style={{ color: 'rgba(255,255,255,0.15)' }}>·</span>
+        <span className="flex items-center gap-1 text-xs font-display" style={{ color: 'rgba(255,255,255,0.25)' }}>
+          <CheckCircle size={10}/> Secure payment
+        </span>
+      </div>
     </div>
   )
 }
@@ -289,8 +410,10 @@ export default function ListingDetail() {
   const { id }     = useParams()
   const navigate   = useNavigate()
   const { listing, loading, error } = useListingById(id)
+  const { user, isAdmin } = useAuth()
   const [saved,      setSaved]      = useState(false)
-  const [shareToast, setShareToast] = useState(false) // 'copied' | false
+  const [shareToast, setShareToast] = useState(false)
+  const [reviews,    setReviews]    = useState([])
 
   const handleShare = async () => {
     const url = window.location.href
@@ -308,8 +431,21 @@ export default function ListingDetail() {
     }
   }
 
+  useEffect(() => {
+    if (!id) return
+    supabase
+      .from('reviews')
+      .select('*, reviewer:profiles!reviewer_id(full_name, avatar_url)')
+      .eq('listing_id', id)
+      .or('is_hidden.eq.false,is_hidden.is.null')
+      .order('created_at', { ascending: false })
+      .then(({ data }) => setReviews(data || []))
+  }, [id])
+
   const isGaming = listing?.category === 'gaming'
   const accent   = isGaming ? '#ff2e6d' : '#00e5ff'
+  const canViewHidden = isAdmin || user?.id === listing?.user_id
+  const isHiddenFromPublic = listing && listing.is_published === false && !canViewHidden
 
   /* Loading skeleton */
   if (loading) {
@@ -331,7 +467,7 @@ export default function ListingDetail() {
   }
 
   /* Error / not found */
-  if (error || !listing) {
+  if (error || !listing || isHiddenFromPublic) {
     return (
       <div className="relative min-h-screen pt-24 flex items-center justify-center">
         <div className="grid-floor" /><GameBackground />
@@ -496,6 +632,7 @@ export default function ListingDetail() {
                   { label: 'Model',     value: listing.model || '—' },
                   { label: 'Condition', value: listing.condition === 'like_new' ? 'Like New' : listing.condition === 'good' ? 'Good' : 'Fair' },
                   { label: 'Deposit',   value: `₹${listing.deposit_amount || 5000}` },
+                  { label: 'Stock',     value: `${listing.stock_qty ?? 1} / ${listing.stock_total ?? listing.stock_qty ?? 1}` },
                 ].map(d => (
                   <div key={d.label}>
                     <div className="text-xs font-display mb-0.5" style={{ color: 'rgba(255,255,255,0.3)', letterSpacing: '0.06em' }}>
@@ -551,15 +688,30 @@ export default function ListingDetail() {
               </div>
             </div>
 
-            {/* Reviews placeholder */}
             <div className="glass rounded-2xl p-5">
               <h3 className="font-bungee text-base mb-3" style={{ color: accent, fontSize: '0.85rem' }}>
                 REVIEWS
               </h3>
-              {listing.total_reviews > 0 ? (
-                <p className="text-sm font-display" style={{ color: 'rgba(255,255,255,0.4)' }}>
-                  Reviews coming soon...
-                </p>
+              {reviews.length > 0 ? (
+                <div className="space-y-4">
+                  {reviews.map((review) => (
+                    <div key={review.id} className="pb-4" style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="font-display font-bold text-white text-sm">
+                          {review.reviewer?.full_name || 'Renter'}
+                        </span>
+                        <span className="text-xs" style={{ color: '#ffd23f' }}>
+                          {'★'.repeat(review.rating || 0)}{'☆'.repeat(5 - (review.rating || 0))}
+                        </span>
+                      </div>
+                      {review.comment ? (
+                        <p className="font-display text-sm" style={{ color: 'rgba(255,255,255,0.55)' }}>
+                          {review.comment}
+                        </p>
+                      ) : null}
+                    </div>
+                  ))}
+                </div>
               ) : (
                 <div className="text-center py-6">
                   <div className="text-3xl mb-2">⭐</div>

@@ -2,9 +2,11 @@ import { useState } from 'react'
 import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
 import { AuthProvider } from './contexts/AuthContext'
+import { ToastProvider } from './contexts/ToastContext'
 import Navbar from './components/Navbar'
 import Footer from './components/Footer'
 import ProtectedRoute from './components/ProtectedRoute'
+import AdminRoute from './components/AdminRoute'
 import WelcomeScreen from './components/WelcomeScreen'
 import Home from './pages/Home'
 import Browse from './pages/Browse'
@@ -14,6 +16,7 @@ import Login from './pages/Login'
 import Signup from './pages/Signup'
 import ListingDetail from './pages/ListingDetail'
 import Dashboard from './pages/Dashboard'
+import Admin from './pages/Admin'
 
 /* ── Page transition wrapper ─────────────────────── */
 const pageVariants = {
@@ -43,6 +46,9 @@ function AnimatedRoutes() {
           <Route path="/dashboard" element={
             <ProtectedRoute><Dashboard /></ProtectedRoute>
           } />
+          <Route path="/admin" element={
+            <AdminRoute><Admin /></AdminRoute>
+          } />
         </Routes>
       </motion.div>
     </AnimatePresence>
@@ -61,16 +67,18 @@ export default function App() {
 
   return (
     <AuthProvider>
-      {!entered && <WelcomeScreen onEnter={handleEnter} />}
-      <BrowserRouter>
-        <div className="min-h-screen flex flex-col">
-          <Navbar />
-          <main className="flex-1">
-            <AnimatedRoutes />
-          </main>
-          <Footer />
-        </div>
-      </BrowserRouter>
+      <ToastProvider>
+        {!entered && <WelcomeScreen onEnter={handleEnter} />}
+        <BrowserRouter>
+          <div className="min-h-screen flex flex-col">
+            <Navbar />
+            <main className="flex-1">
+              <AnimatedRoutes />
+            </main>
+            <Footer />
+          </div>
+        </BrowserRouter>
+      </ToastProvider>
     </AuthProvider>
   )
 }

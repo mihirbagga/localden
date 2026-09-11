@@ -73,42 +73,46 @@ export default function Login() {
 
             {/* Email */}
             <div>
-              <label className="block text-xs font-display font-semibold mb-1.5"
+              <label htmlFor="login-email" className="block text-xs font-display font-semibold mb-1.5"
                 style={{ color: 'rgba(255,255,255,0.5)', letterSpacing: '0.06em' }}>
                 EMAIL ADDRESS
               </label>
               <div className="relative">
                 <Mail size={16} className="absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none"
                   style={{ color: 'rgba(255,255,255,0.25)' }} />
-                <input type="email" required value={form.email}
+                <input id="login-email" type="email" required value={form.email}
                   onChange={e => setForm(f => ({ ...f, email: e.target.value }))}
                   placeholder="you@example.com"
-                  className="input-dark pl-11" />
+                  className="input-dark input-icon-left"
+                  aria-label="Email address" />
               </div>
             </div>
 
             {/* Password */}
             <div>
               <div className="flex items-center justify-between mb-1.5">
-                <label className="text-xs font-display font-semibold"
+                <label htmlFor="login-password" className="text-xs font-display font-semibold"
                   style={{ color: 'rgba(255,255,255,0.5)', letterSpacing: '0.06em' }}>
                   PASSWORD
                 </label>
                 <button type="button" className="text-xs font-display transition-colors"
-                  style={{ color: '#ff2e6d' }}>
+                  style={{ color: '#ff2e6d' }}
+                  aria-label="Forgot password">
                   Forgot password?
                 </button>
               </div>
               <div className="relative">
                 <Lock size={16} className="absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none"
                   style={{ color: 'rgba(255,255,255,0.25)' }} />
-                <input type={showPw ? 'text' : 'password'} required value={form.password}
+                <input id="login-password" type={showPw ? 'text' : 'password'} required value={form.password}
                   onChange={e => setForm(f => ({ ...f, password: e.target.value }))}
                   placeholder="••••••••"
-                  className="input-dark pl-11 pr-11" />
+                  className="input-dark input-icon-both"
+                  aria-label="Password" />
                 <button type="button" onClick={() => setShowPw(!showPw)}
                   className="absolute right-4 top-1/2 -translate-y-1/2"
-                  style={{ color: 'rgba(255,255,255,0.3)' }}>
+                  style={{ color: 'rgba(255,255,255,0.3)' }}
+                  aria-label={showPw ? 'Hide password' : 'Show password'}>
                   {showPw ? <EyeOff size={16} /> : <Eye size={16} />}
                 </button>
               </div>

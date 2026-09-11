@@ -8,6 +8,7 @@ import {
 import GameBackground from '../components/GameBackground'
 import ListingCard from '../components/ListingCard'
 import { useAuth } from '../contexts/AuthContext'
+import { useToast } from '../contexts/ToastContext'
 import { supabase } from '../lib/supabase'
 
 /* ── Delete Confirmation Modal ──────────────────────── */
@@ -39,9 +40,11 @@ function DeleteModal({ listing, onConfirm, onCancel, loading }) {
         onClick={e => e.stopPropagation()}
       >
         {/* Close X */}
-        <button
-          onClick={onCancel}
-          className="absolute top-4 right-4 w-8 h-8 rounded-xl flex items-center justify-center transition-colors"
+          <button
+            type="button"
+            aria-label="Close delete dialog"
+            onClick={onCancel}
+            className="absolute top-4 right-4 w-8 h-8 rounded-xl flex items-center justify-center transition-colors"
           style={{ background: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.4)' }}
           onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.1)'}
           onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.06)'}
@@ -130,6 +133,9 @@ function StatCard({ icon, label, value, color, sub }) {
 function Tab({ label, icon, active, onClick, count }) {
   return (
     <button onClick={onClick}
+      type="button"
+      aria-label={label}
+      aria-pressed={active}
       className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-display font-bold transition-all duration-300 flex-shrink-0 whitespace-nowrap"
       style={{
         background: active ? 'rgba(255,46,109,0.12)' : 'rgba(255,255,255,0.04)',
@@ -192,14 +198,17 @@ function BookingRow({ booking }) {
 
 /* ════════════════════════════════════════════════ */
 export default function Dashboard() {
-  const { user, profile, signOut, updateProfile, uploadAvatar } = useAuth()
+  const { user, profile, signOut, updateProfile, uploadAvatar, isAdmin } = useAuth()
+  const { showToast } = useToast()
   const navigate = useNavigate()
 
   const [tab, setTab]           = useState('overview')
   const [myListings, setMyListings] = useState([])
   const [myBookings, setMyBookings] = useState([])
+  const [incoming, setIncoming]     = useState([])
   const [loadingL, setLoadingL] = useState(true)
   const [loadingB, setLoadingB] = useState(true)
+  const [loadingIn, setLoadingIn] = useState(true)
   const [editName, setEditName] = useState(false)
   const [nameVal, setNameVal]       = useState(profile?.full_name || '')
   const [saving, setSaving]         = useState(false)
@@ -227,6 +236,16 @@ export default function Dashboard() {
       .then(({ data }) => { setMyBookings(data || []); setLoadingB(false) })
   }, [user])
 
+  /* ── Incoming bookings (as lister) ─────── */
+  useEffect(() => {
+    if (!user) return
+    supabase.from('bookings')
+      .select('*, listings(title, emoji, category)')
+      .eq('lister_id', user.id)
+      .order('created_at', { ascending: false })
+      .then(({ data }) => { setIncoming(data || []); setLoadingIn(false) })
+  }, [user])
+
   /* ── Stats ─────────────────────────────── */
   const totalEarned   = myListings.reduce((s, l) => s + (l.total_bookings || 0) * (l.price_day || 0), 0)
   const activeListings = myListings.filter(l => l.is_available).length
@@ -236,10 +255,36 @@ export default function Dashboard() {
   const confirmDelete = async () => {
     if (!deleteTarget) return
     setDeleting(true)
-    await supabase.from('listings').delete().eq('id', deleteTarget.id)
-    setMyListings(prev => prev.filter(l => l.id !== deleteTarget.id))
+    const { error } = await supabase.from('listings').delete().eq('id', deleteTarget.id)
     setDeleting(false)
+    if (error) {
+      showToast(error.message, 'error')
+      return
+    }
+    setMyListings(prev => prev.filter(l => l.id !== deleteTarget.id))
     setDeleteTarget(null)
+    showToast('Listing deleted', 'success')
+  }
+
+  const bumpStock = async (listing, delta) => {
+    const nextQty = Math.max(0, (listing.stock_qty ?? 1) + delta)
+    const nextTotal = Math.max(nextQty, listing.stock_total ?? nextQty)
+    const { error } = await supabase
+      .from('listings')
+      .update({
+        stock_qty: nextQty,
+        stock_total: nextTotal,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', listing.id)
+    if (error) {
+      showToast(error.message, 'error')
+      return
+    }
+    setMyListings((prev) => prev.map((row) => (
+      row.id === listing.id ? { ...row, stock_qty: nextQty, stock_total: nextTotal } : row
+    )))
+    showToast(`Stock is now ${nextQty}`, 'success')
   }
 
   /* ── Save name ──────────────────────────── */
@@ -283,7 +328,7 @@ export default function Dashboard() {
                   style={{ background: '#ff2e6d', border: '2px solid #0a0a14' }}>
                   <Camera size={12} className="text-white" />
                 </div>
-                <input type="file" accept="image/*" className="hidden" onChange={handleAvatar} />
+                <input type="file" accept="image/*" className="hidden" onChange={handleAvatar} aria-label="Upload profile photo" />
               </label>
             </div>
 
@@ -358,6 +403,7 @@ export default function Dashboard() {
           <Tab label="Overview"    icon={<User size={14}/>}     active={tab==='overview'} onClick={() => setTab('overview')} count={0} />
           <Tab label="My Listings" icon={<Package size={14}/>}  active={tab==='listings'} onClick={() => setTab('listings')} count={myListings.length} />
           <Tab label="My Bookings" icon={<Calendar size={14}/>} active={tab==='bookings'} onClick={() => setTab('bookings')} count={myBookings.length} />
+          <Tab label="Incoming" icon={<Clock size={14}/>} active={tab==='incoming'} onClick={() => setTab('incoming')} count={incoming.length} />
         </div>
 
         {/* ─────────── OVERVIEW TAB ────────── */}
@@ -374,7 +420,8 @@ export default function Dashboard() {
                   { to: '/list-item',  icon: <Plus size={16}/>,    label: 'List a new item',      desc: 'Earn from your gear',         color: '#ff2e6d' },
                   { to: '/browse',     icon: <Eye size={16}/>,     label: 'Browse listings',      desc: 'Find gear to rent',           color: '#00e5ff' },
                   { to: '/how-it-works', icon: <Shield size={16}/>, label: 'How it works',        desc: 'Learn about the platform',   color: '#ffd23f' },
-                ].map(a => (
+                  isAdmin && { to: '/admin', icon: <Shield size={16}/>, label: 'Admin panel', desc: 'Users, listings, stock, reviews', color: '#00ff94' },
+                ].filter(Boolean).map(a => (
                   <Link key={a.to} to={a.to}
                     className="flex items-center gap-3 p-3 rounded-xl transition-all duration-200 group"
                     style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}
@@ -427,12 +474,12 @@ export default function Dashboard() {
                           ₹{l.price_day}/day · {l.location}
                         </div>
                       </div>
-                      <span className={`text-xs px-2 py-0.5 rounded-full font-display ${l.is_available ? '' : ''}`}
+                      <span className="text-xs px-2 py-0.5 rounded-full font-display"
                         style={{
-                          background: l.is_available ? 'rgba(0,255,148,0.1)' : 'rgba(255,46,109,0.1)',
-                          color: l.is_available ? '#00ff94' : '#ff6b9d',
+                          background: l.is_published === false ? 'rgba(255,210,63,0.1)' : l.is_available ? 'rgba(0,255,148,0.1)' : 'rgba(255,46,109,0.1)',
+                          color: l.is_published === false ? '#ffd23f' : l.is_available ? '#00ff94' : '#ff6b9d',
                         }}>
-                        {l.is_available ? 'Live' : 'Off'}
+                        {l.is_published === false ? 'Hidden' : l.is_available ? `Live · ${l.stock_qty ?? 1}` : 'Off'}
                       </span>
                     </div>
                   ))}
@@ -507,9 +554,22 @@ export default function Dashboard() {
                         style={{ background: 'rgba(0,229,255,0.9)', color: '#0a0a14' }}>
                         <Eye size={11} /> View
                       </Link>
+                      <button onClick={() => bumpStock(listing, -1)}
+                        className="flex items-center gap-1.5 text-xs font-display font-bold px-3 py-1.5 rounded-lg"
+                        style={{ background: 'rgba(255,255,255,0.88)', color: '#0a0a14' }}
+                        aria-label={`Decrease stock for ${listing.title}`}>
+                        − Stock {listing.stock_qty ?? 1}
+                      </button>
+                      <button onClick={() => bumpStock(listing, 1)}
+                        className="flex items-center gap-1.5 text-xs font-display font-bold px-3 py-1.5 rounded-lg"
+                        style={{ background: 'rgba(0,229,255,0.9)', color: '#0a0a14' }}
+                        aria-label={`Increase stock for ${listing.title}`}>
+                        +
+                      </button>
                       <button onClick={() => setDeleteTarget(listing)}
                         className="flex items-center gap-1.5 text-xs font-display font-bold px-3 py-1.5 rounded-lg"
-                        style={{ background: 'rgba(255,46,109,0.9)', color: 'white' }}>
+                        style={{ background: 'rgba(255,46,109,0.9)', color: 'white' }}
+                        aria-label={`Delete ${listing.title}`}>
                         <Trash2 size={11} /> Delete
                       </button>
                     </div>
@@ -543,6 +603,31 @@ export default function Dashboard() {
             ) : (
               <div className="space-y-3">
                 {myBookings.map(b => <BookingRow key={b.id} booking={b} />)}
+              </div>
+            )}
+          </div>
+        )}
+
+        {tab === 'incoming' && (
+          <div>
+            <p className="font-display text-sm mb-5" style={{ color: 'rgba(255,255,255,0.4)' }}>
+              {incoming.length} booking{incoming.length === 1 ? '' : 's'} on your listings
+            </p>
+            {loadingIn ? (
+              <div className="space-y-3">
+                {[1,2,3].map(i => <div key={i} className="h-20 rounded-2xl animate-pulse" style={{ background: 'rgba(255,255,255,0.04)' }} />)}
+              </div>
+            ) : incoming.length === 0 ? (
+              <div className="text-center py-24">
+                <div className="text-6xl mb-4">📥</div>
+                <h3 className="font-bungee text-2xl text-white mb-2">No incoming bookings</h3>
+                <p className="font-display mb-6" style={{ color: 'rgba(255,255,255,0.4)' }}>
+                  Renters who book your gear show up here.
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {incoming.map(b => <BookingRow key={b.id} booking={b} />)}
               </div>
             )}
           </div>

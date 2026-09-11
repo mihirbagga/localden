@@ -24,7 +24,7 @@ const CATEGORY_EMOJI = {
 
 export default function ListItem() {
   const navigate = useNavigate()
-  const { user, profile } = useAuth()
+  const { user, profile, isBanned } = useAuth()
 
   const [step, setStep]         = useState(1) // 1=category, 2=details, 3=pricing, 4=done
   const [category, setCategory] = useState('')
@@ -37,6 +37,7 @@ export default function ListItem() {
     condition: 'good', location: 'Koramangala',
     priceDay: '', priceWeekend: '', priceWeek: '',
     deposit: '5000', phone: profile?.phone || '',
+    stockQty: '1',
   })
 
   const set = (k) => (e) => setForm(f => ({ ...f, [k]: e.target.value }))
@@ -83,6 +84,9 @@ export default function ListItem() {
   /* ── Submit to Supabase ──────────────────── */
   const handleSubmit = async (e) => {
     e.preventDefault()
+    if (isBanned) {
+      return setError('Account banned. Contact support.')
+    }
     if (!form.title || !form.itemType || !form.priceDay || !form.location) {
       return setError('Please fill in all required fields.')
     }
@@ -134,8 +138,11 @@ export default function ListItem() {
           location:       form.location,
           contact_phone:  form.phone || profile?.phone || null,
           emoji:          CATEGORY_EMOJI[form.itemType] || (category === 'gaming' ? '🎮' : '🎵'),
-          photos:         photoUrls,   // ← included directly in INSERT
+          photos:         photoUrls,
           is_available:   true,
+          is_published:   true,
+          stock_qty:      parseInt(form.stockQty, 10) || 1,
+          stock_total:    parseInt(form.stockQty, 10) || 1,
         })
 
       if (insErr) throw insErr
@@ -426,11 +433,25 @@ export default function ListItem() {
                 </p>
               </div>
 
+              <div>
+                <label className="field-label" htmlFor="stock-qty">UNITS IN STOCK</label>
+                <input
+                  id="stock-qty"
+                  type="number"
+                  min={1}
+                  max={99}
+                  value={form.stockQty}
+                  onChange={set('stockQty')}
+                  className="input-dark"
+                  aria-label="Units in stock"
+                />
+              </div>
+
               {/* Phone */}
               <div>
-                <label className="field-label">CONTACT PHONE</label>
-                <input type="tel" value={form.phone} onChange={set('phone')}
-                  placeholder="+91 98765 43210" className="input-dark" />
+                <label className="field-label" htmlFor="contact-phone">CONTACT PHONE</label>
+                <input id="contact-phone" type="tel" value={form.phone} onChange={set('phone')}
+                  placeholder="+91 98765 43210" className="input-dark" aria-label="Contact phone" />
               </div>
 
               <div className="flex gap-3 pt-2">

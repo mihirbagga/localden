@@ -95,60 +95,65 @@ export default function Signup() {
 
             {/* Full name */}
             <div>
-              <label className="block text-xs font-display font-semibold mb-1.5"
+              <label htmlFor="signup-name" className="block text-xs font-display font-semibold mb-1.5"
                 style={{ color: 'rgba(255,255,255,0.5)', letterSpacing: '0.06em' }}>
                 FULL NAME
               </label>
               <div className="relative">
                 <User size={16} className="absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none"
                   style={{ color: 'rgba(255,255,255,0.25)' }} />
-                <input type="text" required value={form.fullName} onChange={set('fullName')}
-                  placeholder="Arjun Sharma" className="input-dark pl-11" />
+                <input id="signup-name" type="text" required value={form.fullName} onChange={set('fullName')}
+                  placeholder="Arjun Sharma" className="input-dark input-icon-left"
+                  aria-label="Full name" />
               </div>
             </div>
 
             {/* Phone */}
             <div>
-              <label className="block text-xs font-display font-semibold mb-1.5"
+              <label htmlFor="signup-phone" className="block text-xs font-display font-semibold mb-1.5"
                 style={{ color: 'rgba(255,255,255,0.5)', letterSpacing: '0.06em' }}>
                 PHONE (BANGALORE)
               </label>
               <div className="relative">
                 <Phone size={16} className="absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none"
                   style={{ color: 'rgba(255,255,255,0.25)' }} />
-                <input type="tel" required value={form.phone} onChange={set('phone')}
-                  placeholder="+91 98765 43210" className="input-dark pl-11" />
+                <input id="signup-phone" type="tel" required value={form.phone} onChange={set('phone')}
+                  placeholder="+91 98765 43210" className="input-dark input-icon-left"
+                  aria-label="Phone number" />
               </div>
             </div>
 
             {/* Email */}
             <div>
-              <label className="block text-xs font-display font-semibold mb-1.5"
+              <label htmlFor="signup-email" className="block text-xs font-display font-semibold mb-1.5"
                 style={{ color: 'rgba(255,255,255,0.5)', letterSpacing: '0.06em' }}>
                 EMAIL ADDRESS
               </label>
               <div className="relative">
                 <Mail size={16} className="absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none"
                   style={{ color: 'rgba(255,255,255,0.25)' }} />
-                <input type="email" required value={form.email} onChange={set('email')}
-                  placeholder="you@example.com" className="input-dark pl-11" />
+                <input id="signup-email" type="email" required value={form.email} onChange={set('email')}
+                  placeholder="you@example.com" className="input-dark input-icon-left"
+                  aria-label="Email address" />
               </div>
             </div>
 
             {/* Password */}
             <div>
-              <label className="block text-xs font-display font-semibold mb-1.5"
+              <label htmlFor="signup-password" className="block text-xs font-display font-semibold mb-1.5"
                 style={{ color: 'rgba(255,255,255,0.5)', letterSpacing: '0.06em' }}>
                 PASSWORD
               </label>
               <div className="relative">
                 <Lock size={16} className="absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none"
                   style={{ color: 'rgba(255,255,255,0.25)' }} />
-                <input type={showPw ? 'text' : 'password'} required value={form.password} onChange={set('password')}
-                  placeholder="Min. 6 characters" className="input-dark pl-11 pr-11" />
+                <input id="signup-password" type={showPw ? 'text' : 'password'} required value={form.password} onChange={set('password')}
+                  placeholder="Min. 6 characters" className="input-dark input-icon-both"
+                  aria-label="Password" />
                 <button type="button" onClick={() => setShowPw(!showPw)}
                   className="absolute right-4 top-1/2 -translate-y-1/2"
-                  style={{ color: 'rgba(255,255,255,0.3)' }}>
+                  style={{ color: 'rgba(255,255,255,0.3)' }}
+                  aria-label={showPw ? 'Hide password' : 'Show password'}>
                   {showPw ? <EyeOff size={16} /> : <Eye size={16} />}
                 </button>
               </div>
@@ -156,22 +161,23 @@ export default function Signup() {
 
             {/* Confirm password */}
             <div>
-              <label className="block text-xs font-display font-semibold mb-1.5"
+              <label htmlFor="signup-confirm" className="block text-xs font-display font-semibold mb-1.5"
                 style={{ color: 'rgba(255,255,255,0.5)', letterSpacing: '0.06em' }}>
                 CONFIRM PASSWORD
               </label>
               <div className="relative">
                 <Lock size={16} className="absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none"
                   style={{ color: 'rgba(255,255,255,0.25)' }} />
-                <input type="password" required value={form.confirm} onChange={set('confirm')}
-                  placeholder="Repeat password" className="input-dark pl-11"
+                <input id="signup-confirm" type="password" required value={form.confirm} onChange={set('confirm')}
+                  placeholder="Repeat password" className="input-dark input-icon-both"
+                  aria-label="Confirm password"
                   style={{
                     borderColor: form.confirm && form.password !== form.confirm
                       ? 'rgba(255,46,109,0.5)' : '',
                   }} />
                 {form.confirm && form.password === form.confirm && (
                   <CheckCircle size={16} className="absolute right-4 top-1/2 -translate-y-1/2"
-                    style={{ color: '#00ff94' }} />
+                    style={{ color: '#00ff94' }} aria-hidden="true" />
                 )}
               </div>
             </div>

@@ -116,13 +116,15 @@ export default function Browse() {
         <div className="relative mb-6">
           <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none"
             style={{ color: 'rgba(255,255,255,0.3)' }} />
-          <input type="text" value={search} onChange={e => setSearch(e.target.value)}
+          <input type="search" value={search} onChange={e => setSearch(e.target.value)}
             placeholder="Search PS5, Guitar, Roland, Fender..."
-            className="input-dark pl-12 pr-12 h-14 text-base" />
+            className="input-dark input-icon-both h-14 text-base"
+            aria-label="Search listings" />
           {search && (
-            <button onClick={() => setSearch('')}
+            <button type="button" onClick={() => setSearch('')}
               className="absolute right-4 top-1/2 -translate-y-1/2"
-              style={{ color: 'rgba(255,255,255,0.35)' }}>
+              style={{ color: 'rgba(255,255,255,0.35)' }}
+              aria-label="Clear search">
               <X size={16}/>
             </button>
           )}

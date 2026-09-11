@@ -129,6 +129,8 @@ export default function Home() {
       .from('listings')
       .select('*, profiles(full_name, rating, kyc_status)')
       .eq('is_available', true)
+      .eq('is_published', true)
+      .order('is_featured', { ascending: false })
       .order('created_at', { ascending: false })
       .limit(6)
       .then(({ data }) => {
@@ -138,9 +140,9 @@ export default function Home() {
 
     // Fetch live stats
     Promise.all([
-      supabase.from('listings').select('id', { count: 'exact', head: true }).eq('is_available', true),
-      supabase.from('listings').select('id', { count: 'exact', head: true }).eq('category', 'gaming').eq('is_available', true),
-      supabase.from('listings').select('id', { count: 'exact', head: true }).eq('category', 'music').eq('is_available', true),
+      supabase.from('listings').select('id', { count: 'exact', head: true }).eq('is_available', true).eq('is_published', true),
+      supabase.from('listings').select('id', { count: 'exact', head: true }).eq('category', 'gaming').eq('is_available', true).eq('is_published', true),
+      supabase.from('listings').select('id', { count: 'exact', head: true }).eq('category', 'music').eq('is_available', true).eq('is_published', true),
       supabase.from('profiles').select('id', { count: 'exact', head: true }).eq('is_lister', true),
     ]).then(([total, gaming, music, listers]) => {
       setStats({
