@@ -620,6 +620,7 @@ function BookingWidget({ listing, mobile = false, forceOpen = false }) {
               subtotal={subtotal}
               selectedId={appliedCoupon?.id}
               onPick={tryApplyCoupon}
+              userId={user?.id}
             />
           </div>
 

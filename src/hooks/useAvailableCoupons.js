@@ -11,10 +11,16 @@ export function useAvailableCoupons() {
 
   const reload = useCallback(async () => {
     setLoading(true)
+    if (!userId) {
+      setCoupons([])
+      setLoading(false)
+      return
+    }
     const { data, error } = await supabase
       .from('coupons')
       .select('*')
       .eq('is_active', true)
+      .eq('owner_id', userId)
       .order('created_at', { ascending: false })
     if (error) {
       setCoupons([])

@@ -55,16 +55,15 @@ export function availableCoupons(list) {
   return (list || []).filter((coupon) => !couponWindowError(coupon))
 }
 
-export function couponLockReason(coupon, subtotal) {
+export function couponLockReason(coupon, subtotal, userId) {
   const windowErr = couponWindowError(coupon)
   if (windowErr) return windowErr
   if (!(subtotal > 0)) return 'Select dates to apply.'
-  return validateCoupon(coupon, subtotal)
+  return validateCoupon(coupon, subtotal, userId)
 }
 
 export function couponFitsUser(coupon, userId) {
-  if (!coupon?.owner_id) return true
-  return coupon.owner_id === userId
+  return Boolean(userId && coupon?.owner_id === userId)
 }
 
 export function priceWithCoupon({ days, priceDay, deposit, coupon, fee }) {

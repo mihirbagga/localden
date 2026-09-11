@@ -8,6 +8,15 @@ export function AuthProvider({ children }) {
   const [profile, setProfile] = useState(null)
   const [loading, setLoading] = useState(true)
 
+  const ensureWelcomeCoupon = async (fullName) => {
+    const { error } = await supabase.rpc('issue_welcome_coupon', {
+      p_full_name: fullName || null,
+    })
+    if (error && !/schema cache|does not exist|Could not find/i.test(error.message || '')) {
+      console.warn('Welcome coupon:', error.message)
+    }
+  }
+
   /* ── Fetch profile row ────────────────────── */
   const fetchProfile = async (userId) => {
     const { data } = await supabase
@@ -27,10 +36,18 @@ export function AuthProvider({ children }) {
       else setLoading(false)
     })
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       setUser(session?.user ?? null)
-      if (session?.user) await fetchProfile(session.user.id)
-      else setProfile(null)
+      if (session?.user) {
+        await fetchProfile(session.user.id)
+        if (event === 'SIGNED_IN' || event === 'USER_UPDATED') {
+          await ensureWelcomeCoupon(
+            session.user.user_metadata?.full_name || session.user.user_metadata?.name || ''
+          )
+        }
+      } else {
+        setProfile(null)
+      }
       setLoading(false)
     })
 
@@ -54,6 +71,9 @@ export function AuthProvider({ children }) {
         phone,
         email,
       })
+      if (data.session) {
+        await ensureWelcomeCoupon(fullName)
+      }
     }
     return data
   }

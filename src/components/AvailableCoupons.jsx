@@ -15,14 +15,15 @@ export default function AvailableCoupons({
   onPick,
   mode = 'apply',
   hideLabel = false,
+  userId,
 }) {
   if (!coupons?.length) return null
 
   return (
-    <div className="coupon-list" role="list" aria-label="Available coupons">
-      {hideLabel ? null : <p className="field-label">Available coupons</p>}
+    <div className="coupon-list" role="list" aria-label="Your coupons">
+      {hideLabel ? null : <p className="field-label">Your coupons</p>}
       {coupons.map((coupon) => {
-        const lock = mode === 'apply' ? couponLockReason(coupon, subtotal) : null
+        const lock = mode === 'apply' ? couponLockReason(coupon, subtotal, userId) : null
         const selected = selectedId === coupon.id
         const ends = endsLabel(coupon)
         return (

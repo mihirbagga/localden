@@ -34,7 +34,7 @@ as $$
 declare
   slug text;
   base text;
-  code text;
+  vCode text;
   suffix text;
 begin
   slug := upper(regexp_replace(split_part(trim(coalesce(p_name, '')), ' ', 1), '[^A-Za-z0-9]', '', 'g'));
@@ -45,12 +45,12 @@ begin
     slug := left(slug, 12);
   end if;
   base := 'WELCOME' || slug || '50';
-  code := base;
+  vCode := base;
   suffix := upper(left(replace(p_user_id::text, '-', ''), 4));
-  if exists (select 1 from public.coupons c where upper(c.code) = upper(code)) then
-    code := base || suffix;
+  if exists (select 1 from public.coupons c where upper(c.code) = upper(vCode)) then
+    vCode := base || suffix;
   end if;
-  return code;
+  return vCode;
 end;
 $$;
 
