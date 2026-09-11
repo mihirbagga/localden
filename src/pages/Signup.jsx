@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link } from 'react-router-dom'
 import { Eye, EyeOff, Mail, Lock, User, Phone, AlertCircle, CheckCircle } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import { useToast } from '../contexts/ToastContext'
@@ -9,10 +9,8 @@ import GameBackground from '../components/GameBackground'
 import './auth.css'
 
 export default function Signup() {
-  const navigate = useNavigate()
   const { signUp, signInWithGoogle } = useAuth()
   const { showToast } = useToast()
-  const welcomeCode = welcomeCouponCode(form.fullName)
 
   const [form, setForm] = useState({
     fullName: '', email: '', phone: '', password: '', confirm: '',
@@ -21,6 +19,7 @@ export default function Signup() {
   const [loading, setLoading] = useState(false)
   const [error, setError]     = useState('')
   const [success, setSuccess] = useState(false)
+  const welcomeCode = welcomeCouponCode(form.fullName)
 
   const set = (k) => (e) => setForm(f => ({ ...f, [k]: e.target.value }))
 
