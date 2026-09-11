@@ -3,11 +3,20 @@ html {
 }
 
 img,
-video,
-canvas,
-svg {
+video {
   max-width: 100%;
   height: auto;
+}
+
+button svg,
+.btn-primary svg,
+.btn-outline svg,
+.btn-secondary svg,
+.btn-gold svg {
+  flex-shrink: 0;
+  max-width: none;
+  width: 1.1em;
+  height: 1.1em;
 }
 
 button,
@@ -84,6 +93,16 @@ textarea.input-dark {
   overflow-y: auto;
   pointer-events: auto;
   -webkit-overflow-scrolling: touch;
+  position: relative;
+  z-index: 52;
+}
+
+.nav-drawer a,
+.nav-drawer .btn-primary {
+  position: relative;
+  z-index: 53;
+  pointer-events: auto;
+  touch-action: manipulation;
 }
 
 .listing-mobile-bar {

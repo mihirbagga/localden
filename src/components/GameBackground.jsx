@@ -118,7 +118,6 @@ export default function GameBackground() {
   }, [])
 
   return (
-    <canvas ref={canvasRef} className="fixed inset-0 w-full h-full pointer-events-none"
-      style={{ zIndex: 0 }} />
+    <canvas ref={canvasRef} className="game-bg fixed inset-0 pointer-events-none" />
   )
 }

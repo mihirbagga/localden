@@ -443,7 +443,6 @@ export default function ListItem() {
                       type="file"
                       accept="image/*"
                       multiple
-                      className="sr-only"
                       onChange={handlePhotos}
                       aria-label="Upload listing photos"
                     />

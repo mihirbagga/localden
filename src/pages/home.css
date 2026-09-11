@@ -94,6 +94,15 @@
   gap: 0.65rem;
   width: min(100%, 20rem);
   margin-bottom: 1.6rem;
+  position: relative;
+  z-index: 11;
+}
+
+.home-cta a {
+  width: 100%;
+  position: relative;
+  z-index: 11;
+  touch-action: manipulation;
 }
 
 @media (min-width: 640px) {

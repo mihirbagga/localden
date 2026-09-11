@@ -188,7 +188,12 @@ export default function Navbar() {
             </Link>
           ) : null}
           <div className="pt-2">
-            <Link to="/list-item" className="btn-primary w-full text-sm py-3 text-center block">
+            <Link
+              to="/list-item"
+              className="btn-primary w-full text-sm py-3 text-center"
+              onClick={() => setOpen(false)}
+              aria-label="List your gear"
+            >
               + List Your Gear
             </Link>
           </div>
