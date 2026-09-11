@@ -4,6 +4,7 @@ import { Eye, EyeOff, Mail, Lock, AlertCircle } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import LogoMark from '../components/LogoMark'
 import GameBackground from '../components/GameBackground'
+import './auth.css'
 
 export default function Login() {
   const navigate  = useNavigate()
@@ -95,11 +96,9 @@ export default function Login() {
                   style={{ color: 'rgba(255,255,255,0.5)', letterSpacing: '0.06em' }}>
                   PASSWORD
                 </label>
-                <button type="button" className="text-xs font-display transition-colors"
-                  style={{ color: '#ff2e6d' }}
-                  aria-label="Forgot password">
+                <Link to="/forgot-password" className="auth-forgot" aria-label="Forgot password">
                   Forgot password?
-                </button>
+                </Link>
               </div>
               <div className="relative">
                 <Lock size={16} className="absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none"

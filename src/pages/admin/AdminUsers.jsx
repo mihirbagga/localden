@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import { Ban, ShieldCheck } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import { useToast } from '../../contexts/ToastContext'
-import { AdminBadge, AdminConfirm, AdminEmpty, AdminSearch, matchesQuery } from './AdminShared'
+import { AdminAction, AdminBadge, AdminConfirm, AdminEmpty, AdminSearch, matchesQuery } from './AdminShared'
 import { ADMIN_ROLES, KYC_LABEL, KYC_OPTIONS, ROLE_LABEL, displayName, explainAdminError, formatDate } from './adminHelpers'
 
 export default function AdminUsers({ users, patchUser, isSuperAdmin, currentUserId }) {
@@ -93,6 +93,7 @@ export default function AdminUsers({ users, patchUser, isSuperAdmin, currentUser
                         className="select-dark admin-select"
                         value={user.kyc_status || 'pending'}
                         aria-label={`KYC status for ${displayName(user)}`}
+                        title="Change KYC status"
                         onChange={(e) => handleKyc(user, e.target.value)}
                       >
                         {KYC_OPTIONS.map((opt) => (
@@ -106,6 +107,7 @@ export default function AdminUsers({ users, patchUser, isSuperAdmin, currentUser
                           className="select-dark admin-select"
                           value={user.admin_role || (user.is_admin ? 'super_admin' : 'none')}
                           aria-label={`Admin role for ${displayName(user)}`}
+                          title="Change admin role"
                           onChange={(e) => handleRole(user, e.target.value)}
                         >
                           {ADMIN_ROLES.map((opt) => (
@@ -127,24 +129,24 @@ export default function AdminUsers({ users, patchUser, isSuperAdmin, currentUser
                     <td>
                       <div className="admin-actions">
                         {user.kyc_status !== 'verified' ? (
-                          <button
-                            type="button"
-                            className="admin-icon-btn admin-icon-btn--on"
-                            aria-label={`Verify ${displayName(user)}`}
+                          <AdminAction
+                            tip="Verify KYC"
+                            ariaLabel={`Verify ${displayName(user)}`}
+                            on
                             onClick={() => handleKyc(user, 'verified')}
                           >
                             <ShieldCheck size={14} />
-                          </button>
+                          </AdminAction>
                         ) : null}
-                        <button
-                          type="button"
-                          className="admin-icon-btn admin-icon-btn--danger"
-                          aria-label={user.is_banned ? `Restore ${displayName(user)}` : `Ban ${displayName(user)}`}
+                        <AdminAction
+                          tip={user.is_banned ? 'Restore user' : 'Ban user'}
+                          ariaLabel={user.is_banned ? `Restore ${displayName(user)}` : `Ban ${displayName(user)}`}
+                          danger
                           disabled={isSelf}
                           onClick={() => setBanTarget(user)}
                         >
                           <Ban size={14} />
-                        </button>
+                        </AdminAction>
                       </div>
                     </td>
                   </tr>

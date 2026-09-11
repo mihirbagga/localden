@@ -1,165 +1,286 @@
+import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Shield, Star, Zap, Lock, CreditCard, Phone, CheckCircle, ArrowRight } from 'lucide-react'
 import GameBackground from '../components/GameBackground'
+import { usePlatformFee } from '../hooks/usePlatformFee'
+import { platformFeeCopy, platformFeeFaq } from '../lib/platformFee'
+import { SUPPORT_EMAIL, SUPPORT_PHONE } from '../lib/contact'
+import './howItWorks.css'
 
-function BigStep({ num, emoji, title, desc, color, forRole }) {
-  return (
-    <div className="glass rounded-2xl p-8 card-hover">
-      <div className="flex items-start gap-5">
-        <div className="flex-shrink-0 w-14 h-14 rounded-2xl flex items-center justify-center text-2xl font-display font-bold"
-          style={{ background: `${color}20`, border: `1px solid ${color}30`, color }}>
-          {num}
-        </div>
-        <div className="flex-1">
-          <div className="flex items-center gap-2 mb-1">
-            <span className="text-2xl">{emoji}</span>
-            <h3 className="font-display font-bold text-xl text-white">{title}</h3>
-          </div>
-          <p className="text-sm leading-relaxed mb-3" style={{ color: 'rgba(255,255,255,0.55)' }}>{desc}</p>
-          <span className="text-xs px-2 py-1 rounded-full"
-            style={{
-              background: forRole === 'renter' ? 'rgba(6,182,212,0.1)' : 'rgba(168,85,247,0.1)',
-              border: `1px solid ${forRole === 'renter' ? 'rgba(6,182,212,0.25)' : 'rgba(168,85,247,0.25)'}`,
-              color: forRole === 'renter' ? '#06b6d4' : '#a855f7',
-            }}>
-            For {forRole === 'renter' ? 'Renters' : 'Listers'}
-          </span>
-        </div>
-      </div>
-    </div>
-  )
-}
+const RENTER_STEPS = [
+  {
+    emoji: '🔍',
+    title: 'Browse & search',
+    desc: 'Filter Gaming or Music, Bangalore area, price, and dates. Find the exact console, guitar, or kit you need.',
+  },
+  {
+    emoji: '🪪',
+    title: 'Quick KYC',
+    desc: 'First rental: Aadhaar/PAN + selfie. About 2 minutes. Listers see a verified renter, not a stranger.',
+  },
+  {
+    emoji: '📅',
+    title: 'Book & pay',
+    desc: 'Pick dates, apply a coupon, choose UPI / QR / Razorpay / cash. Deposit sits with the booking until return.',
+  },
+  {
+    emoji: '🚚',
+    title: 'Pickup or delivery',
+    desc: 'Meet the lister or get it dropped. Snap before-photos. Play, jam, host the night. Return on time.',
+  },
+  {
+    emoji: '⭐',
+    title: 'Rate & repeat',
+    desc: 'Leave a review. Deposit comes back after a clean return. Better rating = easier next booking.',
+  },
+]
+
+const LISTER_STEPS = [
+  {
+    emoji: '📝',
+    title: 'List your gear',
+    desc: 'Photos, daily price, area, stock. Under 5 minutes. No listing fee.',
+  },
+  {
+    emoji: '🔐',
+    title: 'We check renters',
+    desc: 'KYC before first booking. You see name, history, and ratings before you hand anything over.',
+  },
+  {
+    emoji: '📬',
+    title: 'Accept the booking',
+    desc: 'Get pinged, accept or decline. Deposit is collected up front so the item is covered.',
+  },
+  {
+    emoji: '🤝',
+    title: 'Handover',
+    desc: 'Meet or deliver. Take before-photos together. Then relax while they use your gear.',
+  },
+  {
+    emoji: '💸',
+    title: 'Get paid',
+    desc: '',
+  },
+]
+
+const TRUST = [
+  {
+    title: 'Security deposit',
+    desc: 'Deposit held on the booking. Released after a safe return, or used if something is damaged.',
+  },
+  {
+    title: 'Verified people',
+    desc: 'KYC on first rental. No anonymous bookings. Reviews both ways after every trip.',
+  },
+  {
+    title: 'Payment options',
+    desc: 'QR, UPI, bank, cash, or Razorpay — whatever admin enables. You pick at checkout.',
+  },
+  {
+    title: 'Human support',
+    desc: `Stuck? Call or WhatsApp ${SUPPORT_PHONE}, or email ${SUPPORT_EMAIL}.`,
+  },
+]
 
 export default function HowItWorks() {
+  const { fee } = usePlatformFee()
+  const [role, setRole] = useState('renter')
+  const [step, setStep] = useState(0)
+  const [openTrust, setOpenTrust] = useState(0)
+  const [openFaq, setOpenFaq] = useState(0)
+
+  const steps = useMemo(() => {
+    const paid = {
+      ...LISTER_STEPS[4],
+      desc: `${platformFeeCopy(fee)} Paid after a confirmed return.`,
+    }
+    return role === 'renter' ? RENTER_STEPS : [...LISTER_STEPS.slice(0, 4), paid]
+  }, [role, fee])
+
+  const faqs = useMemo(() => ([
+    { q: 'What if the item gets damaged?', a: 'Deposit covers minor damage. We mediate disputes fairly. Tell us within 24 hours of return.' },
+    { q: 'How long does KYC take?', a: 'Usually under 2 minutes. Upload Aadhaar/PAN and a selfie. Auto or manual review within an hour.' },
+    { q: 'Can I list more than one item?', a: 'Yes. Each listing has its own photos, price, and stock. No listing fee.' },
+    { q: 'How is the platform fee calculated?', a: platformFeeFaq(fee) },
+    { q: 'What areas are covered?', a: 'Bangalore first: Koramangala, Indiranagar, HSR, Whitefield, BTM, Marathahalli, Electronic City, Jayanagar, Sadashivanagar, Malleshwaram, Hebbal. More soon.' },
+    { q: 'How do I contact support?', a: `Call or WhatsApp ${SUPPORT_PHONE}, or email ${SUPPORT_EMAIL}.` },
+  ]), [fee])
+
+  const current = steps[step]
+  const isLister = role === 'lister'
+
+  const pickRole = (next) => {
+    setRole(next)
+    setStep(0)
+  }
+
   return (
-    <div className="relative min-h-screen pt-24 pb-20">
+    <div className="hiw-page">
+      <div className="grid-floor" />
       <GameBackground />
 
-      <div className="relative z-10 max-w-4xl mx-auto px-4">
-
-        {/* ── Header ──────────────────────────────── */}
-        <div className="text-center mb-16">
-          <p className="section-label mb-3">Simple & Safe</p>
-          <h1 className="font-display font-bold text-5xl text-white mb-4">
+      <div className="hiw-wrap">
+        <header className="hiw-head">
+          <p className="section-label mb-3">Simple process</p>
+          <h1 className="hiw-title">
             How It <span className="gradient-text">Works</span>
           </h1>
-          <p className="text-lg max-w-xl mx-auto" style={{ color: 'rgba(255,255,255,0.5)' }}>
-            RentYourSystem is a peer-to-peer marketplace that connects gear owners with people who want to rent — safely, easily, and affordably in Bangalore.
+          <p className="hiw-lead">
+            Pick a path. Tap each step. Rent gear for a weekend — or earn from the stuff already in your cupboard.
           </p>
+        </header>
+
+        <div className="hiw-paths" role="tablist" aria-label="Choose your path">
+          <button
+            type="button"
+            className={`hiw-path is-renter${role === 'renter' ? ' is-on' : ''}`}
+            role="tab"
+            aria-selected={role === 'renter'}
+            aria-controls="hiw-panel"
+            id="hiw-tab-renter"
+            onClick={() => pickRole('renter')}
+          >
+            <strong>🎮 I want to rent</strong>
+            <span>Browse, book, play, return</span>
+          </button>
+          <button
+            type="button"
+            className={`hiw-path is-lister${role === 'lister' ? ' is-on' : ''}`}
+            role="tab"
+            aria-selected={role === 'lister'}
+            aria-controls="hiw-panel"
+            id="hiw-tab-lister"
+            onClick={() => pickRole('lister')}
+          >
+            <strong>💰 I want to earn</strong>
+            <span>List, accept, handover, get paid</span>
+          </button>
         </div>
 
-        {/* ── FOR RENTERS ─────────────────────────── */}
-        <div className="mb-14">
-          <div className="flex items-center gap-3 mb-6">
-            <div className="w-8 h-8 rounded-xl flex items-center justify-center text-sm"
-              style={{ background: 'rgba(6,182,212,0.15)', border: '1px solid rgba(6,182,212,0.3)', color: '#06b6d4' }}>
-              🎮
-            </div>
-            <h2 className="font-display font-bold text-2xl text-white">For Renters</h2>
+        <div
+          id="hiw-panel"
+          role="tabpanel"
+          aria-labelledby={role === 'renter' ? 'hiw-tab-renter' : 'hiw-tab-lister'}
+        >
+          <div className={`hiw-dots${isLister ? ' is-lister' : ''}`} role="group" aria-label="Journey steps">
+            {steps.map((item, i) => (
+              <button
+                key={item.title}
+                type="button"
+                className={`hiw-dot${step === i ? ' is-on' : ''}`}
+                onClick={() => setStep(i)}
+                aria-label={`Step ${i + 1}: ${item.title}`}
+                aria-current={step === i ? 'step' : undefined}
+              >
+                {String(i + 1).padStart(2, '0')}
+              </button>
+            ))}
           </div>
-          <div className="space-y-4">
-            <BigStep num="01" emoji="🔍" color="#06b6d4" forRole="renter" title="Browse & Search"
-              desc="Filter by category (Gaming or Music), location in Bangalore, price range, and availability dates. Find exactly what you need." />
-            <BigStep num="02" emoji="📅" color="#a855f7" forRole="renter" title="Book & Pay Securely"
-              desc="Select your dates and pay online via UPI, card, or EMI. Your money is held in escrow — released to the lister only after safe delivery." />
-            <BigStep num="03" emoji="✅" color="#ec4899" forRole="renter" title="KYC Verification"
-              desc="First-time renters complete a quick Aadhaar/PAN verification. Takes 2 minutes. Gives listers the confidence to share their gear." />
-            <BigStep num="04" emoji="🚚" color="#eab308" forRole="renter" title="Receive & Play"
-              desc="Arrange pickup or get home delivery (+₹99). Both sides upload before-photos. Enjoy your rental. Return on time, deposit refunded instantly." />
-            <BigStep num="05" emoji="⭐" color="#22c55e" forRole="renter" title="Rate & Repeat"
-              desc="Leave an honest review. Build your renter reputation for better future deals. The more rentals, the more trust you earn." />
+
+          <div
+            className={`hiw-progress${isLister ? ' is-lister' : ''}`}
+            role="progressbar"
+            aria-valuemin={1}
+            aria-valuemax={steps.length}
+            aria-valuenow={step + 1}
+            aria-label="Journey progress"
+          >
+            <div className={`hiw-progress__bar is-${step + 1}`} />
+          </div>
+
+          <div className={`hiw-stage${isLister ? ' is-lister' : ''}`}>
+            <p className="hiw-stage__num">
+              STEP {String(step + 1).padStart(2, '0')} / {String(steps.length).padStart(2, '0')}
+            </p>
+            <h2>{current.emoji} {current.title}</h2>
+            <p>{current.desc}</p>
+          </div>
+
+          <div className="hiw-nav">
+            <button
+              type="button"
+              className="btn-outline"
+              disabled={step === 0}
+              onClick={() => setStep((n) => Math.max(0, n - 1))}
+              aria-label="Previous step"
+            >
+              ← Back
+            </button>
+            {step < steps.length - 1 ? (
+              <button
+                type="button"
+                className="btn-primary"
+                onClick={() => setStep((n) => Math.min(steps.length - 1, n + 1))}
+                aria-label="Next step"
+              >
+                Next →
+              </button>
+            ) : (
+              <Link
+                to={isLister ? '/list-item' : '/browse'}
+                className="btn-primary"
+                aria-label={isLister ? 'Start listing gear' : 'Start browsing gear'}
+              >
+                {isLister ? 'List gear →' : 'Browse gear →'}
+              </Link>
+            )}
           </div>
         </div>
 
-        {/* ── FOR LISTERS ─────────────────────────── */}
-        <div className="mb-14">
-          <div className="flex items-center gap-3 mb-6">
-            <div className="w-8 h-8 rounded-xl flex items-center justify-center text-sm"
-              style={{ background: 'rgba(168,85,247,0.15)', border: '1px solid rgba(168,85,247,0.3)', color: '#a855f7' }}>
-              💰
-            </div>
-            <h2 className="font-display font-bold text-2xl text-white">For Listers</h2>
-          </div>
-          <div className="space-y-4">
-            <BigStep num="01" emoji="📝" color="#a855f7" forRole="lister" title="Create Your Listing"
-              desc="Add photos, set your price per day/weekend/week, choose your area in Bangalore, and set availability. Takes under 5 minutes." />
-            <BigStep num="02" emoji="🔐" color="#06b6d4" forRole="lister" title="We Verify Renters"
-              desc="Every renter is KYC-verified before their first booking. You can see their rental history and ratings before accepting." />
-            <BigStep num="03" emoji="💳" color="#ec4899" forRole="lister" title="Accept Bookings"
-              desc="Get a notification, review the renter's profile, and accept or decline. Deposit is collected upfront — your item is protected." />
-            <BigStep num="04" emoji="🤝" color="#eab308" forRole="lister" title="Hand Over & Earn"
-              desc="Meet the renter or arrange delivery. Take before-photos together. Relax while they enjoy your gear." />
-            <BigStep num="05" emoji="💸" color="#22c55e" forRole="lister" title="Get Paid"
-              desc="You receive 80% of the rental price within 24 hours of the renter confirming safe return. Direct UPI or bank transfer." />
-          </div>
+        <h2 className="hiw-block-title">Trust &amp; safety</h2>
+        <div className="hiw-trust">
+          {TRUST.map((item, i) => (
+            <button
+              key={item.title}
+              type="button"
+              className={`hiw-trust-card${openTrust === i ? ' is-on' : ''}`}
+              onClick={() => setOpenTrust(openTrust === i ? -1 : i)}
+              aria-expanded={openTrust === i}
+              aria-label={`${item.title}. ${openTrust === i ? 'Hide' : 'Show'} details`}
+            >
+              <h3>{item.title}</h3>
+              <p>{item.desc}</p>
+            </button>
+          ))}
         </div>
 
-        {/* ── Trust & Safety ──────────────────────── */}
-        <div className="mb-14">
-          <h2 className="font-display font-bold text-2xl text-white mb-6 text-center">Trust &amp; Safety</h2>
-          <div className="grid sm:grid-cols-2 gap-4">
-            {[
-              { icon: <Shield size={20} />, color: '#22c55e', title: 'Security Deposit',
-                desc: '₹5,000–₹15,000 held by platform during rental. Released only after safe return.' },
-              { icon: <Lock size={20} />, color: '#a855f7', title: 'Escrow Payments',
-                desc: 'Money never goes directly to lister until rental is complete and confirmed.' },
-              { icon: <CreditCard size={20} />, color: '#06b6d4', title: 'KYC Verification',
-                desc: 'Aadhaar/PAN verified renters only. No anonymous rentals allowed.' },
-              { icon: <Star size={20} />, color: '#eab308', title: 'Review System',
-                desc: 'Two-way reviews after every rental. Bad actors are removed automatically.' },
-              { icon: <Zap size={20} />, color: '#ec4899', title: 'Damage Insurance',
-                desc: 'Optional ₹99/day add-on covers accidental damage up to ₹30,000.' },
-              { icon: <Phone size={20} />, color: '#a855f7', title: '24h Support',
-                desc: 'Dispute? Contact us within 24h of return. We resolve fairly for both sides.' },
-            ].map(f => (
-              <div key={f.title} className="glass rounded-2xl p-5 card-hover flex gap-4">
-                <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
-                  style={{ background: `${f.color}15`, border: `1px solid ${f.color}25`, color: f.color }}>
-                  {f.icon}
-                </div>
-                <div>
-                  <h4 className="font-semibold text-white mb-1 text-sm">{f.title}</h4>
-                  <p className="text-xs leading-relaxed" style={{ color: 'rgba(255,255,255,0.5)' }}>{f.desc}</p>
-                </div>
+        <h2 className="hiw-block-title">FAQ</h2>
+        <div className="hiw-faq">
+          {faqs.map((item, i) => {
+            const open = openFaq === i
+            return (
+              <div key={item.q} className="hiw-faq-item">
+                <button
+                  type="button"
+                  className="hiw-faq-q"
+                  onClick={() => setOpenFaq(open ? -1 : i)}
+                  aria-expanded={open}
+                  aria-controls={`hiw-faq-${i}`}
+                  id={`hiw-faq-btn-${i}`}
+                >
+                  {item.q}
+                  <span aria-hidden="true">{open ? '−' : '+'}</span>
+                </button>
+                {open ? (
+                  <p className="hiw-faq-a" id={`hiw-faq-${i}`} role="region" aria-labelledby={`hiw-faq-btn-${i}`}>
+                    {item.a}
+                  </p>
+                ) : null}
               </div>
-            ))}
-          </div>
+            )
+          })}
         </div>
 
-        {/* ── FAQ ─────────────────────────────────── */}
-        <div className="mb-14">
-          <h2 className="font-display font-bold text-2xl text-white mb-6 text-center">FAQ</h2>
-          <div className="space-y-3">
-            {[
-              { q: 'What if the item gets damaged?', a: 'The security deposit covers minor damage. For major damage, the optional insurance covers up to ₹30,000. We mediate all disputes fairly.' },
-              { q: 'How long does KYC take?', a: 'Usually under 2 minutes. Upload a photo of your Aadhaar/PAN and a selfie. Approved automatically or manually within 1 hour.' },
-              { q: 'Can I list multiple items?', a: 'Absolutely! Many listers have 3–5 items. Each has its own listing, calendar, and pricing. No listing fees.' },
-              { q: 'How is the rental commission calculated?', a: 'You keep 80% of every booking. The 20% platform fee covers payment processing, insurance, marketing, and support.' },
-              { q: 'What areas in Bangalore are supported?', a: 'Currently: Koramangala, Indiranagar, HSR Layout, Whitefield, BTM Layout, Marathahalli, Electronic City, Jayanagar, Sadashivanagar, Malleshwaram, Hebbal. Expanding soon.' },
-            ].map((f, i) => (
-              <details key={i} className="glass rounded-2xl group" style={{ cursor: 'pointer' }}>
-                <summary className="flex items-center justify-between p-5 font-medium text-white list-none">
-                  <span className="flex items-center gap-2">
-                    <CheckCircle size={14} className="text-purple-400 flex-shrink-0" /> {f.q}
-                  </span>
-                  <ArrowRight size={14} className="transition-transform group-open:rotate-90 flex-shrink-0" style={{ color: 'rgba(255,255,255,0.4)' }} />
-                </summary>
-                <p className="px-5 pb-5 text-sm leading-relaxed" style={{ color: 'rgba(255,255,255,0.55)' }}>{f.a}</p>
-              </details>
-            ))}
-          </div>
-        </div>
-
-        {/* ── Final CTA ───────────────────────────── */}
-        <div className="text-center glass rounded-3xl p-10">
-          <p className="text-4xl mb-4">🚀</p>
-          <h3 className="font-display font-bold text-3xl text-white mb-3">Ready to Get Started?</h3>
-          <p className="mb-8" style={{ color: 'rgba(255,255,255,0.5)' }}>
-            Join Bangalore's growing community of gamers and musicians.
+        <div className="hiw-cta">
+          <h2>Ready?</h2>
+          <p>
+            {isLister
+              ? 'That idle PS5 or guitar can pay for itself.'
+              : 'Weekend session. One song. Full squad night. Rent it.'}
           </p>
-          <div className="flex flex-wrap justify-center gap-4">
-            <Link to="/browse" className="btn-primary px-8 py-3">Browse Gear</Link>
-            <Link to="/list-item" className="btn-secondary px-8 py-3">List Your Item</Link>
+          <div className="hiw-cta__actions">
+            <Link to="/browse" className="btn-primary" aria-label="Browse gear">Browse Gear</Link>
+            <Link to="/list-item" className="btn-secondary" aria-label="List your gear">List Your Gear</Link>
+            <Link to="/contact" className="btn-outline" aria-label="Contact support">Contact Support</Link>
           </div>
         </div>
       </div>

@@ -1,179 +1,304 @@
-import { useState, useEffect } from 'react'
-import { useParams, useNavigate, Link } from 'react-router-dom'
+import { useEffect, useState } from 'react'
+import { createPortal } from 'react-dom'
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import {
-  ArrowLeft, MapPin, Star, Shield, Clock, Calendar,
-  ChevronLeft, ChevronRight, Share2, Heart, Gamepad2,
-  Music, CheckCircle, AlertCircle, User, Phone, CreditCard, X
+  ArrowLeft, MapPin, Star, Shield, Calendar,
+  ChevronLeft, ChevronRight, Share2, Heart,
+  CheckCircle, AlertCircle, User, CreditCard, X,
 } from 'lucide-react'
 import GameBackground from '../components/GameBackground'
+import ListingCard from '../components/ListingCard'
+import AvailableCoupons from '../components/AvailableCoupons'
+import PaymentOptions from '../components/PaymentOptions'
 import { useListingById } from '../hooks/useListings'
 import { useAuth } from '../contexts/AuthContext'
-import { supabase } from '../lib/supabase'
+import { useToast } from '../contexts/ToastContext'
 import { useRazorpay } from '../hooks/useRazorpay'
+import { usePaymentMethods } from '../hooks/usePaymentMethods'
+import { useAvailableCoupons } from '../hooks/useAvailableCoupons'
+import { usePlatformFee } from '../hooks/usePlatformFee'
+import { supabase } from '../lib/supabase'
+import { normalizeCouponCode, priceWithCoupon, validateCoupon } from '../lib/coupons'
+import { platformFeeLabel } from '../lib/platformFee'
+import { isOnlineMethod, methodConfig, payButtonLabel } from '../lib/payments'
+import './terms.css'
+import './couponApply.css'
+import './listingDetail.css'
 
-/* ── Photo Gallery ──────────────────────────────────── */
-function PhotoGallery({ photos, emoji, accent }) {
+const SAVED_KEY = 'ldSaved'
+const HOW_STEPS = [
+  { title: 'Pick dates', body: 'Tonight, weekend, or a full week. Total updates live.' },
+  { title: 'Pay + deposit', body: 'Coupon, then UPI / QR / Razorpay / cash. Deposit sits until return.' },
+  { title: 'Handover', body: 'Pickup or delivery. Snap photos. Play. Return on time.' },
+]
+
+function todayIso() {
+  const now = new Date()
+  const month = String(now.getMonth() + 1).padStart(2, '0')
+  const day = String(now.getDate()).padStart(2, '0')
+  return `${now.getFullYear()}-${month}-${day}`
+}
+
+function shiftIso(iso, days) {
+  const date = new Date(`${iso}T12:00:00`)
+  date.setDate(date.getDate() + days)
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${date.getFullYear()}-${month}-${day}`
+}
+
+function weekendRange() {
+  const start = new Date()
+  start.setHours(12, 0, 0, 0)
+  const dow = start.getDay()
+  const satAdd = dow === 6 ? 0 : dow === 0 ? 6 : (6 - dow)
+  return { from: shiftIso(todayIso(), satAdd), to: shiftIso(todayIso(), satAdd + 2) }
+}
+
+function conditionLabel(value) {
+  if (value === 'like_new') return 'Like New'
+  if (value === 'good') return 'Good'
+  if (value === 'fair') return 'Fair'
+  return value || '—'
+}
+
+function readSaved() {
+  try {
+    const raw = JSON.parse(localStorage.getItem(SAVED_KEY) || '[]')
+    return Array.isArray(raw) ? raw : []
+  } catch {
+    return []
+  }
+}
+
+function PhotoGallery({ photos, emoji, title }) {
   const [idx, setIdx] = useState(0)
+  const [open, setOpen] = useState(false)
   const hasPhotos = photos?.length > 0
+
+  useEffect(() => {
+    if (!open) return undefined
+    const onKey = (e) => {
+      if (e.key === 'Escape') setOpen(false)
+      if (e.key === 'ArrowLeft') setIdx((i) => (i - 1 + photos.length) % photos.length)
+      if (e.key === 'ArrowRight') setIdx((i) => (i + 1) % photos.length)
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [open, photos?.length])
 
   if (!hasPhotos) {
     return (
-      <div className="w-full h-72 md:h-96 rounded-3xl flex items-center justify-center text-9xl select-none"
-        style={{
-          background: `linear-gradient(135deg, ${accent}18, rgba(10,10,20,0.8))`,
-          border: `1px solid ${accent}30`,
-          filter: `drop-shadow(0 0 40px ${accent}40)`,
-        }}>
-        {emoji || '🎮'}
-      </div>
+      <div className="ld-gallery__empty" aria-hidden="true">{emoji || '🎮'}</div>
     )
   }
 
+  const prev = () => setIdx((i) => (i - 1 + photos.length) % photos.length)
+  const next = () => setIdx((i) => (i + 1) % photos.length)
+
   return (
-    <div className="relative">
-      {/* Main image */}
-      <div className="relative w-full h-72 md:h-96 rounded-3xl overflow-hidden"
-        style={{ border: `1px solid ${accent}25` }}>
-        <img src={photos[idx]} alt="listing"
-          className="w-full h-full object-cover" />
-        <div className="absolute inset-0"
-          style={{ background: 'linear-gradient(to top, rgba(10,10,20,0.4), transparent 50%)' }} />
-
-        {/* Arrows */}
-        {photos.length > 1 && (
+    <div className="ld-gallery">
+      <div className="ld-gallery__main">
+        <img src={photos[idx]} alt={`${title || 'Listing'} photo ${idx + 1}`} />
+        {photos.length > 1 ? (
           <>
-            <button onClick={() => setIdx(i => (i - 1 + photos.length) % photos.length)}
-              className="absolute left-3 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full glass flex items-center justify-center transition-all hover:scale-110"
-              style={{ border: `1px solid ${accent}40` }}>
-              <ChevronLeft size={18} style={{ color: accent }} />
+            <button type="button" className="ld-gallery__nav is-prev" onClick={prev} aria-label="Previous photo">
+              <ChevronLeft size={18} />
             </button>
-            <button onClick={() => setIdx(i => (i + 1) % photos.length)}
-              className="absolute right-3 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full glass flex items-center justify-center transition-all hover:scale-110"
-              style={{ border: `1px solid ${accent}40` }}>
-              <ChevronRight size={18} style={{ color: accent }} />
+            <button type="button" className="ld-gallery__nav is-next" onClick={next} aria-label="Next photo">
+              <ChevronRight size={18} />
             </button>
+            <div className="ld-gallery__dots">
+              {photos.map((_, i) => (
+                <button
+                  key={photos[i]}
+                  type="button"
+                  className={`ld-gallery__dot${i === idx ? ' is-on' : ''}`}
+                  onClick={() => setIdx(i)}
+                  aria-label={`Show photo ${i + 1}`}
+                />
+              ))}
+            </div>
           </>
-        )}
-
-        {/* Dots */}
-        {photos.length > 1 && (
-          <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1.5">
-            {photos.map((_, i) => (
-              <button key={i} onClick={() => setIdx(i)}
-                className="rounded-full transition-all"
-                style={{
-                  width:      i === idx ? 20 : 8,
-                  height:     8,
-                  background: i === idx ? accent : 'rgba(255,255,255,0.3)',
-                }} />
-            ))}
-          </div>
-        )}
+        ) : null}
+        <button type="button" className="ld-gallery__open" onClick={() => setOpen(true)} aria-label="Open photo full screen">
+          Full view
+        </button>
       </div>
-
-      {/* Thumbnails */}
-      {photos.length > 1 && (
-        <div className="flex gap-2 mt-3">
-          {photos.map((p, i) => (
-            <button key={i} onClick={() => setIdx(i)}
-              className="w-16 h-16 rounded-xl overflow-hidden flex-shrink-0 transition-all"
-              style={{
-                border: `2px solid ${i === idx ? accent : 'rgba(255,255,255,0.1)'}`,
-                opacity: i === idx ? 1 : 0.6,
-              }}>
-              <img src={p} alt="" className="w-full h-full object-cover" />
+      {photos.length > 1 ? (
+        <div className="ld-thumbs">
+          {photos.map((src, i) => (
+            <button
+              key={src}
+              type="button"
+              className={i === idx ? 'is-on' : ''}
+              onClick={() => setIdx(i)}
+              aria-label={`Thumbnail ${i + 1}`}
+            >
+              <img src={src} alt="" />
             </button>
           ))}
         </div>
-      )}
+      ) : null}
+      {open ? createPortal(
+        <div className="ld-lightbox" role="dialog" aria-modal="true" aria-label="Photo viewer">
+          <button type="button" className="ld-icon-btn ld-lightbox__x" onClick={() => setOpen(false)} aria-label="Close photo">
+            <X size={16} />
+          </button>
+          {photos.length > 1 ? (
+            <>
+              <button type="button" className="ld-gallery__nav is-prev" onClick={prev} aria-label="Previous photo">
+                <ChevronLeft size={18} />
+              </button>
+              <button type="button" className="ld-gallery__nav is-next" onClick={next} aria-label="Next photo">
+                <ChevronRight size={18} />
+              </button>
+            </>
+          ) : null}
+          <img src={photos[idx]} alt={`${title || 'Listing'} full view`} />
+        </div>,
+        document.body
+      ) : null}
     </div>
   )
 }
 
-/* ── Share Link Box ─────────────────────────────────── */
 function ShareLinkBox() {
-  const [copied, setCopied] = useState(false)
-  const url = window.location.href
+  const { showToast } = useToast()
+  const url = window.location.href.replace(/\?rent=1/, '')
 
   const copy = async () => {
     try {
       await navigator.clipboard.writeText(url)
-      setCopied(true)
-      setTimeout(() => setCopied(false), 2000)
+      showToast('Link copied', 'success')
     } catch {
-      window.prompt('Copy this link:', url)
+      showToast('Copy failed', 'error')
     }
   }
 
   return (
-    <div className="flex items-center gap-2 p-2 rounded-xl mb-1"
-      style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}>
-      <span className="text-xs font-display flex-1 truncate text-left px-1"
-        style={{ color: 'rgba(255,255,255,0.35)' }}>
-        {url.replace('http://', '').replace('https://', '')}
-      </span>
-      <button onClick={copy}
-        className="flex-shrink-0 px-3 py-1.5 rounded-lg text-xs font-display font-bold transition-all duration-200"
-        style={{
-          background: copied ? 'rgba(0,255,148,0.15)' : 'rgba(255,46,109,0.12)',
-          border:     `1px solid ${copied ? 'rgba(0,255,148,0.4)' : 'rgba(255,46,109,0.3)'}`,
-          color:      copied ? '#00ff94' : '#ff6b9d',
-          minWidth:   64,
-        }}>
-        {copied ? '✓ Copied' : 'Copy'}
-      </button>
+    <div className="ld-share">
+      <span>{url.replace(/^https?:\/\//, '')}</span>
+      <button type="button" className="btn-outline" onClick={copy} aria-label="Copy listing link">Copy</button>
     </div>
   )
 }
 
-/* ── Booking Widget ─────────────────────────────────── */
-function BookingWidget({ listing, accent, mobile = false }) {
+function BookingWidget({ listing, mobile = false, forceOpen = false }) {
   const { isAuthenticated, user, profile, isBanned } = useAuth()
+  const { showToast } = useToast()
   const navigate = useNavigate()
   const { openCheckout, loading: rzpLoading } = useRazorpay()
+  const { methods: payMethods } = usePaymentMethods({ enabledOnly: true })
+  const { coupons: openCoupons } = useAvailableCoupons()
+  const { fee: platformFeeSetting } = usePlatformFee()
 
   const isOwner = isAuthenticated && user?.id === listing.user_id
+  const today = todayIso()
+  const uid = mobile ? 'm' : 'd'
+  const outOfStock = (listing.stock_qty ?? 1) < 1 || listing.is_available === false
 
-  const today = new Date().toISOString().split('T')[0]
-  const [startDate, setStartDate]   = useState('')
-  const [endDate,   setEndDate]     = useState('')
-  const [booking,   setBooking]     = useState(null)   // confirmed booking record
-  const [payError,  setPayError]    = useState('')
-  const [saving,    setSaving]      = useState(false)
+  const [startDate, setStartDate] = useState('')
+  const [endDate, setEndDate] = useState('')
+  const [quick, setQuick] = useState('')
+  const [booking, setBooking] = useState(null)
+  const [payError, setPayError] = useState('')
+  const [saving, setSaving] = useState(false)
+  const [couponInput, setCouponInput] = useState('')
+  const [appliedCoupon, setAppliedCoupon] = useState(null)
+  const [couponBusy, setCouponBusy] = useState(false)
+  const [payMethodId, setPayMethodId] = useState('')
+  const [paymentRef, setPaymentRef] = useState('')
+  const [sheetOpen, setSheetOpen] = useState(false)
+  const [acceptTerms, setAcceptTerms] = useState(false)
+  const [handover, setHandover] = useState('pickup')
+  const [address, setAddress] = useState('')
+  const [stepFocus, setStepFocus] = useState(1)
 
-  const days        = startDate && endDate
+  const days = startDate && endDate
     ? Math.max(1, Math.ceil((new Date(endDate) - new Date(startDate)) / 86400000))
     : 0
-  const subtotal    = days * (listing.price_day || 0)
-  const platformFee = Math.round(subtotal * 0.2)
-  const deposit     = listing.deposit_amount || 5000
-  const total       = subtotal + platformFee + deposit
+  const deposit = listing.deposit_amount || 5000
+  const priced = priceWithCoupon({
+    days,
+    priceDay: listing.price_day,
+    deposit,
+    coupon: appliedCoupon,
+    fee: platformFeeSetting,
+  })
+  const { subtotal, discount, platformFee, total } = priced
+  const selectedPay = payMethods.find((m) => m.id === payMethodId) || payMethods[0] || null
 
-  /* ── Save confirmed booking to Supabase ── */
-  const saveBooking = async (paymentId) => {
+  const step = days < 1 ? 1 : 2 + (acceptTerms ? 1 : 0)
+
+  const applyRange = (from, to, chip) => {
+    setStartDate(from)
+    setEndDate(to)
+    setQuick(chip)
+    setStepFocus(2)
+  }
+
+  useEffect(() => {
+    if (!payMethodId && payMethods[0]) setPayMethodId(payMethods[0].id)
+  }, [payMethodId, payMethods])
+
+  useEffect(() => {
+    if (forceOpen && mobile && isAuthenticated && !isOwner) setSheetOpen(true)
+  }, [forceOpen, mobile, isAuthenticated, isOwner])
+
+  useEffect(() => {
+    const onQuick = (e) => {
+      const kind = e.detail
+      const start = todayIso()
+      if (kind === 'tonight') applyRange(start, shiftIso(start, 1), 'tonight')
+      if (kind === 'weekend') {
+        const range = weekendRange()
+        applyRange(range.from, range.to, 'weekend')
+      }
+      if (kind === 'week') applyRange(start, shiftIso(start, 7), 'week')
+    }
+    window.addEventListener('ld-quick-date', onQuick)
+    return () => window.removeEventListener('ld-quick-date', onQuick)
+  }, [])
+
+  useEffect(() => {
+    if (!sheetOpen) return undefined
+    const onKey = (e) => { if (e.key === 'Escape') setSheetOpen(false) }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [sheetOpen])
+
+  const saveBooking = async ({ paymentId, method, paid }) => {
     setSaving(true)
     const bookingId = crypto.randomUUID()
     const { error } = await supabase.from('bookings').insert({
-      id:                 bookingId,
-      listing_id:         listing.id,
-      renter_id:          user.id,
-      lister_id:          listing.user_id,
-      start_date:         startDate,
-      end_date:           endDate,
-      total_days:         days,
-      price_per_day:      listing.price_day,
+      id: bookingId,
+      listing_id: listing.id,
+      renter_id: user.id,
+      lister_id: listing.user_id,
+      start_date: startDate,
+      end_date: endDate,
+      total_days: days,
+      price_per_day: listing.price_day,
       subtotal,
-      platform_fee:       platformFee,
+      platform_fee: platformFee,
       deposit,
-      total_amount:       total,
-      status:             'confirmed',
-      payment_status:     'paid',
-      razorpay_payment_id: paymentId,
+      discount_amount: discount,
+      coupon_id: appliedCoupon?.id || null,
+      coupon_code: appliedCoupon?.code || null,
+      total_amount: total,
+      status: paid ? 'confirmed' : 'pending',
+      payment_status: paid ? 'paid' : 'pending',
+      payment_method: method?.id || null,
+      payment_ref: paymentRef.trim() || null,
+      razorpay_payment_id: paymentId || null,
+      delivery_type: handover,
+      delivery_address: handover === 'delivery' ? address.trim() || null : null,
     })
     setSaving(false)
     if (error) {
-      console.error('Booking save error:', error)
-      setPayError('Payment successful but booking save failed. Contact support.')
+      setPayError('Payment ok, booking save failed. Contact support.')
+      showToast('Booking save failed. Contact support.', 'error')
       return
     }
     const nextQty = Math.max(0, (listing.stock_qty ?? 1) - 1)
@@ -183,253 +308,439 @@ function BookingWidget({ listing, accent, mobile = false }) {
       total_bookings: (listing.total_bookings || 0) + 1,
       updated_at: new Date().toISOString(),
     }).eq('id', listing.id)
-    setBooking({ id: bookingId, startDate, endDate, days, total, paymentId })
+    setBooking({
+      id: bookingId,
+      startDate,
+      endDate,
+      days,
+      total,
+      paymentId,
+      couponCode: appliedCoupon?.code,
+      discount,
+      paid,
+      methodName: method?.name,
+    })
+    showToast(paid ? 'Booking confirmed' : 'Booking placed. Await payment confirm.', 'success')
   }
 
-  /* ── Open Razorpay checkout ─────────────── */
+  const tryApplyCoupon = (coupon) => {
+    const invalid = validateCoupon(coupon, subtotal, user?.id)
+    if (invalid) {
+      setAppliedCoupon(null)
+      showToast(invalid, 'error')
+      return false
+    }
+    setAppliedCoupon(coupon)
+    setCouponInput(coupon.code)
+    showToast(`Coupon ${coupon.code} applied`, 'success')
+    return true
+  }
+
+  const applyCoupon = async () => {
+    const code = normalizeCouponCode(couponInput)
+    if (!code) {
+      showToast('Enter a coupon code.', 'error')
+      return
+    }
+    if (days < 1) {
+      showToast('Select dates first.', 'error')
+      return
+    }
+    const listed = openCoupons.find((c) => normalizeCouponCode(c.code) === code)
+    if (listed) {
+      tryApplyCoupon(listed)
+      return
+    }
+    setCouponBusy(true)
+    const { data, error } = await supabase.from('coupons').select('*').ilike('code', code).maybeSingle()
+    setCouponBusy(false)
+    if (error) {
+      showToast(error.message || 'Could not check coupon.', 'error')
+      return
+    }
+    tryApplyCoupon(data)
+  }
+
+  const clearCoupon = () => {
+    setAppliedCoupon(null)
+    setCouponInput('')
+    showToast('Coupon removed', 'info')
+  }
+
+  useEffect(() => {
+    if (!appliedCoupon || days < 1) return
+    const invalid = validateCoupon(appliedCoupon, days * (listing.price_day || 0), user?.id)
+    if (!invalid) return
+    setAppliedCoupon(null)
+    showToast(invalid, 'error')
+  }, [appliedCoupon, days, listing.price_day, showToast])
+
   const handleBook = async () => {
-    if (!isAuthenticated) return navigate('/login')
+    if (!isAuthenticated) {
+      navigate('/login', { state: { from: { pathname: `/listing/${listing.id}?rent=1` } } })
+      return
+    }
     if (isBanned) {
-      setPayError('Account banned. Contact support.')
+      showToast('Account banned. Contact support.', 'error')
       return
     }
-    if ((listing.stock_qty ?? 1) < 1) {
-      setPayError('This item is out of stock.')
+    if (outOfStock) {
+      showToast('This item is out of stock.', 'error')
       return
     }
-    if (!startDate || !endDate || days < 1) return
+    if (!startDate || !endDate || days < 1) {
+      showToast('Pick rental dates first.', 'error')
+      setStepFocus(1)
+      return
+    }
+    if (!acceptTerms) {
+      showToast('Accept Terms and Damage Policy first.', 'error')
+      setStepFocus(3)
+      return
+    }
+    if (!selectedPay) {
+      showToast('No payment method enabled. Ask admin.', 'error')
+      return
+    }
+    if (handover === 'delivery' && !address.trim()) {
+      showToast('Add a delivery address.', 'error')
+      return
+    }
     setPayError('')
 
+    if (!isOnlineMethod(selectedPay)) {
+      await saveBooking({ method: selectedPay, paid: false, paymentId: null })
+      return
+    }
+
+    const keyId = methodConfig(selectedPay).key_id
     await openCheckout({
-      amount:      total,
-      name:        listing.title,
+      amount: total,
+      name: listing.title,
       description: `${days} day${days > 1 ? 's' : ''} rental · ${startDate} to ${endDate}`,
+      keyId,
       prefill: {
-        name:    profile?.full_name || '',
-        email:   user?.email        || '',
-        contact: profile?.phone     || '',
+        name: profile?.full_name || '',
+        email: user?.email || '',
+        contact: profile?.phone || '',
       },
       notes: {
         listing_id: listing.id,
-        renter_id:  user.id,
+        renter_id: user.id,
         start_date: startDate,
-        end_date:   endDate,
+        end_date: endDate,
+        coupon: appliedCoupon?.code || '',
       },
-      onSuccess: (paymentId) => saveBooking(paymentId),
+      onSuccess: (paymentId) => saveBooking({ paymentId, method: selectedPay, paid: true }),
       onFailure: (err) => {
         if (err.message !== 'Payment dismissed') {
-          setPayError(err.description || err.message || 'Payment failed. Please try again.')
+          const msg = err.description || err.message || 'Payment failed. Please try again.'
+          setPayError(msg)
+          showToast(msg, 'error')
         }
       },
     })
   }
 
-  /* ── Owner card ─────────────────────────── */
+  if (isOwner && mobile) {
+    return <p className="ld-hint">Your listing · share the link</p>
+  }
+
   if (isOwner) {
     return (
-      <div className="glass rounded-3xl p-6 text-center sticky top-24"
-        style={{ border: `1px solid ${accent}25` }}>
-        <div className="text-4xl mb-3">🏠</div>
-        <h3 className="font-bungee text-lg text-white mb-2">Your Listing</h3>
-        <p className="font-display text-sm mb-4" style={{ color: 'rgba(255,255,255,0.4)' }}>
-          You can't rent your own item. Share the link to get your first renter!
-        </p>
+      <div className="glass ld-book ld-owner is-sticky" id="rent-now">
+        <div className="text-4xl" aria-hidden="true">🏠</div>
+        <h3>Your Listing</h3>
+        <p>You cannot rent your own gear. Share this page.</p>
         <ShareLinkBox />
-        <Link to="/dashboard" className="btn-outline w-full py-2.5 text-sm mt-3 flex items-center justify-center gap-2">
-          Manage in Dashboard →
-        </Link>
+        <Link to="/dashboard?tab=listings" className="btn-outline w-full">Manage in Dashboard</Link>
       </div>
     )
   }
 
-  /* ── Payment success screen ─────────────── */
   if (booking) {
-    return (
-      <div className="glass rounded-3xl p-6 text-center sticky top-24"
-        style={{ border: '1px solid rgba(0,255,148,0.35)', boxShadow: '0 0 40px rgba(0,255,148,0.1)' }}>
-        <div className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4"
-          style={{ background: 'rgba(0,255,148,0.12)', border: '1px solid rgba(0,255,148,0.3)' }}>
-          <CheckCircle size={32} style={{ color: '#00ff94' }} />
-        </div>
-        <h3 className="font-bungee text-xl text-white mb-2">Booking Confirmed! 🎉</h3>
-        <p className="font-display text-sm mb-5" style={{ color: 'rgba(255,255,255,0.5)' }}>
-          Payment successful. The lister will contact you shortly.
+    const successCard = (
+      <div className="glass ld-book ld-success is-sticky">
+        <CheckCircle size={36} />
+        <h3>{booking.paid ? 'You are booked' : 'Request sent'}</h3>
+        <p>
+          {booking.paid
+            ? 'Payment in. Lister will ping you for handover.'
+            : 'Pay marked. Lister or admin confirms when money shows.'}
         </p>
-
-        {/* Booking summary */}
-        <div className="rounded-2xl p-4 mb-4 text-left space-y-2"
-          style={{ background: 'rgba(0,255,148,0.05)', border: '1px solid rgba(0,255,148,0.15)' }}>
-          {[
-            ['📅 Dates',   `${booking.startDate} → ${booking.endDate}`],
-            ['🌙 Duration', `${booking.days} day${booking.days > 1 ? 's' : ''}`],
-            ['💳 Paid',    `₹${booking.total}`],
-            ['🔖 ID',      booking.paymentId?.slice(0, 16) + '…'],
-          ].map(([k, v]) => (
-            <div key={k} className="flex justify-between text-sm font-display">
-              <span style={{ color: 'rgba(255,255,255,0.4)' }}>{k}</span>
-              <span className="text-white font-semibold">{v}</span>
-            </div>
-          ))}
+        <div className="ld-facts">
+          <div><span>Dates</span><b>{booking.startDate} → {booking.endDate}</b></div>
+          <div><span>Days</span><b>{booking.days}</b></div>
+          <div><span>Total</span><b>₹{booking.total}</b></div>
+          {booking.methodName ? <div><span>Pay</span><b>{booking.methodName}</b></div> : null}
+          {booking.couponCode ? <div><span>Coupon</span><b>{booking.couponCode} −₹{booking.discount}</b></div> : null}
         </div>
-
-        <Link to="/dashboard" className="btn-primary w-full py-3 text-sm">
-          View in My Bookings →
-        </Link>
+        <Link to="/dashboard?tab=bookings" className="btn-primary w-full">View in My Bookings</Link>
       </div>
     )
+    if (mobile) {
+      return createPortal(
+        <div className="listing-sheet" role="dialog" aria-modal="true" aria-label="Booking status">
+          {successCard}
+        </div>,
+        document.body
+      )
+    }
+    return successCard
   }
 
-  /* ── Mobile compact bar ─────────────────── */
-  if (mobile) {
-    return (
-      <div className="flex items-center gap-3">
-        <div className="flex-1">
-          <div className="flex items-baseline gap-1">
-            <span className="font-bungee text-xl" style={{ color: accent }}>₹{listing.price_day}</span>
-            <span className="text-xs font-display" style={{ color: 'rgba(255,255,255,0.4)' }}>/day</span>
-          </div>
-          {!isAuthenticated && (
-            <p className="text-xs font-display" style={{ color: 'rgba(255,255,255,0.3)' }}>Sign in to book</p>
-          )}
-        </div>
-        <button
-          onClick={() => isAuthenticated ? navigate(`/listing/${listing.id}`) : navigate('/login')}
-          className="btn-primary px-6 py-3 text-sm whitespace-nowrap">
-          {isAuthenticated ? 'Book Now' : 'Sign In'}
-        </button>
-      </div>
-    )
-  }
-
-  /* ── Desktop booking card ───────────────── */
   const isProcessing = rzpLoading || saving
 
-  return (
-    <div className="glass rounded-3xl p-6 sticky top-24"
-      style={{ border: `1px solid ${accent}25` }}>
-
-      {/* Price headline */}
-      <div className="flex items-baseline gap-2 mb-5">
-        <span className="font-bungee text-3xl" style={{ color: accent }}>₹{listing.price_day}</span>
-        <span className="font-display text-sm" style={{ color: 'rgba(255,255,255,0.4)' }}>/day</span>
-        {listing.price_weekend > 0 && (
-          <span className="text-xs font-display ml-auto" style={{ color: 'rgba(255,255,255,0.3)' }}>
-            Wknd ₹{listing.price_weekend}
-          </span>
-        )}
+  const formCard = (
+    <div className="glass ld-book is-sticky" id={mobile ? undefined : 'rent-now'}>
+      <div className="ld-book__price">
+        <strong>₹{listing.price_day}</strong>
+        <span>/day</span>
+        {listing.price_weekend > 0 ? <span className="ml-auto">Wknd ₹{listing.price_weekend}</span> : null}
       </div>
 
-      {/* Date pickers */}
-      <div className="grid grid-cols-2 gap-3 mb-4">
+      <div className="ld-steps" role="tablist" aria-label="Rent steps">
+        {[
+          { n: 1, label: '1 · Dates' },
+          { n: 2, label: '2 · Pay' },
+          { n: 3, label: '3 · Confirm' },
+        ].map((item) => (
+          <button
+            key={item.n}
+            type="button"
+            className={`ld-step${stepFocus === item.n ? ' is-on' : ''}${step > item.n ? ' is-done' : ''}`}
+            onClick={() => setStepFocus(item.n)}
+            aria-pressed={stepFocus === item.n}
+          >
+            {item.label}
+          </button>
+        ))}
+      </div>
+
+      {outOfStock ? <p className="ld-hint">Out of stock right now. Check similar gear below.</p> : null}
+
+      <p className="field-label">Quick dates</p>
+      <div className="ld-chips" role="group" aria-label="Quick rental dates">
+        <button type="button" className={`ld-chip${quick === 'tonight' ? ' is-on' : ''}`} onClick={() => applyRange(today, shiftIso(today, 1), 'tonight')} aria-label="Rent tonight">Tonight</button>
+        <button type="button" className={`ld-chip${quick === 'weekend' ? ' is-on' : ''}`} onClick={() => { const w = weekendRange(); applyRange(w.from, w.to, 'weekend') }} aria-label="Rent this weekend">Weekend</button>
+        <button type="button" className={`ld-chip${quick === '3' ? ' is-on' : ''}`} onClick={() => applyRange(today, shiftIso(today, 3), '3')} aria-label="Rent three days">3 days</button>
+        <button type="button" className={`ld-chip${quick === 'week' ? ' is-on' : ''}`} onClick={() => applyRange(today, shiftIso(today, 7), 'week')} aria-label="Rent one week">Week</button>
+      </div>
+
+      <div className="ld-dates">
         <div>
-          <label className="field-label mb-1 block">FROM</label>
-          <input type="date" value={startDate} min={today}
-            onChange={e => { setStartDate(e.target.value); if (endDate < e.target.value) setEndDate('') }}
-            className="input-dark text-sm py-2.5" style={{ colorScheme: 'dark' }} />
+          <label className="field-label" htmlFor={`book-from-${uid}`}>FROM</label>
+          <input
+            id={`book-from-${uid}`}
+            type="date"
+            value={startDate}
+            min={today}
+            onChange={(e) => {
+              setStartDate(e.target.value)
+              setQuick('')
+              if (endDate && endDate < e.target.value) setEndDate('')
+            }}
+            className="input-dark"
+            aria-label="Rental start date"
+          />
         </div>
         <div>
-          <label className="field-label mb-1 block">TO</label>
-          <input type="date" value={endDate} min={startDate || today}
-            onChange={e => setEndDate(e.target.value)}
-            className="input-dark text-sm py-2.5" style={{ colorScheme: 'dark' }} />
+          <label className="field-label" htmlFor={`book-to-${uid}`}>TO</label>
+          <input
+            id={`book-to-${uid}`}
+            type="date"
+            value={endDate}
+            min={startDate || today}
+            onChange={(e) => { setEndDate(e.target.value); setQuick('') }}
+            className="input-dark"
+            aria-label="Rental end date"
+          />
         </div>
       </div>
 
-      {/* Price breakdown */}
-      {days > 0 && (
-        <div className="rounded-2xl p-4 mb-4 space-y-2"
-          style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
-          <div className="flex justify-between text-sm font-display">
-            <span style={{ color: 'rgba(255,255,255,0.5)' }}>₹{listing.price_day} × {days} day{days > 1 ? 's' : ''}</span>
-            <span className="text-white">₹{subtotal}</span>
-          </div>
-          <div className="flex justify-between text-sm font-display">
-            <span style={{ color: 'rgba(255,255,255,0.5)' }}>Platform fee (20%)</span>
-            <span className="text-white">₹{platformFee}</span>
-          </div>
-          <div className="flex justify-between text-sm font-display">
-            <span style={{ color: 'rgba(255,255,255,0.5)' }}>Security deposit</span>
-            <span className="text-white">₹{deposit}</span>
-          </div>
-          <div className="flex justify-between font-bungee pt-2"
-            style={{ borderTop: '1px solid rgba(255,255,255,0.08)' }}>
-            <span style={{ color: accent }}>Total</span>
-            <span style={{ color: accent }}>₹{total}</span>
-          </div>
-          <p className="text-xs font-display" style={{ color: 'rgba(255,255,255,0.25)' }}>
-            Deposit returned after rental completes
-          </p>
+      {days > 0 ? (
+        <div className="ld-break">
+          <div><span>₹{listing.price_day} × {days} day{days === 1 ? '' : 's'}</span><b>₹{subtotal}</b></div>
+          {discount > 0 ? <div className="is-off"><span>Coupon {appliedCoupon?.code}</span><b>−₹{discount}</b></div> : null}
+          {platformFee > 0 ? <div><span>{platformFeeLabel(platformFeeSetting)}</span><b>₹{platformFee}</b></div> : null}
+          <div><span>Security deposit</span><b>₹{deposit}</b></div>
+          <div className="is-total"><span>Total</span><span>₹{total}</span></div>
+          <p>Deposit back after a clean return.</p>
         </div>
+      ) : (
+        <p className="ld-hint">Tap a chip or pick dates. Price fills in here.</p>
       )}
 
-      {/* Error */}
-      {payError && (
-        <div className="flex items-center gap-2 p-3 rounded-xl mb-4 text-sm font-display"
-          style={{ background: 'rgba(255,46,109,0.08)', border: '1px solid rgba(255,46,109,0.25)', color: '#ff6b9d' }}>
-          <AlertCircle size={14} className="flex-shrink-0" />
+      {days > 0 ? (
+        <>
+          <p className="field-label">Handover</p>
+          <div className="ld-hand" role="group" aria-label="Handover type">
+            <button type="button" className={handover === 'pickup' ? 'is-on' : ''} onClick={() => setHandover('pickup')} aria-pressed={handover === 'pickup'}>Pickup</button>
+            <button type="button" className={handover === 'delivery' ? 'is-on' : ''} onClick={() => setHandover('delivery')} aria-pressed={handover === 'delivery'}>Delivery</button>
+          </div>
+          {handover === 'delivery' ? (
+            <div>
+              <label className="field-label" htmlFor={`book-addr-${uid}`}>Delivery address</label>
+              <input
+                id={`book-addr-${uid}`}
+                className="input-dark"
+                value={address}
+                onChange={(e) => setAddress(e.target.value)}
+                placeholder="Area, landmark, pin"
+                aria-label="Delivery address"
+              />
+            </div>
+          ) : null}
+
+          <div className="coupon-box">
+            <label className="field-label" htmlFor={`booking-coupon-${uid}`}>Coupon code</label>
+            {appliedCoupon ? (
+              <div className="coupon-applied">
+                <span>{appliedCoupon.code} saved ₹{discount}</span>
+                <button type="button" className="coupon-clear" onClick={clearCoupon} aria-label="Remove coupon">Remove</button>
+              </div>
+            ) : (
+              <div className="coupon-row">
+                <input
+                  id={`booking-coupon-${uid}`}
+                  className="input-dark"
+                  value={couponInput}
+                  onChange={(e) => setCouponInput(e.target.value)}
+                  placeholder="WELCOME10"
+                  aria-label="Coupon code"
+                  onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); applyCoupon() } }}
+                />
+                <button type="button" className="btn-outline coupon-apply-btn" onClick={applyCoupon} disabled={couponBusy} aria-label="Apply coupon">
+                  {couponBusy ? '…' : 'Apply'}
+                </button>
+              </div>
+            )}
+            <AvailableCoupons
+              coupons={openCoupons}
+              subtotal={subtotal}
+              selectedId={appliedCoupon?.id}
+              onPick={tryApplyCoupon}
+            />
+          </div>
+
+          {payMethods.length > 0 ? (
+            <PaymentOptions
+              methods={payMethods}
+              selectedId={selectedPay?.id}
+              onSelect={setPayMethodId}
+              paymentRef={paymentRef}
+              onPaymentRef={setPaymentRef}
+            />
+          ) : null}
+
+          <div className="book-damage">
+            <strong>Damage policy (short)</strong>
+            <p>Wear is free. Scratches come from deposit. Smash / water / loss = used-market value. Photos at pickup and return.</p>
+          </div>
+          <div className="book-terms">
+            <input
+              id={`accept-terms-${uid}`}
+              type="checkbox"
+              checked={acceptTerms}
+              onChange={(e) => setAcceptTerms(e.target.checked)}
+              aria-label="Accept terms and damage policy"
+            />
+            <label htmlFor={`accept-terms-${uid}`}>
+              I accept the{' '}
+              <Link to="/terms" target="_blank" rel="noreferrer">Terms &amp; Damage Policy</Link>
+              {' '}before renting.
+            </label>
+          </div>
+        </>
+      ) : null}
+
+      {payError ? (
+        <div className="ld-err">
+          <AlertCircle size={14} />
           <span>{payError}</span>
-          <button onClick={() => setPayError('')} className="ml-auto flex-shrink-0"><X size={12}/></button>
+          <button type="button" onClick={() => setPayError('')} aria-label="Dismiss error"><X size={12} /></button>
         </div>
-      )}
+      ) : null}
 
-      {/* Book / Pay button */}
-      <button onClick={handleBook}
-        disabled={isProcessing || (!startDate || !endDate)}
-        className="btn-primary w-full py-4 text-base relative overflow-hidden"
-        style={{ opacity: (!startDate || !endDate) ? 0.55 : 1 }}>
-        {isProcessing ? (
-          <span className="flex items-center justify-center gap-2">
-            <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-            {saving ? 'Confirming booking…' : 'Opening payment…'}
-          </span>
-        ) : !isAuthenticated ? (
-          <span className="flex items-center justify-center gap-2"><CreditCard size={16}/> Sign In to Book</span>
-        ) : days > 0 ? (
-          <span className="flex items-center justify-center gap-2"><CreditCard size={16}/> Pay ₹{total} via Razorpay</span>
-        ) : (
-          <span className="flex items-center justify-center gap-2"><Calendar size={16}/> Select Dates to Book</span>
-        )}
+      <button
+        type="button"
+        onClick={handleBook}
+        disabled={isProcessing || outOfStock || (isAuthenticated && days > 0 && !acceptTerms)}
+        className="btn-primary w-full"
+        aria-label="Rent this item now"
+      >
+        {isProcessing ? (saving ? 'Confirming…' : 'Opening payment…') : null}
+        {!isProcessing && !isAuthenticated ? <><CreditCard size={16} /> Sign in to rent</> : null}
+        {!isProcessing && isAuthenticated && outOfStock ? 'Out of stock' : null}
+        {!isProcessing && isAuthenticated && !outOfStock && days < 1 ? <><Calendar size={16} /> Pick dates to rent</> : null}
+        {!isProcessing && isAuthenticated && !outOfStock && days > 0 ? <><CreditCard size={16} /> Rent now · {payButtonLabel(selectedPay, total)}</> : null}
       </button>
 
-      {/* Trust badges */}
-      <div className="flex items-center justify-center gap-4 mt-3">
-        <span className="flex items-center gap-1 text-xs font-display" style={{ color: 'rgba(255,255,255,0.25)' }}>
-          <Shield size={10}/> Deposit protected
-        </span>
-        <span className="text-xs font-display" style={{ color: 'rgba(255,255,255,0.15)' }}>·</span>
-        <span className="flex items-center gap-1 text-xs font-display" style={{ color: 'rgba(255,255,255,0.25)' }}>
-          <CheckCircle size={10}/> Secure payment
-        </span>
+      <div className="ld-trust">
+        <span><Shield size={10} /> Deposit held</span>
+        <span><CheckCircle size={10} /> Secure pay</span>
       </div>
     </div>
   )
+
+  if (mobile) {
+    return (
+      <>
+        <div className="flex items-center gap-3">
+          <div className="ld-bar-price flex-1 min-w-0">
+            <strong>{days > 0 ? `₹${total}` : `₹${listing.price_day}`}</strong>
+            <span>{days > 0 ? `${days} day${days === 1 ? '' : 's'} incl. deposit` : '/day · tap to rent'}</span>
+          </div>
+          <button
+            type="button"
+            className="btn-primary"
+            onClick={() => (isAuthenticated ? setSheetOpen(true) : navigate('/login', { state: { from: { pathname: `/listing/${listing.id}?rent=1` } } }))}
+            aria-label={isAuthenticated ? 'Open rent form' : 'Sign in to rent'}
+            disabled={outOfStock}
+          >
+            {outOfStock ? 'Out of stock' : 'Rent now'}
+          </button>
+        </div>
+        {sheetOpen ? createPortal(
+          <>
+            <button type="button" className="listing-sheet-backdrop" aria-label="Close rent form" onClick={() => setSheetOpen(false)} />
+            <div className="listing-sheet" role="dialog" aria-modal="true" aria-label="Rent this listing">
+              <div className="listing-sheet__head">
+                <p>Rent this gear</p>
+                <button type="button" className="btn-outline" onClick={() => setSheetOpen(false)} aria-label="Close rent form">
+                  <X size={16} /> Close
+                </button>
+              </div>
+              {formCard}
+            </div>
+          </>,
+          document.body
+        ) : null}
+      </>
+    )
+  }
+
+  return formCard
 }
 
-/* ════════════════════════════════════════════════════ */
 export default function ListingDetail() {
-  const { id }     = useParams()
-  const navigate   = useNavigate()
+  const { id } = useParams()
+  const [params, setParams] = useSearchParams()
+  const navigate = useNavigate()
   const { listing, loading, error } = useListingById(id)
   const { user, isAdmin } = useAuth()
-  const [saved,      setSaved]      = useState(false)
-  const [shareToast, setShareToast] = useState(false)
-  const [reviews,    setReviews]    = useState([])
+  const { showToast } = useToast()
+  const [saved, setSaved] = useState(false)
+  const [reviews, setReviews] = useState([])
+  const [similar, setSimilar] = useState([])
+  const [panel, setPanel] = useState('about')
+  const [howStep, setHowStep] = useState(0)
+  const wantRent = params.get('rent') === '1'
 
-  const handleShare = async () => {
-    const url = window.location.href
-    try {
-      if (navigator.share) {
-        await navigator.share({ title: listing?.title, url })
-      } else {
-        await navigator.clipboard.writeText(url)
-        setShareToast(true)
-        setTimeout(() => setShareToast(false), 2500)
-      }
-    } catch {
-      // fallback: show URL in prompt
-      window.prompt('Copy this link:', url)
-    }
-  }
+  useEffect(() => {
+    if (!id) return
+    setSaved(readSaved().includes(id))
+  }, [id])
 
   useEffect(() => {
     if (!id) return
@@ -442,40 +753,77 @@ export default function ListingDetail() {
       .then(({ data }) => setReviews(data || []))
   }, [id])
 
+  useEffect(() => {
+    if (!listing) return
+    supabase
+      .from('listings')
+      .select('*, profiles(full_name, rating, kyc_status)')
+      .eq('category', listing.category)
+      .eq('is_available', true)
+      .eq('is_published', true)
+      .neq('id', listing.id)
+      .limit(3)
+      .then(({ data }) => setSimilar(data || []))
+  }, [listing])
+
+  useEffect(() => {
+    if (!wantRent || !listing) return
+    const desktop = window.matchMedia('(min-width: 1024px)').matches
+    if (desktop) {
+      document.getElementById('rent-now')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }
+    const next = new URLSearchParams(params)
+    next.delete('rent')
+    setParams(next, { replace: true })
+  }, [wantRent, listing, params, setParams])
+
+  const toggleSave = () => {
+    const next = saved
+      ? readSaved().filter((row) => row !== id)
+      : [...readSaved(), id]
+    localStorage.setItem(SAVED_KEY, JSON.stringify(next))
+    setSaved(!saved)
+    showToast(saved ? 'Removed from saved' : 'Saved for later', 'success')
+  }
+
+  const handleShare = async () => {
+    const url = window.location.href.replace(/\?rent=1/, '')
+    try {
+      if (navigator.share) {
+        await navigator.share({ title: listing?.title, url })
+        return
+      }
+      await navigator.clipboard.writeText(url)
+      showToast('Link copied', 'success')
+    } catch {
+      showToast('Share cancelled', 'info')
+    }
+  }
+
   const isGaming = listing?.category === 'gaming'
-  const accent   = isGaming ? '#ff2e6d' : '#00e5ff'
   const canViewHidden = isAdmin || user?.id === listing?.user_id
   const isHiddenFromPublic = listing && listing.is_published === false && !canViewHidden
+  const stock = listing?.stock_qty ?? 1
 
-  /* Loading skeleton */
   if (loading) {
     return (
-      <div className="relative min-h-screen pt-24 pb-20">
-        <div className="grid-floor" /><GameBackground />
-        <div className="relative z-10 max-w-6xl mx-auto px-4">
-          <div className="grid lg:grid-cols-3 gap-8">
-            <div className="lg:col-span-2 space-y-4">
-              <div className="h-96 rounded-3xl animate-pulse" style={{ background: 'rgba(255,255,255,0.04)' }} />
-              <div className="h-8 rounded-xl w-2/3 animate-pulse" style={{ background: 'rgba(255,255,255,0.04)' }} />
-              <div className="h-4 rounded-xl w-1/2 animate-pulse" style={{ background: 'rgba(255,255,255,0.04)' }} />
-            </div>
-            <div className="h-64 rounded-3xl animate-pulse" style={{ background: 'rgba(255,255,255,0.04)' }} />
-          </div>
-        </div>
+      <div className={`ld${isGaming === false ? ' is-music' : ''}`}>
+        <div className="grid-floor" />
+        <GameBackground />
+        <div className="ld-wrap"><div className="ld-skel" /></div>
       </div>
     )
   }
 
-  /* Error / not found */
   if (error || !listing || isHiddenFromPublic) {
     return (
-      <div className="relative min-h-screen pt-24 flex items-center justify-center">
-        <div className="grid-floor" /><GameBackground />
-        <div className="relative z-10 text-center">
-          <div className="text-6xl mb-4">🔍</div>
-          <h2 className="font-bungee text-3xl text-white mb-3">Listing Not Found</h2>
-          <button onClick={() => navigate('/browse')} className="btn-primary mt-4">
-            Browse All Listings
+      <div className="ld">
+        <div className="grid-floor" />
+        <GameBackground />
+        <div className="ld-miss">
+          <h2 className="font-bungee text-white text-2xl mb-3">Listing not found</h2>
+          <button type="button" onClick={() => navigate('/browse')} className="btn-primary" aria-label="Browse listings">
+            Browse listings
           </button>
         </div>
       </div>
@@ -483,260 +831,207 @@ export default function ListingDetail() {
   }
 
   const lister = listing.profiles
+  const applyPriceChip = (kind) => {
+    const el = document.getElementById('rent-now')
+    el?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    window.dispatchEvent(new CustomEvent('ld-quick-date', { detail: kind }))
+  }
 
   return (
-    <div className="relative min-h-screen pt-24 pb-20">
+    <div className={`ld${isGaming ? ' is-gaming' : ' is-music'}`}>
       <div className="grid-floor" />
       <GameBackground />
 
-      <div className="relative z-10 max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-
-        {/* ── Back + actions ──────────────────── */}
-        <div className="flex items-center justify-between mb-6">
-          <button onClick={() => navigate(-1)}
-            className="flex items-center gap-2 font-display font-semibold text-sm transition-colors hover:text-white"
-            style={{ color: 'rgba(255,255,255,0.5)' }}>
+      <div className="ld-wrap">
+        <div className="ld-top">
+          <button type="button" className="ld-back" onClick={() => navigate(-1)} aria-label="Go back">
             <ArrowLeft size={16} /> Back
           </button>
-          <div className="flex items-center gap-2">
-            <button onClick={() => setSaved(!saved)}
-              className="w-9 h-9 rounded-xl glass flex items-center justify-center transition-all hover:scale-110"
-              style={{ color: saved ? '#ff2e6d' : 'rgba(255,255,255,0.4)' }}>
-              <Heart size={16} fill={saved ? '#ff2e6d' : 'none'} />
+          <div className="ld-icon-row">
+            <button type="button" className={`ld-icon-btn${saved ? ' is-on' : ''}`} onClick={toggleSave} aria-label={saved ? 'Unsave listing' : 'Save listing'}>
+              <Heart size={16} fill={saved ? 'currentColor' : 'none'} />
             </button>
-
-            {/* Share button with toast */}
-            <div className="relative">
-              <button
-                onClick={handleShare}
-                className="w-9 h-9 rounded-xl glass flex items-center justify-center transition-all hover:scale-110"
-                style={{ color: shareToast ? '#00ff94' : 'rgba(255,255,255,0.4)' }}>
-                <Share2 size={16} />
-              </button>
-              {/* Toast popup */}
-              {shareToast && (
-                <div
-                  className="absolute right-0 top-11 flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-display font-semibold whitespace-nowrap z-50"
-                  style={{
-                    background: 'rgba(0,255,148,0.12)',
-                    border:     '1px solid rgba(0,255,148,0.35)',
-                    color:      '#00ff94',
-                    boxShadow:  '0 8px 24px rgba(0,0,0,0.4)',
-                  }}>
-                  ✓ Link copied!
-                </div>
-              )}
-            </div>
+            <button type="button" className="ld-icon-btn" onClick={handleShare} aria-label="Share listing">
+              <Share2 size={16} />
+            </button>
           </div>
         </div>
 
-        <div className="grid lg:grid-cols-3 gap-8">
+        <div className="ld-grid">
+          <div className="ld-main">
+            <PhotoGallery photos={listing.photos} emoji={listing.emoji} title={listing.title} />
 
-          {/* ── Left column ─────────────────── */}
-          <div className="lg:col-span-2 space-y-6">
-
-            {/* Photo gallery */}
-            <PhotoGallery photos={listing.photos} emoji={listing.emoji} accent={accent} />
-
-            {/* Title + badges */}
-            <div>
-              <div className="flex flex-wrap items-center gap-2 mb-3">
-                <span className={isGaming ? 'tag-gaming' : 'tag-music'}>
-                  {isGaming ? '🎮' : '🎵'} {listing.subcategory}
-                </span>
-                {listing.condition && (
-                  <span className="text-xs font-display px-2.5 py-1 rounded-full"
-                    style={{
-                      background: 'rgba(255,255,255,0.06)',
-                      border: '1px solid rgba(255,255,255,0.1)',
-                      color: 'rgba(255,255,255,0.55)',
-                    }}>
-                    {listing.condition === 'like_new' ? '✨ Like New' : listing.condition === 'good' ? '👍 Good' : '🔧 Fair'}
-                  </span>
-                )}
-                {listing.is_available ? (
-                  <span className="text-xs font-display px-2.5 py-1 rounded-full flex items-center gap-1"
-                    style={{ background: 'rgba(0,255,148,0.1)', border: '1px solid rgba(0,255,148,0.3)', color: '#00ff94' }}>
-                    <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />
-                    Available
-                  </span>
-                ) : (
-                  <span className="text-xs font-display px-2.5 py-1 rounded-full"
-                    style={{ background: 'rgba(255,46,109,0.1)', border: '1px solid rgba(255,46,109,0.3)', color: '#ff6b9d' }}>
-                    Booked
-                  </span>
-                )}
-              </div>
-
-              <h1 className="font-bungee text-3xl text-white mb-3" style={{ lineHeight: 1.2 }}>
-                {listing.title}
-              </h1>
-
-              <div className="flex flex-wrap items-center gap-4">
-                {listing.rating > 0 && (
-                  <div className="flex items-center gap-1.5">
-                    <Star size={15} style={{ fill: '#ffd23f', color: '#ffd23f' }} />
-                    <span className="font-bold text-sm" style={{ color: '#ffd23f' }}>{listing.rating}</span>
-                    <span className="text-sm font-display" style={{ color: 'rgba(255,255,255,0.4)' }}>
-                      ({listing.total_reviews} reviews)
-                    </span>
-                  </div>
-                )}
-                <div className="flex items-center gap-1.5">
-                  <MapPin size={14} style={{ color: accent }} />
-                  <span className="text-sm font-display" style={{ color: 'rgba(255,255,255,0.5)' }}>
-                    {listing.location}, Bangalore
-                  </span>
-                </div>
-              </div>
+            <div className="ld-pills">
+              <span className={isGaming ? 'tag-gaming' : 'tag-music'}>
+                {isGaming ? '🎮' : '🎵'} {listing.subcategory}
+              </span>
+              {listing.condition ? <span className="ld-pill">{conditionLabel(listing.condition)}</span> : null}
+              {listing.is_available && stock > 0 ? (
+                <span className="ld-pill is-ok">Available{stock <= 1 ? ' · last one' : ` · ${stock} left`}</span>
+              ) : (
+                <span className="ld-pill is-bad">Booked out</span>
+              )}
+              {listing.deposit_amount ? <span className="ld-pill is-warn">Deposit ₹{listing.deposit_amount}</span> : null}
             </div>
 
-            {/* Pricing cards */}
-            <div className="grid grid-cols-3 gap-3">
+            <h1>{listing.title}</h1>
+            <div className="ld-meta">
+              {listing.rating > 0 ? (
+                <span className="is-gold">
+                  <Star size={14} /> {listing.rating} ({listing.total_reviews} reviews)
+                </span>
+              ) : null}
+              <span><MapPin size={14} /> {listing.location}, Bangalore</span>
+            </div>
+
+            <div className="ld-prices">
               {[
-                { label: 'Per Day', price: listing.price_day, color: accent },
-                { label: 'Weekend', price: listing.price_weekend, color: '#ffd23f' },
-                { label: 'Per Week', price: listing.price_week, color: '#00ff94' },
-              ].filter(p => p.price).map(p => (
-                <div key={p.label} className="glass rounded-2xl p-4 text-center"
-                  style={{ border: `1px solid ${p.color}20` }}>
-                  <div className="font-bungee text-2xl mb-1" style={{ color: p.color }}>₹{p.price}</div>
-                  <div className="text-xs font-display" style={{ color: 'rgba(255,255,255,0.4)' }}>{p.label}</div>
-                </div>
+                { key: 'tonight', label: 'Per Day', price: listing.price_day, tone: '' },
+                { key: 'weekend', label: 'Weekend', price: listing.price_weekend, tone: 'is-gold' },
+                { key: 'week', label: 'Per Week', price: listing.price_week, tone: 'is-green' },
+              ].filter((row) => row.price).map((row) => (
+                <button
+                  key={row.key}
+                  type="button"
+                  className={`ld-price ${row.tone}`}
+                  onClick={() => applyPriceChip(row.key)}
+                  aria-label={`Rent ${row.label.toLowerCase()} for ₹${row.price}`}
+                >
+                  <strong>₹{row.price}</strong>
+                  <span>{row.label} · tap to fill dates</span>
+                </button>
               ))}
             </div>
 
-            {/* Description */}
-            {listing.description && (
-              <div className="glass rounded-2xl p-5">
-                <h3 className="font-bungee text-base mb-3" style={{ color: accent, fontSize: '0.85rem' }}>
-                  ABOUT THIS ITEM
-                </h3>
-                <p className="font-display text-sm leading-relaxed"
-                  style={{ color: 'rgba(255,255,255,0.6)', lineHeight: 1.8 }}>
-                  {listing.description}
-                </p>
-              </div>
-            )}
-
-            {/* Details grid */}
-            <div className="glass rounded-2xl p-5">
-              <h3 className="font-bungee text-base mb-4" style={{ color: accent, fontSize: '0.85rem' }}>
-                ITEM DETAILS
-              </h3>
-              <div className="grid grid-cols-2 gap-4">
-                {[
-                  { label: 'Category',  value: listing.category === 'gaming' ? '🎮 Gaming' : '🎵 Music' },
-                  { label: 'Type',      value: listing.subcategory },
-                  { label: 'Brand',     value: listing.brand || '—' },
-                  { label: 'Model',     value: listing.model || '—' },
-                  { label: 'Condition', value: listing.condition === 'like_new' ? 'Like New' : listing.condition === 'good' ? 'Good' : 'Fair' },
-                  { label: 'Deposit',   value: `₹${listing.deposit_amount || 5000}` },
-                  { label: 'Stock',     value: `${listing.stock_qty ?? 1} / ${listing.stock_total ?? listing.stock_qty ?? 1}` },
-                ].map(d => (
-                  <div key={d.label}>
-                    <div className="text-xs font-display mb-0.5" style={{ color: 'rgba(255,255,255,0.3)', letterSpacing: '0.06em' }}>
-                      {d.label.toUpperCase()}
-                    </div>
-                    <div className="text-sm font-display font-semibold text-white">{d.value}</div>
-                  </div>
-                ))}
-              </div>
+            <div className="ld-tabs" role="tablist" aria-label="Listing sections">
+              {[
+                { id: 'about', label: 'About' },
+                { id: 'specs', label: 'Details' },
+                { id: 'howto', label: 'How rent works' },
+                { id: 'reviews', label: `Reviews (${reviews.length})` },
+              ].map((tab) => (
+                <button
+                  key={tab.id}
+                  type="button"
+                  role="tab"
+                  className={`ld-tab${panel === tab.id ? ' is-on' : ''}`}
+                  aria-selected={panel === tab.id}
+                  onClick={() => setPanel(tab.id)}
+                >
+                  {tab.label}
+                </button>
+              ))}
             </div>
 
-            {/* Lister profile */}
-            <div className="glass rounded-2xl p-5">
-              <h3 className="font-bungee text-base mb-4" style={{ color: accent, fontSize: '0.85rem' }}>
-                LISTED BY
-              </h3>
-              <div className="flex items-center gap-4">
-                {lister?.avatar_url ? (
-                  <img src={lister.avatar_url} alt={lister.full_name}
-                    className="w-14 h-14 rounded-2xl object-cover flex-shrink-0" />
-                ) : (
-                  <div className="w-14 h-14 rounded-2xl flex items-center justify-center font-bungee text-xl text-white flex-shrink-0"
-                    style={{ background: 'linear-gradient(135deg, #ff2e6d, #00e5ff)' }}>
-                    {lister?.full_name?.[0]?.toUpperCase() || <User size={20} />}
-                  </div>
-                )}
-                <div className="flex-1">
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className="font-display font-bold text-white text-lg">
-                      {lister?.full_name || 'Anonymous'}
-                    </span>
-                    {lister?.kyc_status === 'verified' && (
-                      <span className="flex items-center gap-1 text-xs" style={{ color: '#00ff94' }}>
-                        <Shield size={11} /> Verified
-                      </span>
-                    )}
-                  </div>
-                  {lister?.rating > 0 && (
-                    <div className="flex items-center gap-1 mb-1">
-                      {Array(5).fill(0).map((_, i) => (
-                        <Star key={i} size={11}
-                          style={{ fill: i < Math.round(lister.rating) ? '#ffd23f' : 'transparent', color: '#ffd23f' }} />
-                      ))}
-                      <span className="text-xs font-display ml-1" style={{ color: 'rgba(255,255,255,0.4)' }}>
-                        {lister.rating} · {lister.total_reviews} reviews
-                      </span>
-                    </div>
-                  )}
-                  <p className="text-xs font-display" style={{ color: 'rgba(255,255,255,0.35)' }}>
-                    Member since {new Date(listing.created_at).getFullYear()}
-                  </p>
-                </div>
+            {panel === 'about' ? (
+              <div className="ld-card">
+                <h3>ABOUT THIS ITEM</h3>
+                <p>{listing.description || 'No write-up yet. Ask the lister on handover.'}</p>
               </div>
-            </div>
+            ) : null}
 
-            <div className="glass rounded-2xl p-5">
-              <h3 className="font-bungee text-base mb-3" style={{ color: accent, fontSize: '0.85rem' }}>
-                REVIEWS
-              </h3>
-              {reviews.length > 0 ? (
-                <div className="space-y-4">
-                  {reviews.map((review) => (
-                    <div key={review.id} className="pb-4" style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
-                      <div className="flex items-center justify-between mb-1">
-                        <span className="font-display font-bold text-white text-sm">
-                          {review.reviewer?.full_name || 'Renter'}
-                        </span>
-                        <span className="text-xs" style={{ color: '#ffd23f' }}>
-                          {'★'.repeat(review.rating || 0)}{'☆'.repeat(5 - (review.rating || 0))}
-                        </span>
-                      </div>
-                      {review.comment ? (
-                        <p className="font-display text-sm" style={{ color: 'rgba(255,255,255,0.55)' }}>
-                          {review.comment}
-                        </p>
-                      ) : null}
+            {panel === 'specs' ? (
+              <div className="ld-card">
+                <h3>ITEM DETAILS</h3>
+                <div className="ld-specs">
+                  {[
+                    ['Category', isGaming ? 'Gaming' : 'Music'],
+                    ['Type', listing.subcategory],
+                    ['Brand', listing.brand || '—'],
+                    ['Model', listing.model || '—'],
+                    ['Condition', conditionLabel(listing.condition)],
+                    ['Deposit', `₹${listing.deposit_amount || 5000}`],
+                    ['Stock', `${listing.stock_qty ?? 1} / ${listing.stock_total ?? listing.stock_qty ?? 1}`],
+                    ['Area', listing.location || 'Bangalore'],
+                  ].map(([label, value]) => (
+                    <div key={label}>
+                      <span>{label.toUpperCase()}</span>
+                      <b>{value}</b>
                     </div>
                   ))}
                 </div>
-              ) : (
-                <div className="text-center py-6">
-                  <div className="text-3xl mb-2">⭐</div>
-                  <p className="text-sm font-display" style={{ color: 'rgba(255,255,255,0.35)' }}>
-                    No reviews yet — be the first to rent this!
-                  </p>
+              </div>
+            ) : null}
+
+            {panel === 'howto' ? (
+              <div className="ld-card">
+                <h3>HOW RENT WORKS</h3>
+                <div className="ld-how">
+                  {HOW_STEPS.map((item, i) => (
+                    <button
+                      key={item.title}
+                      type="button"
+                      className={howStep === i ? 'is-on' : ''}
+                      onClick={() => setHowStep(i)}
+                      aria-pressed={howStep === i}
+                    >
+                      <b>{i + 1}</b>
+                      <span>
+                        <strong>{item.title}</strong>
+                        <span>{item.body}</span>
+                      </span>
+                    </button>
+                  ))}
                 </div>
-              )}
+              </div>
+            ) : null}
+
+            {panel === 'reviews' ? (
+              <div className="ld-card">
+                <h3>REVIEWS</h3>
+                {reviews.length === 0 ? (
+                  <div className="ld-empty">No reviews yet — be first to rent this.</div>
+                ) : (
+                  reviews.map((review) => (
+                    <div key={review.id} className="ld-review">
+                      <div className="ld-review__top">
+                        <strong>{review.reviewer?.full_name || 'Renter'}</strong>
+                        <em>{'★'.repeat(review.rating || 0)}{'☆'.repeat(5 - (review.rating || 0))}</em>
+                      </div>
+                      {review.comment ? <p>{review.comment}</p> : null}
+                    </div>
+                  ))
+                )}
+              </div>
+            ) : null}
+
+            <div className="ld-card">
+              <h3>LISTED BY</h3>
+              <div className="ld-lister">
+                <div className="ld-lister__face">
+                  {lister?.avatar_url
+                    ? <img src={lister.avatar_url} alt="" />
+                    : (lister?.full_name?.[0]?.toUpperCase() || <User size={20} />)}
+                </div>
+                <div>
+                  <strong className="text-white">{lister?.full_name || 'Anonymous'}</strong>
+                  {lister?.kyc_status === 'verified' ? (
+                    <span className="ld-pill is-ok"><Shield size={11} /> Verified</span>
+                  ) : null}
+                  <p>Member since {new Date(listing.created_at).getFullYear()}</p>
+                </div>
+              </div>
             </div>
+
+            {similar.length > 0 ? (
+              <div>
+                <h3 className="ld-card-title">SIMILAR GEAR</h3>
+                <div className="ld-similar">
+                  {similar.map((row) => <ListingCard key={row.id} listing={row} />)}
+                </div>
+              </div>
+            ) : null}
           </div>
 
-          {/* ── Right column — Booking widget (desktop sidebar) ── */}
           <div className="hidden lg:block">
-            <BookingWidget listing={listing} accent={accent} />
+            <BookingWidget listing={listing} forceOpen={wantRent} />
           </div>
         </div>
 
-        {/* ── Mobile bottom bar — Booking widget ── */}
-        <div className="lg:hidden fixed bottom-0 left-0 right-0 z-40 p-4"
-          style={{ background: 'rgba(10,10,20,0.97)', borderTop: '1px solid rgba(255,46,109,0.2)', backdropFilter: 'blur(20px)' }}>
-          <BookingWidget listing={listing} accent={accent} mobile />
+        <div className="lg:hidden listing-mobile-bar">
+          <BookingWidget listing={listing} mobile forceOpen={wantRent} />
         </div>
-        {/* Spacer so content isn't hidden behind bottom bar on mobile */}
-        <div className="lg:hidden h-28" />
-
+        <div className="lg:hidden listing-mobile-spacer" />
       </div>
     </div>
   )

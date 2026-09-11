@@ -1,0 +1,134 @@
+.pay-methods {
+  display: grid;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.pay-method {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  width: 100%;
+  text-align: left;
+  padding: 0.7rem 0.85rem;
+  border-radius: 0.8rem;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.03);
+  color: rgba(255, 255, 255, 0.7);
+  font-family: 'Rajdhani', sans-serif;
+  font-weight: 700;
+  font-size: 0.88rem;
+  cursor: pointer;
+}
+
+.pay-method.is-on {
+  border-color: rgba(255, 46, 109, 0.45);
+  background: rgba(255, 46, 109, 0.1);
+  color: #fff;
+}
+
+.pay-method__dot {
+  width: 0.7rem;
+  height: 0.7rem;
+  border-radius: 999px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  flex-shrink: 0;
+}
+
+.pay-method.is-on .pay-method__dot {
+  border-color: #ff2e6d;
+  background: #ff2e6d;
+}
+
+.pay-detail {
+  margin-bottom: 1rem;
+  padding: 0.9rem;
+  border-radius: 0.9rem;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.pay-detail__hint {
+  font-family: 'Rajdhani', sans-serif;
+  font-size: 0.8rem;
+  color: rgba(255, 255, 255, 0.5);
+  margin-bottom: 0.7rem;
+}
+
+.pay-qr {
+  display: block;
+  width: 100%;
+  max-width: 14rem;
+  margin: 0 auto 0.8rem;
+  border-radius: 0.75rem;
+  background: #fff;
+}
+
+.pay-copy-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.45rem;
+}
+
+.pay-copy-row span {
+  flex: 1;
+  min-width: 0;
+  font-family: 'Rajdhani', sans-serif;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #fff;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.pay-bank-line {
+  font-family: 'Rajdhani', sans-serif;
+  font-size: 0.82rem;
+  color: rgba(255, 255, 255, 0.65);
+  margin-bottom: 0.25rem;
+}
+
+.pay-bank-line strong { color: #fff; }
+
+.admin-pay-card {
+  margin-bottom: 1rem;
+}
+
+.admin-pay-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.9rem;
+}
+
+.admin-pay-title {
+  font-family: 'Bungee', cursive;
+  font-size: 0.95rem;
+  color: #fff;
+}
+
+.admin-pay-type {
+  font-family: 'Rajdhani', sans-serif;
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.4);
+  margin-top: 0.2rem;
+}
+
+.admin-qr-preview {
+  width: 8rem;
+  height: 8rem;
+  object-fit: contain;
+  border-radius: 0.7rem;
+  background: #fff;
+  margin-top: 0.5rem;
+}
+
+.admin-file-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  cursor: pointer;
+}

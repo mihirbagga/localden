@@ -1,0 +1,156 @@
+.terms-page {
+  position: relative;
+  min-height: 100vh;
+  padding: 6rem 1rem 5rem;
+}
+
+.terms-wrap {
+  position: relative;
+  z-index: 10;
+  max-width: 46rem;
+  margin: 0 auto;
+}
+
+.terms-head {
+  text-align: center;
+  margin-bottom: 2rem;
+}
+
+.terms-title {
+  font-family: 'Bungee', cursive;
+  font-size: clamp(1.6rem, 5vw, 2.3rem);
+  color: #fff;
+  margin-bottom: 0.6rem;
+}
+
+.terms-lead {
+  font-family: 'Rajdhani', sans-serif;
+  color: var(--text-muted);
+}
+
+.terms-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  justify-content: center;
+  margin-bottom: 1.6rem;
+}
+
+.terms-nav a {
+  font-family: 'Rajdhani', sans-serif;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--text-dim);
+  text-decoration: none;
+  padding: 0.35rem 0.7rem;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+}
+
+.terms-nav a:hover {
+  color: #fff;
+  border-color: rgba(255, 46, 109, 0.4);
+}
+
+.terms-block {
+  margin-bottom: 1.25rem;
+  padding: 1.2rem 1.25rem;
+  border-radius: 1.1rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+}
+
+.terms-block h2 {
+  font-family: 'Bungee', cursive;
+  font-size: 0.95rem;
+  color: #fff;
+  margin-bottom: 0.7rem;
+}
+
+.terms-block p,
+.terms-block li {
+  font-family: 'Rajdhani', sans-serif;
+  font-size: 0.92rem;
+  line-height: 1.7;
+  color: var(--text-muted);
+  margin-bottom: 0.5rem;
+}
+
+.terms-block ul {
+  padding-left: 1.1rem;
+}
+
+.terms-block strong { color: #fff; }
+
+.terms-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 0.6rem 0 0.2rem;
+}
+
+.terms-table th,
+.terms-table td {
+  text-align: left;
+  padding: 0.55rem 0.45rem;
+  font-family: 'Rajdhani', sans-serif;
+  font-size: 0.82rem;
+  border-bottom: 1px solid var(--border);
+  color: var(--text-muted);
+  vertical-align: top;
+}
+
+.terms-table th { color: #fff; font-weight: 800; }
+
+.book-terms {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+  margin: 0.85rem 0 1rem;
+  padding: 0.75rem 0.8rem;
+  border-radius: 0.85rem;
+  border: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.book-terms input {
+  margin-top: 0.2rem;
+  flex-shrink: 0;
+  width: 1.05rem;
+  height: 1.05rem;
+  accent-color: var(--magenta);
+}
+
+.book-terms label {
+  font-family: 'Rajdhani', sans-serif;
+  font-size: 0.8rem;
+  line-height: 1.5;
+  color: var(--text-muted);
+}
+
+.book-terms a {
+  color: #fff;
+  font-weight: 800;
+}
+
+.book-damage {
+  margin-bottom: 0.85rem;
+  padding: 0.75rem 0.8rem;
+  border-radius: 0.85rem;
+  border: 1px solid rgba(255, 210, 63, 0.22);
+  background: rgba(255, 210, 63, 0.05);
+}
+
+.book-damage p {
+  font-family: 'Rajdhani', sans-serif;
+  font-size: 0.75rem;
+  line-height: 1.5;
+  color: var(--text-dim);
+  margin: 0.2rem 0 0;
+}
+
+.book-damage strong {
+  display: block;
+  color: var(--gold);
+  font-size: 0.78rem;
+  margin-bottom: 0.15rem;
+}

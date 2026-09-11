@@ -27,16 +27,74 @@ create table if not exists public.profiles (
   updated_at    timestamptz default now()
 );
 
--- Auto-create profile on signup
-create or replace function public.handle_new_user()
-returns trigger language plpgsql security definer as $$
+create or replace function public.welcome_coupon_code(p_name text, p_user_id uuid)
+returns text
+language plpgsql
+as $$
+declare
+  slug text;
+  base text;
+  code text;
+  suffix text;
 begin
-  insert into public.profiles (id, email, full_name)
-  values (
-    new.id,
-    new.email,
-    coalesce(new.raw_user_meta_data->>'full_name', '')
+  slug := upper(regexp_replace(split_part(trim(coalesce(p_name, '')), ' ', 1), '[^A-Za-z0-9]', '', 'g'));
+  if coalesce(slug, '') = '' then
+    slug := 'USER';
+  end if;
+  if char_length(slug) > 12 then
+    slug := left(slug, 12);
+  end if;
+  base := 'WELCOME' || slug || '50';
+  code := base;
+  suffix := upper(left(replace(p_user_id::text, '-', ''), 4));
+  if exists (select 1 from public.coupons c where upper(c.code) = upper(code)) then
+    code := base || suffix;
+  end if;
+  return code;
+end;
+$$;
+
+-- Auto-create profile + welcome coupon on signup
+create or replace function public.handle_new_user()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  uname text;
+  ccode text;
+begin
+  uname := coalesce(
+    new.raw_user_meta_data->>'full_name',
+    new.raw_user_meta_data->>'name',
+    ''
   );
+
+  insert into public.profiles (id, email, full_name)
+  values (new.id, new.email, uname);
+
+  begin
+    if to_regclass('public.coupons') is null then
+      return new;
+    end if;
+    ccode := public.welcome_coupon_code(uname, new.id);
+    insert into public.coupons (
+      code, description, discount_type, discount_value,
+      usage_limit, is_active, owner_id
+    ) values (
+      ccode,
+      'Welcome 50% off for ' || coalesce(nullif(uname, ''), 'new member'),
+      'percent',
+      50,
+      1,
+      true,
+      new.id
+    );
+  exception when others then
+    raise warning 'welcome coupon skipped: %', sqlerrm;
+  end;
+
   return new;
 end;
 $$;
@@ -125,6 +183,8 @@ create table if not exists public.bookings (
   razorpay_payment_id text,
   payment_status      text default 'pending'
                       check (payment_status in ('pending','paid','refunded','failed')),
+  payment_method      text,
+  payment_ref         text,
 
   -- Logistics
   delivery_type   text default 'pickup' check (delivery_type in ('pickup','delivery')),
@@ -133,6 +193,11 @@ create table if not exists public.bookings (
   -- Notes
   renter_note     text,
   lister_note     text,
+
+  -- Coupon
+  coupon_id         uuid,
+  coupon_code       text,
+  discount_amount   integer default 0,
 
   created_at      timestamptz default now(),
   updated_at      timestamptz default now()
@@ -165,12 +230,79 @@ create table if not exists public.deposits (
   updated_at          timestamptz default now()
 );
 
+-- ── 6. Coupons ───────────────────────────────────────────────
+create table if not exists public.coupons (
+  id              uuid default uuid_generate_v4() primary key,
+  code            text not null,
+  description     text,
+  discount_type   text not null default 'percent'
+                  check (discount_type in ('percent', 'flat')),
+  discount_value  integer not null check (discount_value > 0),
+  min_subtotal    integer default 0,
+  max_discount    integer,
+  usage_limit     integer,
+  used_count      integer not null default 0,
+  starts_at       timestamptz,
+  ends_at         timestamptz,
+  is_active       boolean not null default true,
+  owner_id        uuid references public.profiles(id) on delete cascade,
+  created_at      timestamptz default now(),
+  updated_at      timestamptz default now()
+);
+
+create unique index if not exists coupons_code_upper_idx
+  on public.coupons (upper(code));
+
+-- ── 7. Payment methods ───────────────────────────────────────
+create table if not exists public.payment_methods (
+  id            text primary key,
+  name          text not null,
+  method_type   text not null
+                check (method_type in ('razorpay', 'qr', 'upi', 'bank', 'cash')),
+  is_enabled    boolean not null default false,
+  sort_order    integer not null default 0,
+  config        jsonb not null default '{}'::jsonb,
+  created_at    timestamptz default now(),
+  updated_at    timestamptz default now()
+);
+
+insert into public.payment_methods (id, name, method_type, is_enabled, sort_order, config)
+values
+  ('razorpay', 'Razorpay', 'razorpay', false, 1,
+    '{"key_id":"","instructions":"Pay securely via cards, UPI, netbanking."}'::jsonb),
+  ('qr', 'QR / UPI scan', 'qr', true, 2,
+    '{"qr_image_url":"","upi_id":"","instructions":"Scan the QR, pay the total, then tap I have paid."}'::jsonb),
+  ('upi', 'UPI ID', 'upi', false, 3,
+    '{"upi_id":"","instructions":"Send the total to this UPI ID, then tap I have paid."}'::jsonb),
+  ('bank', 'Bank transfer', 'bank', false, 4,
+    '{"account_name":"","account_number":"","ifsc":"","bank_name":"","instructions":"Transfer the total and tap I have paid."}'::jsonb),
+  ('cash', 'Cash on pickup', 'cash', false, 5,
+    '{"instructions":"Pay cash when you collect the gear."}'::jsonb)
+on conflict (id) do nothing;
+
+-- ── 8. Site settings ─────────────────────────────────────────
+create table if not exists public.site_settings (
+  id          text primary key,
+  value       jsonb not null default '{}'::jsonb,
+  updated_at  timestamptz default now()
+);
+
+insert into public.site_settings (id, value)
+values (
+  'platform_fee',
+  '{"enabled": true, "fee_type": "percent", "fee_value": 20}'::jsonb
+)
+on conflict (id) do nothing;
+
 -- ── Row Level Security ───────────────────────────────────────
 alter table public.profiles  enable row level security;
 alter table public.listings  enable row level security;
 alter table public.bookings  enable row level security;
 alter table public.reviews   enable row level security;
 alter table public.deposits  enable row level security;
+alter table public.coupons   enable row level security;
+alter table public.payment_methods enable row level security;
+alter table public.site_settings enable row level security;
 
 -- Profiles: users can read all, only update own
 create policy "Profiles are viewable by everyone"
@@ -251,6 +383,66 @@ create policy "Admins can update reviews"
 create policy "Admins can delete reviews"
   on public.reviews for delete
   using (public.current_user_is_admin());
+
+create policy "Active coupons readable"
+  on public.coupons for select
+  using (
+    (
+      is_active = true
+      and (owner_id is null or owner_id = auth.uid())
+    )
+    or public.current_user_is_admin()
+  );
+create policy "Admins insert coupons"
+  on public.coupons for insert
+  with check (public.current_user_is_admin());
+create policy "Admins update coupons"
+  on public.coupons for update
+  using (public.current_user_is_admin());
+create policy "Admins delete coupons"
+  on public.coupons for delete
+  using (public.current_user_is_admin());
+
+create policy "Enabled payment methods readable"
+  on public.payment_methods for select
+  using (is_enabled = true or public.current_user_is_admin());
+create policy "Admins update payment methods"
+  on public.payment_methods for update
+  using (public.current_user_is_admin());
+create policy "Admins manage payment methods"
+  on public.payment_methods for insert
+  with check (public.current_user_is_admin());
+
+create policy "Site settings readable"
+  on public.site_settings for select
+  using (true);
+create policy "Admins update site settings"
+  on public.site_settings for update
+  using (public.current_user_is_admin());
+create policy "Admins insert site settings"
+  on public.site_settings for insert
+  with check (public.current_user_is_admin());
+
+create or replace function public.bump_coupon_usage()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if new.coupon_id is not null then
+    update public.coupons
+    set used_count = used_count + 1, updated_at = now()
+    where id = new.coupon_id;
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists on_booking_coupon_redeemed on public.bookings;
+create trigger on_booking_coupon_redeemed
+  after insert on public.bookings
+  for each row execute procedure public.bump_coupon_usage();
 
 -- ── Storage Buckets ──────────────────────────────────────────
 -- Run separately in Supabase Dashboard → Storage:

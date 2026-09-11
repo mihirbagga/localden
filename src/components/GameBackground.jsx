@@ -19,20 +19,18 @@ export default function GameBackground() {
     canvas.height = H
 
     /* particles */
-    const particles = Array.from({ length: 100 }, () => ({
+    const particles = Array.from({ length: 56 }, () => ({
       x:     Math.random() * W,
       y:     Math.random() * H,
-      r:     Math.random() * 1.4 + 0.3,
-      vx:    (Math.random() - 0.5) * 0.25,
-      vy:    -Math.random() * 0.35 - 0.08,
-      alpha: Math.random() * 0.5 + 0.15,
-      color: ['#ff2e6d','#00e5ff','#ffd23f','#bf00ff','#ff6b9d'][
-        Math.floor(Math.random() * 5)
-      ],
+      r:     Math.random() * 1.2 + 0.3,
+      vx:    (Math.random() - 0.5) * 0.18,
+      vy:    -Math.random() * 0.28 - 0.06,
+      alpha: Math.random() * 0.28 + 0.08,
+      color: ['#ff2e6d','#00e5ff'][Math.floor(Math.random() * 2)],
     }))
 
     /* floating emoji */
-    const floaters = Array.from({ length: 18 }, (_, i) => ({
+    const floaters = Array.from({ length: 10 }, (_, i) => ({
       x:     Math.random() * W,
       y:     Math.random() * H,
       emoji: SYMBOLS[i % SYMBOLS.length],
@@ -46,10 +44,8 @@ export default function GameBackground() {
 
     /* nebula blobs — magenta/cyan palette */
     const blobs = [
-      { x: W * 0.15, y: H * 0.25, r: 300, c: 'rgba(255,46,109,0.05)'  },
-      { x: W * 0.85, y: H * 0.65, r: 340, c: 'rgba(0,229,255,0.04)'   },
-      { x: W * 0.5,  y: H * 0.8,  r: 200, c: 'rgba(191,0,255,0.03)'   },
-      { x: W * 0.7,  y: H * 0.1,  r: 260, c: 'rgba(255,210,63,0.025)' },
+      { x: W * 0.15, y: H * 0.25, r: 280, c: 'rgba(255,46,109,0.035)' },
+      { x: W * 0.85, y: H * 0.65, r: 300, c: 'rgba(0,229,255,0.028)' },
     ]
 
     let frame = 0

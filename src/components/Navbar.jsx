@@ -3,11 +3,14 @@ import { Link, useLocation } from 'react-router-dom'
 import { Menu, X, ChevronRight, LogOut, User, Shield } from 'lucide-react'
 import LogoMark from './LogoMark'
 import { useAuth } from '../contexts/AuthContext'
+import './navbar.css'
 
 const navLinks = [
   { to: '/',             label: 'Home'         },
   { to: '/browse',       label: 'Browse'       },
   { to: '/how-it-works', label: 'How It Works' },
+  { to: '/about',        label: 'About'        },
+  { to: '/contact',      label: 'Contact'      },
   { to: '/list-item',    label: 'List Gear'    },
 ]
 
@@ -17,7 +20,7 @@ function NavbarAuth() {
 
   if (isAuthenticated) {
     return (
-      <div className="hidden md:flex items-center gap-3 relative">
+      <div className="nav-auth relative">
         <Link to="/list-item" className="btn-primary text-sm py-2 px-5">
           + List Gear
         </Link>
@@ -61,7 +64,7 @@ function NavbarAuth() {
   }
 
   return (
-    <div className="hidden md:flex items-center gap-3">
+    <div className="nav-auth gap-3">
       <Link to="/login" className="btn-outline text-sm py-2 px-4">
         Sign In
       </Link>
@@ -88,7 +91,7 @@ export default function Navbar() {
 
   return (
     <nav
-      className="fixed top-0 inset-x-0 z-50 transition-all duration-500"
+      className="nav-bar fixed top-0 inset-x-0 z-50 transition-all duration-500"
       style={{
         background: scrolled ? 'rgba(10,10,20,0.92)' : 'rgba(10,10,20,0.3)',
         backdropFilter: 'blur(24px)',
@@ -108,7 +111,7 @@ export default function Navbar() {
           <Link to="/" className="flex items-center gap-2.5 group">
             <LogoMark size={36} />
             {/* Brand name */}
-            <div className="flex items-baseline gap-0">
+            <div className="nav-brand-text">
               <span className="font-bungee text-lg leading-none"
                 style={{ color: '#ff2e6d', textShadow: '0 0 12px rgba(255,46,109,0.6)' }}>
                 लोकल
@@ -121,36 +124,16 @@ export default function Navbar() {
           </Link>
 
           {/* ── Desktop Links ──────────────────────── */}
-          <div className="hidden md:flex items-center gap-1">
+          <div className="nav-links">
             {navLinks.map(({ to, label }) => {
               const active = pathname === to
               return (
                 <Link
                   key={to}
                   to={to}
-                  className="relative px-4 py-2 rounded-lg text-sm font-display font-semibold transition-all duration-250"
-                  style={{
-                    color:      active ? '#ff2e6d' : 'rgba(255,255,255,0.55)',
-                    background: active ? 'rgba(255,46,109,0.08)' : 'transparent',
-                    letterSpacing: '0.04em',
-                  }}
-                  onMouseEnter={e => {
-                    if (!active) {
-                      e.currentTarget.style.color = 'white'
-                      e.currentTarget.style.background = 'rgba(255,255,255,0.04)'
-                    }
-                  }}
-                  onMouseLeave={e => {
-                    if (!active) {
-                      e.currentTarget.style.color = 'rgba(255,255,255,0.55)'
-                      e.currentTarget.style.background = 'transparent'
-                    }
-                  }}
+                  className={`nav-link${active ? ' is-on' : ''}`}
+                  aria-current={active ? 'page' : undefined}
                 >
-                  {active && (
-                    <span className="absolute bottom-1 left-1/2 -translate-x-1/2 w-4 h-0.5 rounded-full"
-                      style={{ background: 'linear-gradient(90deg, #ff2e6d, #00e5ff)' }} />
-                  )}
                   {label}
                 </Link>
               )
@@ -162,21 +145,18 @@ export default function Navbar() {
 
           {/* ── Mobile toggle ──────────────────────── */}
           <button
-            className="md:hidden p-2 rounded-lg transition-colors"
+            className="nav-toggle"
             style={{ color: 'rgba(255,255,255,0.6)' }}
             onClick={() => setOpen(!open)}
             aria-label={open ? 'Close navigation menu' : 'Open navigation menu'}
+            aria-expanded={open}
           >
             {open ? <X size={22} /> : <Menu size={22} />}
           </button>
         </div>
       </div>
 
-      {/* ── Mobile Menu ──────────────────────────── */}
-      <div
-        className="md:hidden overflow-hidden transition-all duration-300"
-        style={{ maxHeight: open ? '400px' : '0', opacity: open ? 1 : 0 }}
-      >
+      <div className={`nav-drawer${open ? ' is-open' : ''}`}>
         <div className="px-4 pb-4 pt-2 space-y-1"
           style={{ borderTop: '1px solid rgba(255,46,109,0.12)' }}>
           {navLinks.map(({ to, label }) => (

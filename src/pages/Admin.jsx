@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Users, Package, Calendar, Star, Boxes, LayoutDashboard, Shield } from 'lucide-react'
+import { Users, Package, Calendar, Star, Boxes, LayoutDashboard, Shield, Ticket, CreditCard } from 'lucide-react'
 import GameBackground from '../components/GameBackground'
 import { useAuth } from '../contexts/AuthContext'
 import { useAdminData } from '../hooks/useAdminData'
@@ -10,6 +10,8 @@ import AdminListings from './admin/AdminListings'
 import AdminBookings from './admin/AdminBookings'
 import AdminStock from './admin/AdminStock'
 import AdminReviews from './admin/AdminReviews'
+import AdminCoupons from './admin/AdminCoupons'
+import AdminPayments from './admin/AdminPayments'
 import './admin/admin.css'
 
 const TABS = [
@@ -19,6 +21,8 @@ const TABS = [
   { id: 'bookings', label: 'Bookings', icon: Calendar },
   { id: 'stock', label: 'Stock', icon: Boxes },
   { id: 'reviews', label: 'Reviews', icon: Star },
+  { id: 'coupons', label: 'Coupons', icon: Ticket },
+  { id: 'payments', label: 'Payments', icon: CreditCard },
 ]
 
 export default function Admin() {
@@ -33,6 +37,8 @@ export default function Admin() {
     bookings: data.bookings.length,
     stock: data.listings.length,
     reviews: data.reviews.length,
+    coupons: data.coupons.length,
+    payments: data.paymentMethods.length,
   }
 
   return (
@@ -46,7 +52,7 @@ export default function Admin() {
             <p className="admin-kicker">Control room</p>
             <h1 className="admin-title">Admin Panel</h1>
             <p className="admin-subtitle">
-              Review onboarded users, moderate listings, bookings, stock, and reviews.
+              Review users, listings, bookings, stock, reviews, coupons, and payments.
             </p>
           </div>
           <span className={`admin-role-badge admin-role-badge--${isSuperAdmin ? 'super' : 'admin'}`}>
@@ -124,6 +130,22 @@ export default function Admin() {
             reviews={data.reviews}
             patchReview={data.patchReview}
             removeReview={data.removeReview}
+          />
+        ) : null}
+
+        {!data.loading && tab === 'coupons' ? (
+          <AdminCoupons
+            coupons={data.coupons}
+            setCoupons={data.setCoupons}
+            patchCoupon={data.patchCoupon}
+            removeCoupon={data.removeCoupon}
+          />
+        ) : null}
+
+        {!data.loading && tab === 'payments' ? (
+          <AdminPayments
+            methods={data.paymentMethods}
+            patchMethod={data.patchPaymentMethod}
           />
         ) : null}
       </div>

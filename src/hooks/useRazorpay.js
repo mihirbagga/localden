@@ -34,6 +34,7 @@ export function useRazorpay() {
     description,    // e.g. "2 days rental"
     prefill = {},   // { name, email, contact }
     notes   = {},   // extra metadata
+    keyId,          // optional admin-configured Razorpay key
     onSuccess,      // (paymentId, response) => void
     onFailure,      // (error) => void
   }) => {
@@ -49,8 +50,9 @@ export function useRazorpay() {
       return
     }
 
-    if (!RAZORPAY_KEY || RAZORPAY_KEY === 'rzp_test_your_key_id_here') {
-      const msg = 'Razorpay key not configured. Add VITE_RAZORPAY_KEY_ID to .env.local'
+    const resolvedKey = (keyId || RAZORPAY_KEY || '').trim()
+    if (!resolvedKey || resolvedKey === 'rzp_test_your_key_id_here') {
+      const msg = 'Razorpay key not configured. Add Key ID in Admin → Payments.'
       setError(msg)
       setLoading(false)
       onFailure?.(new Error(msg))
@@ -58,7 +60,7 @@ export function useRazorpay() {
     }
 
     const options = {
-      key:         RAZORPAY_KEY,
+      key:         resolvedKey,
       amount:      Math.round(amount * 100),  // paise
       currency:    'INR',
       name:        'लोकल Den',

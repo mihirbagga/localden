@@ -1,6 +1,7 @@
 import { useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { Star, MapPin, Shield, Heart } from 'lucide-react'
+import './listingCard.css'
 
 /**
  * Works with both Supabase format (snake_case) and legacy mock format.
@@ -8,6 +9,7 @@ import { Star, MapPin, Shield, Heart } from 'lucide-react'
  * Legacy:   price.day, available, reviews, lister
  */
 export default function ListingCard({ listing, listView = false }) {
+  const navigate = useNavigate()
   const [hovered, setHovered] = useState(false)
   const [saved,   setSaved]   = useState(false)
   const isGaming = listing.category === 'gaming'
@@ -55,7 +57,7 @@ export default function ListingCard({ listing, listView = false }) {
             <div className="flex items-center gap-2 mb-1">
               <span className={tagClass} style={{ fontSize: '0.62rem', padding: '2px 8px' }}>{subcat}</span>
               {available
-                ? <span className="text-xs" style={{ color: '#00ff94' }}>● Available</span>
+                ? <span className="text-xs" style={{ color: 'var(--success)' }}>● Available</span>
                 : <span className="text-xs" style={{ color: '#ff6b9d' }}>● Booked</span>}
             </div>
             <h3 className="font-display font-bold text-white text-sm leading-snug truncate">{listing.title}</h3>
@@ -148,10 +150,10 @@ export default function ListingCard({ listing, listView = false }) {
               style={{
                 background: 'rgba(0,0,0,0.55)',
                 backdropFilter: 'blur(8px)',
-                color: available ? '#00ff94' : '#ff6b9d',
+                color: available ? 'var(--success)' : 'var(--magenta)',
               }}>
               <span className="w-1.5 h-1.5 rounded-full"
-                style={{ background: available ? '#00ff94' : '#ff6b9d' }} />
+                style={{ background: available ? 'var(--success)' : 'var(--magenta)' }} />
               {available ? 'Available' : 'Booked'}
             </div>
           </div>
@@ -197,7 +199,7 @@ export default function ListingCard({ listing, listView = false }) {
                 {listerName}
               </span>
               {(verified || listing.profiles?.kyc_status === 'verified') && (
-                <Shield size={9} style={{ color: '#00ff94' }} />
+                <Shield size={9} style={{ color: 'var(--success)' }} />
               )}
             </div>
           </div>
@@ -217,18 +219,18 @@ export default function ListingCard({ listing, listView = false }) {
               )}
             </div>
 
-            <div
-              className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-display font-bold transition-all duration-300"
-              style={{
-                background: hovered
-                  ? `linear-gradient(90deg, ${accent}, ${isGaming ? '#00e5ff' : '#ff2e6d'})`
-                  : 'rgba(255,255,255,0.1)',
-                backdropFilter: 'blur(8px)',
-                color:     hovered ? '#0a0a14' : 'rgba(255,255,255,0.7)',
-                boxShadow: hovered ? `0 0 20px ${accent}50` : 'none',
-              }}>
-              Rent Now →
-            </div>
+            <button
+              type="button"
+              className={`card-rent${hovered ? ' is-hot' : ''}${isGaming ? ' is-gaming' : ' is-music'}`}
+              onClick={(e) => {
+                e.preventDefault()
+                e.stopPropagation()
+                navigate(`/listing/${listing.id}?rent=1`)
+              }}
+              aria-label={`Rent ${listing.title} now`}
+            >
+              Rent now
+            </button>
           </div>
         </div>
       </div>

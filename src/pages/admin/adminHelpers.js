@@ -58,7 +58,16 @@ export function explainAdminError(err) {
     return 'Admin API blocked (CORS/network). Stop Vite, run npm run dev again, confirm VITE_SUPABASE_URL.'
   }
   if (/stock_qty|stock_total|42703|PGRST204|schema cache/i.test(msg)) {
-    return 'Stock columns missing. Re-run supabase/admin_migration.sql in Supabase SQL Editor.'
+    return 'Stock columns missing. Re-run supabase/listings_columns_migration.sql in Supabase SQL Editor.'
+  }
+  if (/coupons|coupon_/i.test(msg) && /does not exist|schema cache|42P01/i.test(msg)) {
+    return 'Coupons table missing. Run supabase/coupons_migration.sql in Supabase SQL Editor.'
+  }
+  if (/payment_methods/i.test(msg) && /does not exist|schema cache|42P01/i.test(msg)) {
+    return 'Payment methods missing. Run supabase/payments_migration.sql in Supabase SQL Editor.'
+  }
+  if (/site_settings/i.test(msg) && /does not exist|schema cache|42P01/i.test(msg)) {
+    return 'Site settings missing. Run supabase/platform_fee_migration.sql in Supabase SQL Editor.'
   }
   return msg
 }

@@ -1,9 +1,8 @@
 import { useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
 import { Eye, EyeOff, Star, Shield, Trash2, ToggleLeft, ToggleRight } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import { useToast } from '../../contexts/ToastContext'
-import { AdminBadge, AdminConfirm, AdminEmpty, AdminSearch, matchesQuery } from './AdminShared'
+import { AdminAction, AdminBadge, AdminConfirm, AdminEmpty, AdminSearch, matchesQuery } from './AdminShared'
 import { displayName, explainAdminError } from './adminHelpers'
 
 export default function AdminListings({ listings, patchListing, removeListing }) {
@@ -97,17 +96,17 @@ export default function AdminListings({ listings, patchListing, removeListing })
                     </td>
                     <td>
                       <div className="admin-actions">
-                        <Link
+                        <AdminAction
+                          tip="View listing"
+                          ariaLabel={`View ${listing.title}`}
                           to={`/listing/${listing.id}`}
-                          className="admin-icon-btn"
-                          aria-label={`View ${listing.title}`}
                         >
                           <Eye size={14} />
-                        </Link>
-                        <button
-                          type="button"
-                          className={`admin-icon-btn${published ? ' admin-icon-btn--on' : ''}`}
-                          aria-label={published ? `Hide ${listing.title} from browse` : `Show ${listing.title} on browse`}
+                        </AdminAction>
+                        <AdminAction
+                          tip={published ? 'Hide from browse' : 'Show on browse'}
+                          ariaLabel={published ? `Hide ${listing.title} from browse` : `Show ${listing.title} on browse`}
+                          on={published}
                           onClick={() => updateListing(
                             listing,
                             { is_published: !published },
@@ -115,11 +114,11 @@ export default function AdminListings({ listings, patchListing, removeListing })
                           )}
                         >
                           {published ? <EyeOff size={14} /> : <Eye size={14} />}
-                        </button>
-                        <button
-                          type="button"
-                          className={`admin-icon-btn${listing.is_available ? ' admin-icon-btn--on' : ''}`}
-                          aria-label={listing.is_available ? `Mark ${listing.title} unavailable` : `Mark ${listing.title} available`}
+                        </AdminAction>
+                        <AdminAction
+                          tip={listing.is_available ? 'Mark unavailable' : 'Mark available'}
+                          ariaLabel={listing.is_available ? `Mark ${listing.title} unavailable` : `Mark ${listing.title} available`}
+                          on={listing.is_available}
                           onClick={() => updateListing(
                             listing,
                             { is_available: !listing.is_available },
@@ -127,11 +126,11 @@ export default function AdminListings({ listings, patchListing, removeListing })
                           )}
                         >
                           {listing.is_available ? <ToggleRight size={14} /> : <ToggleLeft size={14} />}
-                        </button>
-                        <button
-                          type="button"
-                          className={`admin-icon-btn${listing.is_featured ? ' admin-icon-btn--on' : ''}`}
-                          aria-label={listing.is_featured ? `Unfeature ${listing.title}` : `Feature ${listing.title}`}
+                        </AdminAction>
+                        <AdminAction
+                          tip={listing.is_featured ? 'Unfeature' : 'Feature'}
+                          ariaLabel={listing.is_featured ? `Unfeature ${listing.title}` : `Feature ${listing.title}`}
+                          on={listing.is_featured}
                           onClick={() => updateListing(
                             listing,
                             { is_featured: !listing.is_featured },
@@ -139,11 +138,11 @@ export default function AdminListings({ listings, patchListing, removeListing })
                           )}
                         >
                           <Star size={14} />
-                        </button>
-                        <button
-                          type="button"
-                          className={`admin-icon-btn${listing.is_verified ? ' admin-icon-btn--on' : ''}`}
-                          aria-label={listing.is_verified ? `Unverify ${listing.title}` : `Verify ${listing.title}`}
+                        </AdminAction>
+                        <AdminAction
+                          tip={listing.is_verified ? 'Remove verify' : 'Verify listing'}
+                          ariaLabel={listing.is_verified ? `Unverify ${listing.title}` : `Verify ${listing.title}`}
+                          on={listing.is_verified}
                           onClick={() => updateListing(
                             listing,
                             { is_verified: !listing.is_verified },
@@ -151,15 +150,15 @@ export default function AdminListings({ listings, patchListing, removeListing })
                           )}
                         >
                           <Shield size={14} />
-                        </button>
-                        <button
-                          type="button"
-                          className="admin-icon-btn admin-icon-btn--danger"
-                          aria-label={`Delete ${listing.title}`}
+                        </AdminAction>
+                        <AdminAction
+                          tip="Delete listing"
+                          ariaLabel={`Delete ${listing.title}`}
+                          danger
                           onClick={() => setDeleteTarget(listing)}
                         >
                           <Trash2 size={14} />
-                        </button>
+                        </AdminAction>
                       </div>
                     </td>
                   </tr>

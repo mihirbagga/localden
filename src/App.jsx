@@ -1,4 +1,3 @@
-import { useState } from 'react'
 import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
 import { AuthProvider } from './contexts/AuthContext'
@@ -7,13 +6,17 @@ import Navbar from './components/Navbar'
 import Footer from './components/Footer'
 import ProtectedRoute from './components/ProtectedRoute'
 import AdminRoute from './components/AdminRoute'
-import WelcomeScreen from './components/WelcomeScreen'
 import Home from './pages/Home'
 import Browse from './pages/Browse'
 import ListItem from './pages/ListItem'
 import HowItWorks from './pages/HowItWorks'
+import Contact from './pages/Contact'
+import About from './pages/About'
+import Terms from './pages/Terms'
 import Login from './pages/Login'
 import Signup from './pages/Signup'
+import ForgotPassword from './pages/ForgotPassword'
+import ResetPassword from './pages/ResetPassword'
 import ListingDetail from './pages/ListingDetail'
 import Dashboard from './pages/Dashboard'
 import Admin from './pages/Admin'
@@ -35,8 +38,13 @@ function AnimatedRoutes() {
           <Route path="/"             element={<Home />} />
           <Route path="/browse"       element={<Browse />} />
           <Route path="/how-it-works" element={<HowItWorks />} />
+          <Route path="/contact"      element={<Contact />} />
+          <Route path="/about"        element={<About />} />
+          <Route path="/terms"        element={<Terms />} />
           <Route path="/login"        element={<Login />} />
           <Route path="/signup"       element={<Signup />} />
+          <Route path="/forgot-password" element={<ForgotPassword />} />
+          <Route path="/reset-password"  element={<ResetPassword />} />
           <Route path="/listing/:id"  element={<ListingDetail />} />
 
           {/* Protected routes — require login */}
@@ -56,19 +64,9 @@ function AnimatedRoutes() {
 }
 
 export default function App() {
-  const [entered, setEntered] = useState(
-    () => sessionStorage.getItem('den-entered') === 'true'
-  )
-
-  const handleEnter = () => {
-    sessionStorage.setItem('den-entered', 'true')
-    setEntered(true)
-  }
-
   return (
     <AuthProvider>
       <ToastProvider>
-        {!entered && <WelcomeScreen onEnter={handleEnter} />}
         <BrowserRouter>
           <div className="min-h-screen flex flex-col">
             <Navbar />

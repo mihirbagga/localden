@@ -17,6 +17,7 @@ export default function AdminBookings({ bookings, patchBooking }) {
       b.lister?.full_name,
       b.status,
       b.razorpay_payment_id,
+      b.coupon_code,
     ], query))
   ), [bookings, query])
 
@@ -84,13 +85,19 @@ export default function AdminBookings({ bookings, patchBooking }) {
                   </td>
                   <td>
                     ₹{booking.total_amount}
-                    <span className="admin-cell-sub">{booking.payment_status || 'pending'}</span>
+                    <span className="admin-cell-sub">
+                      {booking.payment_status || 'pending'}
+                      {booking.payment_method ? ` · ${booking.payment_method}` : ''}
+                      {booking.payment_ref ? ` · ${booking.payment_ref}` : ''}
+                      {booking.coupon_code ? ` · ${booking.coupon_code} −₹${booking.discount_amount || 0}` : ''}
+                    </span>
                   </td>
                   <td>
                     <select
                       className="select-dark admin-select"
                       value={booking.status}
                       aria-label={`Status for booking ${shortId(booking.id)}`}
+                      title="Change booking status"
                       onChange={(e) => handleStatus(booking, e.target.value)}
                     >
                       {BOOKING_STATUSES.map((opt) => (

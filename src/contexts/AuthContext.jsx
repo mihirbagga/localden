@@ -74,6 +74,18 @@ export function AuthProvider({ children }) {
     if (error) throw error
   }
 
+  const requestPasswordReset = async (email) => {
+    const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+      redirectTo: `${window.location.origin}/reset-password`,
+    })
+    if (error) throw error
+  }
+
+  const updatePassword = async (password) => {
+    const { error } = await supabase.auth.updateUser({ password })
+    if (error) throw error
+  }
+
   /* ── Sign out ─────────────────────────────── */
   const signOut = async () => {
     await supabase.auth.signOut()
@@ -119,6 +131,7 @@ export function AuthProvider({ children }) {
     <AuthContext.Provider value={{
       user, profile, loading,
       signUp, signIn, signInWithGoogle, signOut,
+      requestPasswordReset, updatePassword,
       updateProfile, uploadAvatar,
       isAuthenticated: !!user,
       isAdmin,

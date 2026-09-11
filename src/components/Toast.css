@@ -48,7 +48,7 @@
   margin-top: 0.1rem;
 }
 
-.toast-item--success .toast-item__icon { color: #00ff94; }
+.toast-item--success .toast-item__icon { color: var(--success); }
 .toast-item--error .toast-item__icon { color: #ff6b9d; }
 .toast-item--info .toast-item__icon { color: #00e5ff; }
 

@@ -1,7 +1,7 @@
 .admin-page {
   position: relative;
   min-height: 100vh;
-  padding: 6rem 0 5rem;
+  padding: calc(5.5rem + env(safe-area-inset-top, 0px)) 0 calc(4rem + env(safe-area-inset-bottom, 0px));
 }
 
 .admin-wrap {
@@ -121,7 +121,7 @@
 }
 .admin-stat--green .admin-stat__icon {
   background: rgba(0, 255, 148, 0.12);
-  color: #00ff94;
+  color: var(--success);
 }
 
 .admin-stat__value {
@@ -133,7 +133,7 @@
 .admin-stat--magenta .admin-stat__value { color: #ff2e6d; }
 .admin-stat--cyan .admin-stat__value { color: #00e5ff; }
 .admin-stat--gold .admin-stat__value { color: #ffd23f; }
-.admin-stat--green .admin-stat__value { color: #00ff94; }
+.admin-stat--green .admin-stat__value { color: var(--success); }
 
 .admin-stat__label {
   font-family: 'Rajdhani', sans-serif;
@@ -304,7 +304,7 @@
 .admin-badge--active,
 .admin-badge--live {
   background: rgba(0, 255, 148, 0.12);
-  color: #00ff94;
+  color: var(--success);
 }
 
 .admin-badge--rejected,
@@ -374,12 +374,45 @@
 .admin-icon-btn--on {
   background: rgba(0, 255, 148, 0.12);
   border-color: rgba(0, 255, 148, 0.35);
-  color: #00ff94;
+  color: var(--success);
 }
 
 .admin-icon-btn:disabled {
   opacity: 0.4;
   cursor: not-allowed;
+}
+
+.admin-float-tip {
+  position: fixed;
+  left: 0;
+  top: 0;
+  z-index: 90;
+  transform: translate(
+    calc(var(--admin-tip-x, 0px) - 50%),
+    calc(var(--admin-tip-y, 0px) - 100% - 8px)
+  );
+  padding: 0.3rem 0.55rem;
+  border-radius: 0.45rem;
+  background: rgba(14, 14, 28, 0.96);
+  border: 1px solid rgba(255, 46, 109, 0.35);
+  color: #fff;
+  font-family: 'Rajdhani', sans-serif;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  white-space: nowrap;
+  pointer-events: none;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.4);
+}
+
+.admin-float-tip::after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  margin-left: -4px;
+  border: 4px solid transparent;
+  border-top-color: rgba(255, 46, 109, 0.35);
 }
 
 .admin-select {
@@ -518,3 +551,39 @@
 }
 
 .admin-row--low { background: rgba(255, 210, 63, 0.04); }
+
+.admin-coupon-form { margin-bottom: 1.25rem; }
+
+.admin-form-grid {
+  display: grid;
+  gap: 0.8rem;
+}
+
+@media (min-width: 640px) {
+  .admin-form-grid { grid-template-columns: 1fr 1fr; }
+}
+
+.admin-form-wide { grid-column: 1 / -1; }
+
+.admin-check {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-family: 'Rajdhani', sans-serif;
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.75);
+  align-self: end;
+  padding-bottom: 0.4rem;
+}
+
+.admin-form-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  margin-top: 1rem;
+}
+
+.admin-pay-intro { margin-bottom: 1rem; }
+
+.admin-fee-preview { margin: 0.85rem 0 0; }

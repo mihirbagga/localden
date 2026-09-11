@@ -25,11 +25,11 @@ function hydrateReviews(reviews, usersById) {
   }))
 }
 
-async function loadRows(table, select) {
+async function loadRows(table, select, orderCol = 'created_at') {
   const { data, error } = await supabase
     .from(table)
     .select(select)
-    .order('created_at', { ascending: false })
+    .order(orderCol, { ascending: orderCol === 'sort_order' })
     .limit(PAGE_SIZE)
   if (error) throw error
   return data || []
@@ -41,10 +41,12 @@ async function fetchAll() {
     loadRows('listings', '*, profiles(id, full_name, email, kyc_status)'),
     loadRows('bookings', '*, listings(id, title, emoji, category)'),
     loadRows('reviews', '*, listings(id, title, emoji)'),
+    loadRows('coupons', '*'),
+    loadRows('payment_methods', '*', 'sort_order'),
   ])
 
-  const labels = ['users', 'listings', 'bookings', 'reviews']
-  const values = [[], [], [], []]
+  const labels = ['users', 'listings', 'bookings', 'reviews', 'coupons', 'payments']
+  const values = [[], [], [], [], [], []]
   const failures = []
 
   settled.forEach((result, i) => {
@@ -55,7 +57,7 @@ async function fetchAll() {
     failures.push(`${labels[i]}: ${explainAdminError(result.reason)}`)
   })
 
-  const [users, listings, bookings, reviews] = values
+  const [users, listings, bookings, reviews, coupons, paymentMethods] = values
   const usersById = profileMap(users)
 
   return {
@@ -63,6 +65,8 @@ async function fetchAll() {
     listings,
     bookings: hydrateBookings(bookings, usersById),
     reviews: hydrateReviews(reviews, usersById),
+    coupons,
+    paymentMethods,
     failures,
   }
 }
@@ -73,6 +77,8 @@ export function useAdminData() {
   const [listings, setListings] = useState([])
   const [bookings, setBookings] = useState([])
   const [reviews, setReviews] = useState([])
+  const [coupons, setCoupons] = useState([])
+  const [paymentMethods, setPaymentMethods] = useState([])
   const [loading, setLoading] = useState(true)
 
   const reload = useCallback(async () => {
@@ -83,6 +89,8 @@ export function useAdminData() {
       setListings(data.listings)
       setBookings(data.bookings)
       setReviews(data.reviews)
+      setCoupons(data.coupons)
+      setPaymentMethods(data.paymentMethods)
       if (data.failures.length) {
         showToast(data.failures[0], 'error')
       }
@@ -121,11 +129,24 @@ export function useAdminData() {
     setReviews((prev) => prev.filter((row) => row.id !== id))
   }, [])
 
+  const patchCoupon = useCallback((id, patch) => {
+    setCoupons((prev) => prev.map((row) => (row.id === id ? { ...row, ...patch } : row)))
+  }, [])
+
+  const removeCoupon = useCallback((id) => {
+    setCoupons((prev) => prev.filter((row) => row.id !== id))
+  }, [])
+
+  const patchPaymentMethod = useCallback((id, patch) => {
+    setPaymentMethods((prev) => prev.map((row) => (row.id === id ? { ...row, ...patch } : row)))
+  }, [])
+
   return {
     users,
     listings,
     bookings,
     reviews,
+    coupons,
     loading,
     reload,
     patchUser,
@@ -134,5 +155,10 @@ export function useAdminData() {
     patchBooking,
     patchReview,
     removeReview,
+    setCoupons,
+    patchCoupon,
+    removeCoupon,
+    paymentMethods,
+    patchPaymentMethod,
   }
 }

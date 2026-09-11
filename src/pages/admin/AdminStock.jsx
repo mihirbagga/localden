@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import { Minus, Plus, Save } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import { useToast } from '../../contexts/ToastContext'
-import { AdminBadge, AdminEmpty, AdminSearch, matchesQuery } from './AdminShared'
+import { AdminAction, AdminBadge, AdminEmpty, AdminSearch, matchesQuery } from './AdminShared'
 import { explainAdminError, isLowStock } from './adminHelpers'
 
 function toQty(value) {
@@ -109,14 +109,13 @@ export default function AdminStock({ listings, patchListing }) {
                     </td>
                     <td>
                       <div className="admin-stock-row">
-                        <button
-                          type="button"
-                          className="admin-icon-btn"
-                          aria-label={`Decrease stock for ${listing.title}`}
+                        <AdminAction
+                          tip="Decrease stock"
+                          ariaLabel={`Decrease stock for ${listing.title}`}
                           onClick={() => bump(listing, 'stockQty', -1)}
                         >
                           <Minus size={12} />
-                        </button>
+                        </AdminAction>
                         <input
                           className="input-dark admin-stock-input"
                           type="number"
@@ -125,14 +124,13 @@ export default function AdminStock({ listings, patchListing }) {
                           aria-label={`In-stock quantity for ${listing.title}`}
                           onChange={(e) => setField(listing, 'stockQty', e.target.value)}
                         />
-                        <button
-                          type="button"
-                          className="admin-icon-btn"
-                          aria-label={`Increase stock for ${listing.title}`}
+                        <AdminAction
+                          tip="Increase stock"
+                          ariaLabel={`Increase stock for ${listing.title}`}
                           onClick={() => bump(listing, 'stockQty', 1)}
                         >
                           <Plus size={12} />
-                        </button>
+                        </AdminAction>
                       </div>
                     </td>
                     <td>
@@ -151,15 +149,15 @@ export default function AdminStock({ listings, patchListing }) {
                         : <AdminBadge kind="live">OK</AdminBadge>}
                     </td>
                     <td>
-                      <button
-                        type="button"
-                        className="admin-icon-btn admin-icon-btn--on"
-                        aria-label={`Save stock for ${listing.title}`}
+                      <AdminAction
+                        tip="Save stock"
+                        ariaLabel={`Save stock for ${listing.title}`}
+                        on
                         disabled={savingId === listing.id}
                         onClick={() => saveStock(listing)}
                       >
                         <Save size={14} />
-                      </button>
+                      </AdminAction>
                     </td>
                   </tr>
                 )

@@ -1,12 +1,20 @@
 import { Link } from 'react-router-dom'
-import { Instagram, Twitter, Youtube, Heart } from 'lucide-react'
+import { Instagram, Twitter, Youtube, Heart, Mail, Phone } from 'lucide-react'
 import LogoMark from './LogoMark'
+import {
+  SUPPORT_EMAIL,
+  SUPPORT_MAIL_HREF,
+  SUPPORT_PHONE,
+  SUPPORT_TEL_HREF,
+} from '../lib/contact'
+import '../pages/contact.css'
 
 const footerLinks = {
   Platform: [
     { label: 'Browse Listings', to: '/browse'       },
     { label: 'List Your Gear',  to: '/list-item'    },
     { label: 'How It Works',    to: '/how-it-works' },
+    { label: 'Contact Support', to: '/contact'      },
   ],
   Categories: [
     { label: '🎮 Gaming Consoles',   to: '/browse?cat=gaming'         },
@@ -15,10 +23,11 @@ const footerLinks = {
     { label: '🎹 Keyboards & Synths',to: '/browse?cat=music&sub=keyboard' },
   ],
   Company: [
-    { label: 'About Us',       to: '/' },
-    { label: 'Trust & Safety', to: '/' },
-    { label: 'Contact',        to: '/' },
-    { label: 'Privacy Policy', to: '/' },
+    { label: 'About Us',       to: '/about' },
+    { label: 'Trust & Safety', to: '/how-it-works' },
+    { label: 'Contact Support', to: '/contact' },
+    { label: 'Terms & Damage', to: '/terms' },
+    { label: 'Privacy Policy', to: '/terms' },
   ],
 }
 
@@ -54,6 +63,17 @@ export default function Footer() {
               Bangalore's first P2P rental marketplace for gaming consoles and music instruments.
               Rent from real people. Earn from your gear.
             </p>
+
+            <div className="footer-contact">
+              <a href={SUPPORT_TEL_HREF} aria-label={`Call ${SUPPORT_PHONE}`}>
+                <Phone size={14} aria-hidden="true" />
+                {SUPPORT_PHONE}
+              </a>
+              <a href={SUPPORT_MAIL_HREF} aria-label={`Email ${SUPPORT_EMAIL}`}>
+                <Mail size={14} aria-hidden="true" />
+                {SUPPORT_EMAIL}
+              </a>
+            </div>
 
             <div className="flex items-center gap-2 mb-6">
               <span className="tag-gaming flex items-center gap-1">

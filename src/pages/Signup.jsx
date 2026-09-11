@@ -2,12 +2,17 @@ import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { Eye, EyeOff, Mail, Lock, User, Phone, AlertCircle, CheckCircle } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
+import { useToast } from '../contexts/ToastContext'
+import { welcomeCouponCode } from '../lib/coupons'
 import LogoMark from '../components/LogoMark'
 import GameBackground from '../components/GameBackground'
+import './auth.css'
 
 export default function Signup() {
   const navigate = useNavigate()
   const { signUp, signInWithGoogle } = useAuth()
+  const { showToast } = useToast()
+  const welcomeCode = welcomeCouponCode(form.fullName)
 
   const [form, setForm] = useState({
     fullName: '', email: '', phone: '', password: '', confirm: '',
@@ -37,6 +42,7 @@ export default function Signup() {
         phone:    form.phone,
       })
       setSuccess(true)
+      showToast(`Welcome coupon ${welcomeCouponCode(form.fullName)} — 50% off`, 'success')
     } catch (err) {
       setError(err.message || 'Sign up failed. Please try again.')
     } finally {
@@ -52,10 +58,15 @@ export default function Signup() {
         <div className="relative z-10 text-center glass rounded-3xl p-10 max-w-md w-full">
           <div className="text-5xl mb-4">📧</div>
           <h2 className="font-bungee text-2xl text-white mb-3">Check your email!</h2>
-          <p className="font-display text-sm mb-6" style={{ color: 'rgba(255,255,255,0.5)' }}>
-            We sent a confirmation link to <strong className="text-white">{form.email}</strong>.
+          <p className="auth-ok-copy">
+            We sent a confirmation link to <strong>{form.email}</strong>.
             Click it to activate your account.
           </p>
+          <div className="auth-coupon">
+            <span>Your welcome coupon</span>
+            <strong>{welcomeCode}</strong>
+            <em>50% off first rental · one use</em>
+          </div>
           <Link to="/login" className="btn-primary inline-flex">Go to Login</Link>
         </div>
       </div>

@@ -1,5 +1,73 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
+import { createPortal } from 'react-dom'
+import { Link } from 'react-router-dom'
 import { X } from 'lucide-react'
+
+export function AdminAction({ tip, ariaLabel, onClick, to, danger, on, disabled, children }) {
+  const [tipPos, setTipPos] = useState(null)
+
+  const showTip = (event) => {
+    const rect = event.currentTarget.getBoundingClientRect()
+    setTipPos({
+      x: Math.round(rect.left + rect.width / 2),
+      y: Math.round(rect.top),
+    })
+  }
+
+  const hideTip = () => setTipPos(null)
+
+  useEffect(() => {
+    if (!tipPos) return undefined
+    const hide = () => setTipPos(null)
+    window.addEventListener('scroll', hide, true)
+    return () => window.removeEventListener('scroll', hide, true)
+  }, [tipPos])
+
+  const className = [
+    'admin-icon-btn',
+    danger ? 'admin-icon-btn--danger' : '',
+    on ? 'admin-icon-btn--on' : '',
+  ].filter(Boolean).join(' ')
+
+  const shared = {
+    className,
+    'aria-label': ariaLabel || tip,
+    onMouseEnter: showTip,
+    onMouseLeave: hideTip,
+    onFocus: showTip,
+    onBlur: hideTip,
+  }
+
+  const control = to ? (
+    <Link to={to} {...shared}>{children}</Link>
+  ) : (
+    <button type="button" onClick={onClick} disabled={disabled} {...shared}>
+      {children}
+    </button>
+  )
+
+  return (
+    <>
+      {control}
+      {tipPos
+        ? createPortal(
+            <span
+              className="admin-float-tip"
+              role="tooltip"
+              ref={(el) => {
+                if (!el) return
+                el.style.setProperty('--admin-tip-x', `${tipPos.x}px`)
+                el.style.setProperty('--admin-tip-y', `${tipPos.y}px`)
+              }}
+            >
+              {tip}
+            </span>,
+            document.body
+          )
+        : null}
+    </>
+  )
+}
 
 export function AdminStat({ icon, label, value, sub, tone = 'magenta' }) {
   return (
@@ -73,14 +141,9 @@ export function AdminConfirm({ title, body, confirmLabel, loading, onConfirm, on
         aria-labelledby="admin-confirm-title"
         onClick={(e) => e.stopPropagation()}
       >
-        <button
-          type="button"
-          className="admin-icon-btn"
-          aria-label="Close dialog"
-          onClick={onCancel}
-        >
+        <AdminAction tip="Close" ariaLabel="Close dialog" onClick={onCancel}>
           <X size={14} />
-        </button>
+        </AdminAction>
         <h2 id="admin-confirm-title" className="admin-confirm__title">{title}</h2>
         <p className="admin-confirm__body">{body}</p>
         <div className="admin-confirm__actions">

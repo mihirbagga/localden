@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import { Eye, EyeOff, Trash2 } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import { useToast } from '../../contexts/ToastContext'
-import { AdminBadge, AdminConfirm, AdminEmpty, AdminSearch, matchesQuery } from './AdminShared'
+import { AdminAction, AdminBadge, AdminConfirm, AdminEmpty, AdminSearch, matchesQuery } from './AdminShared'
 import { displayName, explainAdminError, formatDate } from './adminHelpers'
 
 function starText(rating) {
@@ -112,22 +112,22 @@ export default function AdminReviews({ reviews, patchReview, removeReview }) {
                   </td>
                   <td>
                     <div className="admin-actions">
-                      <button
-                        type="button"
-                        className={`admin-icon-btn${review.is_hidden ? '' : ' admin-icon-btn--on'}`}
-                        aria-label={review.is_hidden ? 'Show review on listing' : 'Hide review from listing'}
+                      <AdminAction
+                        tip={review.is_hidden ? 'Show review' : 'Hide review'}
+                        ariaLabel={review.is_hidden ? 'Show review on listing' : 'Hide review from listing'}
+                        on={!review.is_hidden}
                         onClick={() => toggleHidden(review)}
                       >
                         {review.is_hidden ? <Eye size={14} /> : <EyeOff size={14} />}
-                      </button>
-                      <button
-                        type="button"
-                        className="admin-icon-btn admin-icon-btn--danger"
-                        aria-label="Delete review"
+                      </AdminAction>
+                      <AdminAction
+                        tip="Delete review"
+                        ariaLabel="Delete review"
+                        danger
                         onClick={() => setDeleteTarget(review)}
                       >
                         <Trash2 size={14} />
-                      </button>
+                      </AdminAction>
                     </div>
                   </td>
                 </tr>

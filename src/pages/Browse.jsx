@@ -23,7 +23,9 @@ export default function Browse() {
 
   useEffect(() => {
     const cat = params.get('cat')
+    const loc = params.get('loc')
     if (cat) setActiveCategory(cat)
+    if (loc && LOCATIONS.includes(loc)) setLocation(loc)
   }, [params])
 
   /* ── Real data from Supabase ────────────────── */
