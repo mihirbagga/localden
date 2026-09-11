@@ -3,7 +3,7 @@ import { Ban, ShieldCheck } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import { useToast } from '../../contexts/ToastContext'
 import { AdminBadge, AdminConfirm, AdminEmpty, AdminSearch, matchesQuery } from './AdminShared'
-import { ADMIN_ROLES, KYC_LABEL, KYC_OPTIONS, ROLE_LABEL, displayName, formatDate } from './adminHelpers'
+import { ADMIN_ROLES, KYC_LABEL, KYC_OPTIONS, ROLE_LABEL, displayName, explainAdminError, formatDate } from './adminHelpers'
 
 export default function AdminUsers({ users, patchUser, isSuperAdmin, currentUserId }) {
   const { showToast } = useToast()
@@ -21,7 +21,7 @@ export default function AdminUsers({ users, patchUser, isSuperAdmin, currentUser
       .update({ ...patch, updated_at: new Date().toISOString() })
       .eq('id', id)
     if (error) {
-      showToast(error.message, 'error')
+      showToast(explainAdminError(error), 'error')
       return
     }
     patchUser(id, patch)

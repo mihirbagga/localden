@@ -51,3 +51,14 @@ export function isLowStock(listing) {
   if (qty == null) return false
   return qty <= LOW_STOCK_THRESHOLD
 }
+
+export function explainAdminError(err) {
+  const msg = err?.message || String(err || 'Request failed')
+  if (/failed to fetch|networkerror|load failed|cors/i.test(msg)) {
+    return 'Admin API blocked (CORS/network). Stop Vite, run npm run dev again, confirm VITE_SUPABASE_URL.'
+  }
+  if (/stock_qty|stock_total|42703|PGRST204|schema cache/i.test(msg)) {
+    return 'Stock columns missing. Re-run supabase/admin_migration.sql in Supabase SQL Editor.'
+  }
+  return msg
+}

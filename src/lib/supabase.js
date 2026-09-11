@@ -1,7 +1,24 @@
 import { createClient } from '@supabase/supabase-js'
 
-const supabaseUrl  = import.meta.env.VITE_SUPABASE_URL
-const supabaseKey  = import.meta.env.VITE_SUPABASE_ANON_KEY
+function normalizeUrl(url) {
+  return String(url || '')
+    .trim()
+    .replace(/\/+$/, '')
+    .replace(/\/rest\/v1$/i, '')
+}
+
+function resolveSupabaseUrl() {
+  const raw = normalizeUrl(import.meta.env.VITE_SUPABASE_URL)
+  if (!raw) return ''
+  // Dev: same-origin proxy. Avoids browser CORS on REST/Auth/Realtime.
+  if (import.meta.env.DEV && typeof window !== 'undefined') {
+    return `${window.location.origin}/__supabase`
+  }
+  return raw
+}
+
+const supabaseUrl = resolveSupabaseUrl()
+const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY
 
 if (!supabaseUrl || !supabaseKey) {
   console.warn(
@@ -11,12 +28,12 @@ if (!supabaseUrl || !supabaseKey) {
 }
 
 export const supabase = createClient(
-  supabaseUrl  || 'https://placeholder.supabase.co',
-  supabaseKey  || 'placeholder-key',
+  supabaseUrl || 'https://placeholder.supabase.co',
+  supabaseKey || 'placeholder-key',
   {
     auth: {
-      autoRefreshToken:  true,
-      persistSession:    true,
+      autoRefreshToken: true,
+      persistSession: true,
       detectSessionInUrl: true,
     },
   }

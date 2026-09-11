@@ -4,7 +4,7 @@ import { Eye, EyeOff, Star, Shield, Trash2, ToggleLeft, ToggleRight } from 'luci
 import { supabase } from '../../lib/supabase'
 import { useToast } from '../../contexts/ToastContext'
 import { AdminBadge, AdminConfirm, AdminEmpty, AdminSearch, matchesQuery } from './AdminShared'
-import { displayName } from './adminHelpers'
+import { displayName, explainAdminError } from './adminHelpers'
 
 export default function AdminListings({ listings, patchListing, removeListing }) {
   const { showToast } = useToast()
@@ -22,7 +22,7 @@ export default function AdminListings({ listings, patchListing, removeListing })
       .update({ ...patch, updated_at: new Date().toISOString() })
       .eq('id', listing.id)
     if (error) {
-      showToast(error.message, 'error')
+      showToast(explainAdminError(error), 'error')
       return
     }
     patchListing(listing.id, patch)
@@ -35,7 +35,7 @@ export default function AdminListings({ listings, patchListing, removeListing })
     const { error } = await supabase.from('listings').delete().eq('id', deleteTarget.id)
     setBusy(false)
     if (error) {
-      showToast(error.message, 'error')
+      showToast(explainAdminError(error), 'error')
       return
     }
     removeListing(deleteTarget.id)

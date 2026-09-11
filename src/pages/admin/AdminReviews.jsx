@@ -4,7 +4,7 @@ import { Eye, EyeOff, Trash2 } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import { useToast } from '../../contexts/ToastContext'
 import { AdminBadge, AdminConfirm, AdminEmpty, AdminSearch, matchesQuery } from './AdminShared'
-import { displayName, formatDate } from './adminHelpers'
+import { displayName, explainAdminError, formatDate } from './adminHelpers'
 
 function starText(rating) {
   const n = Math.max(0, Math.min(5, rating || 0))
@@ -33,7 +33,7 @@ export default function AdminReviews({ reviews, patchReview, removeReview }) {
       .update({ is_hidden: isHidden })
       .eq('id', review.id)
     if (error) {
-      showToast(error.message, 'error')
+      showToast(explainAdminError(error), 'error')
       return
     }
     patchReview(review.id, { is_hidden: isHidden })
@@ -46,7 +46,7 @@ export default function AdminReviews({ reviews, patchReview, removeReview }) {
     const { error } = await supabase.from('reviews').delete().eq('id', deleteTarget.id)
     setBusy(false)
     if (error) {
-      showToast(error.message, 'error')
+      showToast(explainAdminError(error), 'error')
       return
     }
     removeReview(deleteTarget.id)

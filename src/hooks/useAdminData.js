@@ -1,52 +1,69 @@
 import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { useToast } from '../contexts/ToastContext'
+import { explainAdminError } from '../pages/admin/adminHelpers'
 
 const PAGE_SIZE = 400
 
+function profileMap(users) {
+  return Object.fromEntries(users.map((u) => [u.id, u]))
+}
+
+function hydrateBookings(bookings, usersById) {
+  return bookings.map((row) => ({
+    ...row,
+    renter: usersById[row.renter_id] || null,
+    lister: usersById[row.lister_id] || null,
+  }))
+}
+
+function hydrateReviews(reviews, usersById) {
+  return reviews.map((row) => ({
+    ...row,
+    reviewer: usersById[row.reviewer_id] || null,
+    reviewee: usersById[row.reviewee_id] || null,
+  }))
+}
+
+async function loadRows(table, select) {
+  const { data, error } = await supabase
+    .from(table)
+    .select(select)
+    .order('created_at', { ascending: false })
+    .limit(PAGE_SIZE)
+  if (error) throw error
+  return data || []
+}
+
 async function fetchAll() {
-  const [usersRes, listingsRes, bookingsRes, reviewsRes] = await Promise.all([
-    supabase
-      .from('profiles')
-      .select('*')
-      .order('created_at', { ascending: false })
-      .limit(PAGE_SIZE),
-    supabase
-      .from('listings')
-      .select('*, profiles(id, full_name, email, kyc_status)')
-      .order('created_at', { ascending: false })
-      .limit(PAGE_SIZE),
-    supabase
-      .from('bookings')
-      .select(`
-        *,
-        listings(id, title, emoji, category),
-        renter:profiles!renter_id(id, full_name, email),
-        lister:profiles!lister_id(id, full_name, email)
-      `)
-      .order('created_at', { ascending: false })
-      .limit(PAGE_SIZE),
-    supabase
-      .from('reviews')
-      .select(`
-        *,
-        listings(id, title, emoji),
-        reviewer:profiles!reviewer_id(id, full_name),
-        reviewee:profiles!reviewee_id(id, full_name)
-      `)
-      .order('created_at', { ascending: false })
-      .limit(PAGE_SIZE),
+  const settled = await Promise.allSettled([
+    loadRows('profiles', '*'),
+    loadRows('listings', '*, profiles(id, full_name, email, kyc_status)'),
+    loadRows('bookings', '*, listings(id, title, emoji, category)'),
+    loadRows('reviews', '*, listings(id, title, emoji)'),
   ])
 
-  const firstError =
-    usersRes.error || listingsRes.error || bookingsRes.error || reviewsRes.error
-  if (firstError) throw firstError
+  const labels = ['users', 'listings', 'bookings', 'reviews']
+  const values = [[], [], [], []]
+  const failures = []
+
+  settled.forEach((result, i) => {
+    if (result.status === 'fulfilled') {
+      values[i] = result.value
+      return
+    }
+    failures.push(`${labels[i]}: ${explainAdminError(result.reason)}`)
+  })
+
+  const [users, listings, bookings, reviews] = values
+  const usersById = profileMap(users)
 
   return {
-    users: usersRes.data || [],
-    listings: listingsRes.data || [],
-    bookings: bookingsRes.data || [],
-    reviews: reviewsRes.data || [],
+    users,
+    listings,
+    bookings: hydrateBookings(bookings, usersById),
+    reviews: hydrateReviews(reviews, usersById),
+    failures,
   }
 }
 
@@ -66,8 +83,11 @@ export function useAdminData() {
       setListings(data.listings)
       setBookings(data.bookings)
       setReviews(data.reviews)
+      if (data.failures.length) {
+        showToast(data.failures[0], 'error')
+      }
     } catch (err) {
-      showToast(err.message || 'Failed to load admin data', 'error')
+      showToast(explainAdminError(err), 'error')
     } finally {
       setLoading(false)
     }

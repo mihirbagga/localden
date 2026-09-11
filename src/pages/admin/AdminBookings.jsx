@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import { useToast } from '../../contexts/ToastContext'
 import { AdminEmpty, AdminSearch, matchesQuery } from './AdminShared'
-import { BOOKING_LABEL, BOOKING_STATUSES, displayName, formatDate, shortId } from './adminHelpers'
+import { BOOKING_LABEL, BOOKING_STATUSES, displayName, explainAdminError, formatDate, shortId } from './adminHelpers'
 
 export default function AdminBookings({ bookings, patchBooking }) {
   const { showToast } = useToast()
@@ -26,7 +26,7 @@ export default function AdminBookings({ bookings, patchBooking }) {
       .update({ status, updated_at: new Date().toISOString() })
       .eq('id', booking.id)
     if (error) {
-      showToast(error.message, 'error')
+      showToast(explainAdminError(error), 'error')
       return
     }
     patchBooking(booking.id, { status })

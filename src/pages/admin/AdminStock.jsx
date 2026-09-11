@@ -4,7 +4,7 @@ import { Minus, Plus, Save } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import { useToast } from '../../contexts/ToastContext'
 import { AdminBadge, AdminEmpty, AdminSearch, matchesQuery } from './AdminShared'
-import { isLowStock } from './adminHelpers'
+import { explainAdminError, isLowStock } from './adminHelpers'
 
 function toQty(value) {
   const n = parseInt(value, 10)
@@ -57,7 +57,7 @@ export default function AdminStock({ listings, patchListing }) {
       .eq('id', listing.id)
     setSavingId(null)
     if (error) {
-      showToast(error.message, 'error')
+      showToast(explainAdminError(error), 'error')
       return
     }
     patchListing(listing.id, { stock_qty: stockQty, stock_total: stockTotal })
