@@ -448,3 +448,6 @@ create trigger on_booking_coupon_redeemed
 -- Run separately in Supabase Dashboard → Storage:
 -- 1. Create bucket "listing-photos" (public)
 -- 2. Create bucket "kyc-docs" (private)
+--
+-- Then run supabase/booking_ops_migration.sql for check-in photos,
+-- availability dates, and booking alerts.

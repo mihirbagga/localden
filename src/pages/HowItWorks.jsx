@@ -20,12 +20,12 @@ const RENTER_STEPS = [
   {
     emoji: '📅',
     title: 'Book & pay',
-    desc: 'Pick dates, apply a coupon, choose UPI / QR / Razorpay / cash. Deposit sits with the booking until return.',
+    desc: 'Grey dates on the calendar are taken. Apply a coupon, then UPI / QR / Razorpay / cash. Deposit sits until return.',
   },
   {
     emoji: '🚚',
     title: 'Pickup or delivery',
-    desc: 'Meet the lister or get it dropped. Snap before-photos. Play, jam, host the night. Return on time.',
+    desc: 'Meet the lister or get it dropped. Check-in photos at handover, check-out at return. Alerts ping you the day before.',
   },
   {
     emoji: '⭐',
@@ -48,12 +48,12 @@ const LISTER_STEPS = [
   {
     emoji: '📬',
     title: 'Accept the booking',
-    desc: 'Get pinged, accept or decline. Deposit is collected up front so the item is covered.',
+    desc: 'Bell + WhatsApp when someone books. Accept or decline. Deposit is collected up front so the item is covered.',
   },
   {
     emoji: '🤝',
     title: 'Handover',
-    desc: 'Meet or deliver. Take before-photos together. Then relax while they use your gear.',
+    desc: 'Meet or deliver. Both sides add check-in photos. Check-out photos when it comes back.',
   },
   {
     emoji: '💸',
@@ -66,6 +66,10 @@ const TRUST = [
   {
     title: 'Security deposit',
     desc: 'Deposit held on the booking. Released after a safe return, or used if something is damaged.',
+  },
+  {
+    title: 'Check-in photos',
+    desc: 'Pickup and return photos live on the booking. Grey calendar dates stay blocked so two people cannot take the same weekend.',
   },
   {
     title: 'Verified people',
@@ -97,7 +101,8 @@ export default function HowItWorks() {
   }, [role, fee])
 
   const faqs = useMemo(() => ([
-    { q: 'What if the item gets damaged?', a: 'Deposit covers minor damage. We mediate disputes fairly. Tell us within 24 hours of return.' },
+    { q: 'What if the item gets damaged?', a: 'Check-in and check-out photos sit on the booking. Deposit covers damage beyond wear. Tell us within 24 hours of return.' },
+    { q: 'Why are some calendar dates grey?', a: 'Those days are already booked. The same unit cannot go to two people on overlapping dates.' },
     { q: 'How long does KYC take?', a: 'Usually under 2 minutes. Upload Aadhaar/PAN and a selfie. Auto or manual review within an hour.' },
     { q: 'Can I list more than one item?', a: 'Yes. Each listing has its own photos, price, and stock. No listing fee.' },
     { q: 'How is the platform fee calculated?', a: platformFeeFaq(fee) },

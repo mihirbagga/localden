@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { Menu, X, ChevronRight, LogOut, User, Shield } from 'lucide-react'
 import LogoMark from './LogoMark'
+import NotificationBell from './NotificationBell'
 import { useAuth } from '../contexts/AuthContext'
 import './navbar.css'
 
@@ -140,19 +141,19 @@ export default function Navbar() {
             })}
           </div>
 
-          {/* ── CTA (auth-aware) ────────────────────── */}
-          <NavbarAuth />
-
-          {/* ── Mobile toggle ──────────────────────── */}
-          <button
-            className="nav-toggle"
-            style={{ color: 'rgba(255,255,255,0.6)' }}
-            onClick={() => setOpen(!open)}
-            aria-label={open ? 'Close navigation menu' : 'Open navigation menu'}
-            aria-expanded={open}
-          >
-            {open ? <X size={22} /> : <Menu size={22} />}
-          </button>
+          <div className="nav-tools">
+            {isAuthenticated ? <NotificationBell /> : null}
+            <NavbarAuth />
+            <button
+              className="nav-toggle"
+              style={{ color: 'rgba(255,255,255,0.6)' }}
+              onClick={() => setOpen(!open)}
+              aria-label={open ? 'Close navigation menu' : 'Open navigation menu'}
+              aria-expanded={open}
+            >
+              {open ? <X size={22} /> : <Menu size={22} />}
+            </button>
+          </div>
         </div>
       </div>
 

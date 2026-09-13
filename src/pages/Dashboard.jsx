@@ -10,10 +10,13 @@ import ListingCard from '../components/ListingCard'
 import { useAuth } from '../contexts/AuthContext'
 import { useToast } from '../contexts/ToastContext'
 import { supabase } from '../lib/supabase'
+import { bookingThreadText, mailtoHref, otherPartyContact, whatsappHref } from '../lib/alerts'
+import { fetchInspections } from '../lib/inspections'
+import InspectionPanel from '../components/InspectionPanel'
 import './dashboard.css'
 
 const TABS = ['overview', 'listings', 'bookings', 'incoming']
-const BOOKING_SELECT = '*, listings(id, title, emoji, category, location)'
+const BOOKING_SELECT = '*, listings(id, title, emoji, category, location, contact_phone)'
 const LISTING_SELECT = '*, profiles(full_name, rating, kyc_status)'
 const PAID_STATUSES = ['confirmed', 'active', 'completed']
 const STATUS_CHIPS = ['all', 'pending', 'confirmed', 'active', 'completed', 'cancelled']
@@ -159,6 +162,7 @@ function StatCard({ icon, label, value, tone, sub, active, onClick, prefix = '' 
 }
 
 function BookingCard({ booking, role, open, onToggle, onStatus }) {
+  const { user } = useAuth()
   const listing = booking.listings
   const listingId = listing?.id
   const status = booking.status || 'pending'
@@ -172,6 +176,48 @@ function BookingCard({ booking, role, open, onToggle, onStatus }) {
 
   const listerActs = role === 'lister'
   const renterActs = role === 'renter'
+  const [other, setOther] = useState(null)
+  const [forcePhase, setForcePhase] = useState('')
+  const [pendingStatus, setPendingStatus] = useState('')
+
+  useEffect(() => {
+    if (!open) return undefined
+    const otherId = role === 'lister' ? booking.renter_id : booking.lister_id
+    let cancelled = false
+    supabase
+      .from('profiles')
+      .select('full_name, phone, email')
+      .eq('id', otherId)
+      .maybeSingle()
+      .then(({ data }) => { if (!cancelled) setOther(data) })
+    return () => { cancelled = true }
+  }, [open, role, booking.renter_id, booking.lister_id])
+
+  const contact = {
+    ...otherPartyContact({ ...booking, renter: other, lister: other }, role),
+    ...(other || {}),
+  }
+  const thread = bookingThreadText(booking)
+  const wa = contact.phone ? whatsappHref(contact.phone, thread) : ''
+  const mail = contact.email ? mailtoHref(contact.email, `लोकल Den · ${listing?.title || 'Booking'}`, thread) : ''
+
+  const askThenStatus = async (next) => {
+    if (next === 'active' || next === 'completed') {
+      const need = next === 'active' ? 'checkin' : 'checkout'
+      try {
+        const rows = await fetchInspections(booking.id)
+        const hasMine = rows.some((row) => row.phase === need && row.submitted_by === user?.id)
+        if (!hasMine) {
+          setPendingStatus(next)
+          setForcePhase(need)
+          return
+        }
+      } catch {
+        /* table missing — don't block status */
+      }
+    }
+    onStatus(booking, next)
+  }
 
   return (
     <div className={`dash-book${open ? ' is-open' : ''}`}>
@@ -213,9 +259,32 @@ function BookingCard({ booking, role, open, onToggle, onStatus }) {
               <b>{booking.delivery_type || 'pickup'}</b>
             </div>
           </div>
+          {['confirmed', 'active', 'completed'].includes(status) ? (
+            <InspectionPanel
+              booking={booking}
+              role={role}
+              forcePhase={forcePhase}
+              onForceHandled={() => setForcePhase('')}
+              onAfterSave={(phase) => {
+                if (pendingStatus === 'active' && phase === 'checkin') onStatus(booking, 'active')
+                if (pendingStatus === 'completed' && phase === 'checkout') onStatus(booking, 'completed')
+                setPendingStatus('')
+                setForcePhase('')
+              }}
+            />
+          ) : null}
+
           <div className="dash-book__acts">
             {listingId ? (
               <Link to={`/listing/${listingId}`} className="is-cyan">Open listing</Link>
+            ) : null}
+            {wa ? (
+              <a href={wa} target="_blank" rel="noreferrer" className="is-ok" aria-label={`WhatsApp ${contact.name}`}>
+                WhatsApp {contact.name.split(' ')[0]}
+              </a>
+            ) : null}
+            {mail ? (
+              <a href={mail} className="is-cyan" aria-label={`Email ${contact.name}`}>Email</a>
             ) : null}
             {listerActs && status === 'pending' ? (
               <>
@@ -224,10 +293,20 @@ function BookingCard({ booking, role, open, onToggle, onStatus }) {
               </>
             ) : null}
             {listerActs && status === 'confirmed' ? (
-              <button type="button" className="is-ok" onClick={() => onStatus(booking, 'active')} aria-label="Mark booking active">Mark handed over</button>
+              <button type="button" className="is-ok" onClick={() => askThenStatus('active')} aria-label="Mark booking active">Mark handed over</button>
             ) : null}
             {listerActs && status === 'active' ? (
-              <button type="button" className="is-ok" onClick={() => onStatus(booking, 'completed')} aria-label="Mark booking complete">Mark returned</button>
+              <button type="button" className="is-ok" onClick={() => askThenStatus('completed')} aria-label="Mark booking complete">Mark returned</button>
+            ) : null}
+            {renterActs && status === 'confirmed' ? (
+              <button type="button" className="is-ok" onClick={() => setForcePhase('checkin')} aria-label="Add check-in photos">
+                Check in
+              </button>
+            ) : null}
+            {renterActs && status === 'active' ? (
+              <button type="button" className="is-ok" onClick={() => setForcePhase('checkout')} aria-label="Add check-out photos">
+                Check out
+              </button>
             ) : null}
             {renterActs && status === 'pending' ? (
               <button type="button" className="is-danger" onClick={() => onStatus(booking, 'cancelled')} aria-label="Cancel booking">Cancel request</button>

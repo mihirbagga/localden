@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import {
@@ -21,31 +21,19 @@ import { supabase } from '../lib/supabase'
 import { normalizeCouponCode, priceWithCoupon, validateCoupon } from '../lib/coupons'
 import { platformFeeLabel } from '../lib/platformFee'
 import { isOnlineMethod, methodConfig, payButtonLabel } from '../lib/payments'
+import { listingUnits, rangeHasBusy, shiftIso, todayIso } from '../lib/bookingDates'
+import { useBusyDates } from '../hooks/useBusyDates'
+import AvailabilityCalendar from '../components/AvailabilityCalendar'
 import './terms.css'
 import './couponApply.css'
 import './listingDetail.css'
 
 const SAVED_KEY = 'ldSaved'
 const HOW_STEPS = [
-  { title: 'Pick dates', body: 'Tonight, weekend, or a full week. Total updates live.' },
+  { title: 'Pick dates', body: 'Grey days on the calendar are already booked. Total updates live.' },
   { title: 'Pay + deposit', body: 'Coupon, then UPI / QR / Razorpay / cash. Deposit sits until return.' },
-  { title: 'Handover', body: 'Pickup or delivery. Snap photos. Play. Return on time.' },
+  { title: 'Handover', body: 'Pickup or delivery. Check-in photos, then check-out when you return.' },
 ]
-
-function todayIso() {
-  const now = new Date()
-  const month = String(now.getMonth() + 1).padStart(2, '0')
-  const day = String(now.getDate()).padStart(2, '0')
-  return `${now.getFullYear()}-${month}-${day}`
-}
-
-function shiftIso(iso, days) {
-  const date = new Date(`${iso}T12:00:00`)
-  date.setDate(date.getDate() + days)
-  const month = String(date.getMonth() + 1).padStart(2, '0')
-  const day = String(date.getDate()).padStart(2, '0')
-  return `${date.getFullYear()}-${month}-${day}`
-}
 
 function weekendRange() {
   const start = new Date()
@@ -196,7 +184,11 @@ function BookingWidget({ listing, mobile = false, forceOpen = false }) {
   const isOwner = isAuthenticated && user?.id === listing.user_id
   const today = todayIso()
   const uid = mobile ? 'm' : 'd'
-  const outOfStock = (listing.stock_qty ?? 1) < 1 || listing.is_available === false
+  const units = listingUnits(listing)
+  const { busy } = useBusyDates(listing.id, units)
+  const busyRef = useRef(busy)
+  busyRef.current = busy
+  const outOfStock = listing.is_available === false
 
   const [startDate, setStartDate] = useState('')
   const [endDate, setEndDate] = useState('')
@@ -232,10 +224,17 @@ function BookingWidget({ listing, mobile = false, forceOpen = false }) {
   const step = days < 1 ? 1 : 2 + (acceptTerms ? 1 : 0)
 
   const applyRange = (from, to, chip) => {
+    if (from && to && rangeHasBusy(from, to, busyRef.current)) {
+      showToast('Those dates are already booked.', 'error')
+      setStartDate(from)
+      setEndDate('')
+      setQuick('')
+      return
+    }
     setStartDate(from)
     setEndDate(to)
     setQuick(chip)
-    setStepFocus(2)
+    if (from && to) setStepFocus(2)
   }
 
   useEffect(() => {
@@ -297,14 +296,12 @@ function BookingWidget({ listing, mobile = false, forceOpen = false }) {
     })
     setSaving(false)
     if (error) {
-      setPayError('Payment ok, booking save failed. Contact support.')
-      showToast('Booking save failed. Contact support.', 'error')
+      const taken = /already booked/i.test(error.message || '')
+      setPayError(taken ? 'Those dates were just booked. Pick another range.' : 'Payment ok, booking save failed. Contact support.')
+      showToast(taken ? 'Those dates are already booked.' : 'Booking save failed. Contact support.', 'error')
       return
     }
-    const nextQty = Math.max(0, (listing.stock_qty ?? 1) - 1)
     await supabase.from('listings').update({
-      stock_qty: nextQty,
-      is_available: nextQty > 0,
       total_bookings: (listing.total_bookings || 0) + 1,
       updated_at: new Date().toISOString(),
     }).eq('id', listing.id)
@@ -390,6 +387,11 @@ function BookingWidget({ listing, mobile = false, forceOpen = false }) {
     }
     if (!startDate || !endDate || days < 1) {
       showToast('Pick rental dates first.', 'error')
+      setStepFocus(1)
+      return
+    }
+    if (rangeHasBusy(startDate, endDate, busyRef.current)) {
+      showToast('Those dates are already booked.', 'error')
       setStepFocus(1)
       return
     }
@@ -527,6 +529,14 @@ function BookingWidget({ listing, mobile = false, forceOpen = false }) {
         <button type="button" className={`ld-chip${quick === 'week' ? ' is-on' : ''}`} onClick={() => applyRange(today, shiftIso(today, 7), 'week')} aria-label="Rent one week">Week</button>
       </div>
 
+      <AvailabilityCalendar
+        busy={busy}
+        startDate={startDate}
+        endDate={endDate}
+        onPick={(from, to) => applyRange(from, to, '')}
+        disabled={outOfStock}
+      />
+
       <div className="ld-dates">
         <div>
           <label className="field-label" htmlFor={`book-from-${uid}`}>FROM</label>
@@ -536,9 +546,13 @@ function BookingWidget({ listing, mobile = false, forceOpen = false }) {
             value={startDate}
             min={today}
             onChange={(e) => {
-              setStartDate(e.target.value)
+              const next = e.target.value
               setQuick('')
-              if (endDate && endDate < e.target.value) setEndDate('')
+              if (endDate && endDate <= next) {
+                applyRange(next, '')
+                return
+              }
+              applyRange(next, endDate)
             }}
             className="input-dark"
             aria-label="Rental start date"
@@ -551,7 +565,7 @@ function BookingWidget({ listing, mobile = false, forceOpen = false }) {
             type="date"
             value={endDate}
             min={startDate || today}
-            onChange={(e) => { setEndDate(e.target.value); setQuick('') }}
+            onChange={(e) => applyRange(startDate, e.target.value)}
             className="input-dark"
             aria-label="Rental end date"
           />

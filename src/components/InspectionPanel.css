@@ -1,0 +1,204 @@
+.insp {
+  margin: 0.75rem 0 0.85rem;
+  padding: 0.75rem;
+  border-radius: 0.85rem;
+  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.insp__title {
+  margin: 0 0 0.65rem;
+  font-family: 'Rajdhani', sans-serif;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #fff;
+}
+
+.insp__cols {
+  display: grid;
+  gap: 0.6rem;
+}
+
+@media (min-width: 640px) {
+  .insp__cols { grid-template-columns: 1fr 1fr; }
+}
+
+.insp__col {
+  padding: 0.65rem;
+  border-radius: 0.7rem;
+  border: 1px solid var(--border);
+  background: rgba(10, 10, 20, 0.35);
+}
+
+.insp__col h4 {
+  margin: 0 0 0.45rem;
+  font-size: 0.75rem;
+  letter-spacing: 0.04em;
+  color: var(--cyan);
+}
+
+.insp__empty {
+  margin: 0 0 0.5rem;
+  font-size: 0.75rem;
+  color: var(--text-dim);
+}
+
+.insp__card {
+  margin-bottom: 0.55rem;
+}
+
+.insp__card:last-child { margin-bottom: 0.45rem; }
+
+.insp__who {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.4rem;
+  font-size: 0.75rem;
+  color: #fff;
+}
+
+.insp__who em {
+  font-style: normal;
+  color: var(--gold);
+}
+
+.insp__card p {
+  margin: 0.25rem 0 0;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.insp__photos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin-top: 0.4rem;
+}
+
+.insp__photos button {
+  padding: 0;
+  border: none;
+  background: none;
+  cursor: pointer;
+}
+
+.insp__photos img,
+.insp-modal__previews img {
+  width: 3.4rem;
+  height: 3.4rem;
+  object-fit: cover;
+  border-radius: 0.45rem;
+  border: 1px solid var(--border);
+}
+
+.insp-modal-bg {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding: 0;
+  background: rgba(0, 0, 0, 0.72);
+  backdrop-filter: blur(8px);
+}
+
+.insp-modal {
+  position: relative;
+  width: min(100%, 28rem);
+  max-height: min(92vh, 40rem);
+  overflow: auto;
+  padding: 1.15rem 1.1rem 1.3rem;
+  border-radius: 1.15rem 1.15rem 0 0;
+  border: 1px solid rgba(255, 46, 109, 0.22);
+  background: #12121f;
+}
+
+@media (min-width: 640px) {
+  .insp-modal-bg { align-items: center; padding: 1rem; }
+  .insp-modal { border-radius: 1.15rem; }
+}
+
+.insp-modal h3 {
+  margin: 0 1.5rem 0.25rem 0;
+  font-family: 'Bungee', cursive;
+  font-size: 0.95rem;
+  color: #fff;
+}
+
+.insp-modal > p {
+  margin: 0 0 0.85rem;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.insp-modal__x {
+  position: absolute;
+  top: 0.75rem;
+  right: 0.75rem;
+}
+
+.insp-modal__conds {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.4rem;
+  margin-bottom: 0.75rem;
+}
+
+.insp-modal__conds button {
+  min-height: 2.6rem;
+  border-radius: 0.65rem;
+  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text-muted);
+  font-family: 'Rajdhani', sans-serif;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.insp-modal__conds button.is-on {
+  color: #fff;
+  border-color: var(--magenta);
+  background: rgba(255, 46, 109, 0.14);
+}
+
+.insp-modal textarea {
+  width: 100%;
+  min-height: 4.5rem;
+  margin-bottom: 0.75rem;
+  resize: vertical;
+}
+
+.insp-modal__previews {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin: 0.55rem 0 0.85rem;
+}
+
+.insp-modal__file {
+  display: block;
+  margin-bottom: 0.35rem;
+  font-size: 0.8rem;
+  color: var(--cyan);
+  cursor: pointer;
+}
+
+.insp-modal__file input { display: none; }
+
+.insp-lightbox {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+  background: rgba(0, 0, 0, 0.88);
+}
+
+.insp-lightbox img {
+  max-width: 100%;
+  max-height: 90vh;
+  border-radius: 0.8rem;
+}
