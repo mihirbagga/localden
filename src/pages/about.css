@@ -19,7 +19,7 @@
 .about-title {
   font-family: 'Bungee', cursive;
   font-size: 2.2rem;
-  color: #fff;
+  color: var(--text);
   margin-bottom: 0.9rem;
   line-height: 1.25;
 }
@@ -40,14 +40,14 @@
   margin-bottom: 1.75rem;
   padding: 1.35rem 1.4rem;
   border-radius: 1.15rem;
-  background: rgba(14, 14, 28, 0.82);
+  background: var(--card);
   border: 1px solid rgba(255, 255, 255, 0.07);
 }
 
 .about-section h2 {
   font-family: 'Bungee', cursive;
   font-size: 1.05rem;
-  color: #fff;
+  color: var(--text);
   margin-bottom: 0.85rem;
 }
 
@@ -66,7 +66,7 @@
 }
 
 .about-section strong {
-  color: #fff;
+  color: var(--text);
   font-weight: 800;
 }
 
@@ -128,7 +128,7 @@
   font-family: 'Rajdhani', sans-serif;
   font-size: 0.95rem;
   font-weight: 800;
-  color: #fff;
+  color: var(--text);
   margin-bottom: 0.35rem;
 }
 
@@ -155,7 +155,7 @@
 .about-tag {
   font-family: 'Bungee', cursive;
   font-size: 0.95rem;
-  color: #fff;
+  color: var(--text);
   margin-bottom: 1.2rem;
 }
 

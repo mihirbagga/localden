@@ -1,0 +1,75 @@
+.market-planner {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+.market-pill,
+.market-edit {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-height: 2.45rem;
+  padding: 0.3rem 0.85rem;
+  border-radius: 999px;
+  border: 1px solid #dbe3ef;
+  background: #fff;
+  color: #1f2937;
+  font-family: Inter, Rajdhani, sans-serif;
+  font-size: 0.8rem;
+  font-weight: 600;
+  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.05);
+}
+
+.market-pill svg {
+  color: #64748b;
+  flex-shrink: 0;
+}
+
+.market-pill select {
+  border: none;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  outline: none;
+  max-width: 8.5rem;
+  appearance: none;
+  cursor: pointer;
+}
+
+.market-pill input[type='date'] {
+  position: absolute;
+  opacity: 0;
+  inset: 0;
+  cursor: pointer;
+  border: none;
+}
+
+.market-pill {
+  position: relative;
+}
+
+.market-edit {
+  background: #111827;
+  color: var(--text);
+  border-color: #111827;
+  cursor: pointer;
+  padding-inline: 1rem;
+}
+
+@media (max-width: 899px) {
+  .market-planner {
+    width: 100%;
+    justify-content: flex-start;
+    overflow-x: auto;
+    flex-wrap: nowrap;
+    padding: 0 0 0.75rem;
+  }
+
+  .market-pill,
+  .market-edit {
+    flex-shrink: 0;
+  }
+}

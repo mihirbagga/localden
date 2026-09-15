@@ -69,5 +69,8 @@ export function explainAdminError(err) {
   if (/site_settings/i.test(msg) && /does not exist|schema cache|42P01/i.test(msg)) {
     return 'Site settings missing. Run supabase/platform_fee_migration.sql in Supabase SQL Editor.'
   }
+  if (/kyc_submissions|kyc-docs|review_kyc/i.test(msg) && /does not exist|schema cache|42P01|bucket/i.test(msg)) {
+    return 'KYC tables missing. Run supabase/kyc_migration.sql in Supabase SQL Editor.'
+  }
   return msg
 }

@@ -18,7 +18,7 @@
   font-family: 'Rajdhani', sans-serif;
   font-size: 0.88rem;
   font-weight: 700;
-  color: #fff;
+  color: var(--text);
 }
 
 .avcal__nav {
@@ -59,7 +59,7 @@
   border: 1px solid transparent;
   border-radius: 0.5rem;
   background: transparent;
-  color: #fff;
+  color: var(--text);
   font-family: 'Rajdhani', sans-serif;
   font-size: 0.78rem;
   font-weight: 700;
@@ -90,13 +90,13 @@
 
 .avcal__day.is-range {
   background: color-mix(in srgb, var(--ld-accent, #ff2e6d) 16%, transparent);
-  color: #fff;
+  color: var(--text);
 }
 
 .avcal__day.is-edge {
   background: color-mix(in srgb, var(--ld-accent, #ff2e6d) 34%, transparent);
   border-color: color-mix(in srgb, var(--ld-accent, #ff2e6d) 50%, transparent);
-  color: #fff;
+  color: var(--text);
 }
 
 .avcal__legend {

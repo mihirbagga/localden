@@ -43,10 +43,11 @@ async function fetchAll() {
     loadRows('reviews', '*, listings(id, title, emoji)'),
     loadRows('coupons', '*'),
     loadRows('payment_methods', '*', 'sort_order'),
+    loadRows('kyc_submissions', '*, profiles(id, full_name, email, phone, kyc_status)', 'submitted_at'),
   ])
 
-  const labels = ['users', 'listings', 'bookings', 'reviews', 'coupons', 'payments']
-  const values = [[], [], [], [], [], []]
+  const labels = ['users', 'listings', 'bookings', 'reviews', 'coupons', 'payments', 'kyc']
+  const values = [[], [], [], [], [], [], []]
   const failures = []
 
   settled.forEach((result, i) => {
@@ -57,7 +58,7 @@ async function fetchAll() {
     failures.push(`${labels[i]}: ${explainAdminError(result.reason)}`)
   })
 
-  const [users, listings, bookings, reviews, coupons, paymentMethods] = values
+  const [users, listings, bookings, reviews, coupons, paymentMethods, kycSubmissions] = values
   const usersById = profileMap(users)
 
   return {
@@ -67,6 +68,7 @@ async function fetchAll() {
     reviews: hydrateReviews(reviews, usersById),
     coupons,
     paymentMethods,
+    kycSubmissions,
     failures,
   }
 }
@@ -79,6 +81,7 @@ export function useAdminData() {
   const [reviews, setReviews] = useState([])
   const [coupons, setCoupons] = useState([])
   const [paymentMethods, setPaymentMethods] = useState([])
+  const [kycSubmissions, setKycSubmissions] = useState([])
   const [loading, setLoading] = useState(true)
 
   const reload = useCallback(async () => {
@@ -91,6 +94,7 @@ export function useAdminData() {
       setReviews(data.reviews)
       setCoupons(data.coupons)
       setPaymentMethods(data.paymentMethods)
+      setKycSubmissions(data.kycSubmissions)
       if (data.failures.length) {
         showToast(data.failures[0], 'error')
       }
@@ -141,6 +145,10 @@ export function useAdminData() {
     setPaymentMethods((prev) => prev.map((row) => (row.id === id ? { ...row, ...patch } : row)))
   }, [])
 
+  const patchSubmission = useCallback((id, patch) => {
+    setKycSubmissions((prev) => prev.map((row) => (row.id === id ? { ...row, ...patch } : row)))
+  }, [])
+
   return {
     users,
     listings,
@@ -160,5 +168,7 @@ export function useAdminData() {
     removeCoupon,
     paymentMethods,
     patchPaymentMethod,
+    kycSubmissions,
+    patchSubmission,
   }
 }

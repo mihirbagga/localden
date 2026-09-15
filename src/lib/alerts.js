@@ -61,4 +61,10 @@ export const ALERT_KIND_LABEL = {
   reminder_overdue: 'Return overdue',
   inspection_checkin: 'Check-in photos',
   inspection_checkout: 'Check-out photos',
+  kyc_submitted: 'KYC submitted',
+  kyc_verified: 'KYC verified',
+  kyc_rejected: 'KYC rejected',
+  referral_joined: 'Referral signed up',
+  referral_paid: 'Referral reward',
+  wallet_earning: 'Wallet earning',
 }

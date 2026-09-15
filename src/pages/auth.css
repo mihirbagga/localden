@@ -24,7 +24,7 @@
   font-family: 'Bungee', cursive;
   font-size: 1.5rem;
   margin-top: 0.7rem;
-  color: #fff;
+  color: var(--text);
 }
 
 .auth-brand .is-magenta { color: var(--magenta); }
@@ -92,7 +92,7 @@
 }
 
 .auth-forgot:hover {
-  color: #fff;
+  color: var(--text);
 }
 
 .auth-foot {
@@ -116,7 +116,7 @@
 .auth-ok h2 {
   font-family: 'Bungee', cursive;
   font-size: 1.4rem;
-  color: #fff;
+  color: var(--text);
   margin: 0.7rem 0 0.5rem;
 }
 
@@ -134,7 +134,7 @@
 }
 
 .auth-ok-copy strong {
-  color: #fff;
+  color: var(--text);
 }
 
 .auth-coupon {
@@ -163,7 +163,7 @@
 }
 
 .auth-ok strong {
-  color: #fff;
+  color: var(--text);
 }
 
 .auth-ok__icon {

@@ -22,6 +22,9 @@ import { normalizeCouponCode, priceWithCoupon, validateCoupon } from '../lib/cou
 import { platformFeeLabel } from '../lib/platformFee'
 import { isOnlineMethod, methodConfig, payButtonLabel } from '../lib/payments'
 import { listingUnits, rangeHasBusy, shiftIso, todayIso } from '../lib/bookingDates'
+import { needsKyc } from '../lib/kyc'
+import { rupee } from '../lib/wallet'
+import { useWallet } from '../hooks/useWallet'
 import { useBusyDates } from '../hooks/useBusyDates'
 import AvailabilityCalendar from '../components/AvailabilityCalendar'
 import './terms.css'
@@ -178,6 +181,8 @@ function BookingWidget({ listing, mobile = false, forceOpen = false }) {
   const navigate = useNavigate()
   const { openCheckout, loading: rzpLoading } = useRazorpay()
   const { methods: payMethods } = usePaymentMethods({ enabledOnly: true })
+  const { wallet, refresh: refreshWallet } = useWallet()
+  const walletMethod = { id: 'wallet', name: 'Wallet', method_type: 'wallet' }
   const { coupons: openCoupons } = useAvailableCoupons()
   const { fee: platformFeeSetting } = usePlatformFee()
 
@@ -219,7 +224,10 @@ function BookingWidget({ listing, mobile = false, forceOpen = false }) {
     fee: platformFeeSetting,
   })
   const { subtotal, discount, platformFee, total } = priced
-  const selectedPay = payMethods.find((m) => m.id === payMethodId) || payMethods[0] || null
+  const canWallet = isAuthenticated && days > 0 && total > 0 && (wallet.available || 0) >= total
+  const selectedPay = payMethodId === 'wallet'
+    ? walletMethod
+    : (payMethods.find((m) => m.id === payMethodId) || payMethods[0] || (canWallet ? walletMethod : null))
 
   const step = days < 1 ? 1 : 2 + (acceptTerms ? 1 : 0)
 
@@ -269,6 +277,7 @@ function BookingWidget({ listing, mobile = false, forceOpen = false }) {
 
   const saveBooking = async ({ paymentId, method, paid }) => {
     setSaving(true)
+    let isPaid = Boolean(paid)
     const bookingId = crypto.randomUUID()
     const { error } = await supabase.from('bookings').insert({
       id: bookingId,
@@ -286,21 +295,39 @@ function BookingWidget({ listing, mobile = false, forceOpen = false }) {
       coupon_id: appliedCoupon?.id || null,
       coupon_code: appliedCoupon?.code || null,
       total_amount: total,
-      status: paid ? 'confirmed' : 'pending',
-      payment_status: paid ? 'paid' : 'pending',
+      status: isPaid ? 'confirmed' : 'pending',
+      payment_status: isPaid ? 'paid' : 'pending',
       payment_method: method?.id || null,
       payment_ref: paymentRef.trim() || null,
       razorpay_payment_id: paymentId || null,
       delivery_type: handover,
       delivery_address: handover === 'delivery' ? address.trim() || null : null,
     })
-    setSaving(false)
     if (error) {
+      setSaving(false)
       const taken = /already booked/i.test(error.message || '')
       setPayError(taken ? 'Those dates were just booked. Pick another range.' : 'Payment ok, booking save failed. Contact support.')
       showToast(taken ? 'Those dates are already booked.' : 'Booking save failed. Contact support.', 'error')
       return
     }
+    if (method?.id === 'wallet') {
+      const spent = await supabase.rpc('spend_wallet', { p_amount: total, p_booking_id: bookingId })
+      if (spent.error) {
+        setSaving(false)
+        setPayError(spent.error.message || 'Wallet pay failed.')
+        showToast(spent.error.message || 'Wallet pay failed.', 'error')
+        return
+      }
+      await supabase.from('bookings').update({
+        status: 'confirmed',
+        payment_status: 'paid',
+        payment_method: 'wallet',
+        updated_at: new Date().toISOString(),
+      }).eq('id', bookingId)
+      isPaid = true
+      refreshWallet?.()
+    }
+    setSaving(false)
     await supabase.from('listings').update({
       total_bookings: (listing.total_bookings || 0) + 1,
       updated_at: new Date().toISOString(),
@@ -314,7 +341,7 @@ function BookingWidget({ listing, mobile = false, forceOpen = false }) {
       paymentId,
       couponCode: appliedCoupon?.code,
       discount,
-      paid,
+      paid: isPaid,
       methodName: method?.name,
     })
     showToast(paid ? 'Booking confirmed' : 'Booking placed. Await payment confirm.', 'success')
@@ -381,6 +408,11 @@ function BookingWidget({ listing, mobile = false, forceOpen = false }) {
       showToast('Account banned. Contact support.', 'error')
       return
     }
+    if (needsKyc(profile)) {
+      showToast('Complete KYC before renting.', 'info')
+      navigate('/kyc', { state: { from: { pathname: `/listing/${listing.id}?rent=1` } } })
+      return
+    }
     if (outOfStock) {
       showToast('This item is out of stock.', 'error')
       return
@@ -400,8 +432,12 @@ function BookingWidget({ listing, mobile = false, forceOpen = false }) {
       setStepFocus(3)
       return
     }
-    if (!selectedPay) {
+    if (!selectedPay && payMethodId !== 'wallet') {
       showToast('No payment method enabled. Ask admin.', 'error')
+      return
+    }
+    if (payMethodId === 'wallet' && !canWallet) {
+      showToast('Wallet balance is too low for this total.', 'error')
       return
     }
     if (handover === 'delivery' && !address.trim()) {
@@ -409,6 +445,11 @@ function BookingWidget({ listing, mobile = false, forceOpen = false }) {
       return
     }
     setPayError('')
+
+    if (payMethodId === 'wallet' || selectedPay?.id === 'wallet') {
+      await saveBooking({ method: walletMethod, paid: false, paymentId: null })
+      return
+    }
 
     if (!isOnlineMethod(selectedPay)) {
       await saveBooking({ method: selectedPay, paid: false, paymentId: null })
@@ -638,10 +679,21 @@ function BookingWidget({ listing, mobile = false, forceOpen = false }) {
             />
           </div>
 
+          {canWallet ? (
+            <button
+              type="button"
+              className={`ld-chip ld-wallet-opt${payMethodId === 'wallet' ? ' is-on' : ''}`}
+              onClick={() => setPayMethodId('wallet')}
+              aria-pressed={payMethodId === 'wallet'}
+            >
+              Pay with wallet · {rupee(wallet.available)}
+            </button>
+          ) : null}
+
           {payMethods.length > 0 ? (
             <PaymentOptions
               methods={payMethods}
-              selectedId={selectedPay?.id}
+              selectedId={payMethodId === 'wallet' ? '' : selectedPay?.id}
               onSelect={setPayMethodId}
               paymentRef={paymentRef}
               onPaymentRef={setPaymentRef}
@@ -686,9 +738,10 @@ function BookingWidget({ listing, mobile = false, forceOpen = false }) {
       >
         {isProcessing ? (saving ? 'Confirming…' : 'Opening payment…') : null}
         {!isProcessing && !isAuthenticated ? <><CreditCard size={16} /> Sign in to rent</> : null}
-        {!isProcessing && isAuthenticated && outOfStock ? 'Out of stock' : null}
-        {!isProcessing && isAuthenticated && !outOfStock && days < 1 ? <><Calendar size={16} /> Pick dates to rent</> : null}
-        {!isProcessing && isAuthenticated && !outOfStock && days > 0 ? <><CreditCard size={16} /> Rent now · {payButtonLabel(selectedPay, total)}</> : null}
+        {!isProcessing && isAuthenticated && needsKyc(profile) ? <><Shield size={16} /> Complete KYC to rent</> : null}
+        {!isProcessing && isAuthenticated && !needsKyc(profile) && outOfStock ? 'Out of stock' : null}
+        {!isProcessing && isAuthenticated && !needsKyc(profile) && !outOfStock && days < 1 ? <><Calendar size={16} /> Pick dates to rent</> : null}
+        {!isProcessing && isAuthenticated && !needsKyc(profile) && !outOfStock && days > 0 ? <><CreditCard size={16} /> Rent now · {payButtonLabel(selectedPay, total)}</> : null}
       </button>
 
       <div className="ld-trust">
@@ -709,11 +762,21 @@ function BookingWidget({ listing, mobile = false, forceOpen = false }) {
           <button
             type="button"
             className="btn-primary"
-            onClick={() => (isAuthenticated ? setSheetOpen(true) : navigate('/login', { state: { from: { pathname: `/listing/${listing.id}?rent=1` } } }))}
-            aria-label={isAuthenticated ? 'Open rent form' : 'Sign in to rent'}
+            onClick={() => {
+              if (!isAuthenticated) {
+                navigate('/login', { state: { from: { pathname: `/listing/${listing.id}?rent=1` } } })
+                return
+              }
+              if (needsKyc(profile)) {
+                navigate('/kyc', { state: { from: { pathname: `/listing/${listing.id}?rent=1` } } })
+                return
+              }
+              setSheetOpen(true)
+            }}
+            aria-label={needsKyc(profile) ? 'Complete KYC to rent' : isAuthenticated ? 'Open rent form' : 'Sign in to rent'}
             disabled={outOfStock}
           >
-            {outOfStock ? 'Out of stock' : 'Rent now'}
+            {outOfStock ? 'Out of stock' : isAuthenticated && needsKyc(profile) ? 'Complete KYC' : 'Rent now'}
           </button>
         </div>
         {sheetOpen ? createPortal(

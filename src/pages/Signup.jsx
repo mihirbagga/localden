@@ -1,9 +1,10 @@
-import { useState } from 'react'
-import { Link } from 'react-router-dom'
+import { useEffect, useState } from 'react'
+import { Link, useSearchParams } from 'react-router-dom'
 import { Eye, EyeOff, Mail, Lock, User, Phone, AlertCircle, CheckCircle } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import { useToast } from '../contexts/ToastContext'
 import { welcomeCouponCode } from '../lib/coupons'
+import { captureReferralFromSearch, normalizeReferralCode, readStoredReferral } from '../lib/referrals'
 import LogoMark from '../components/LogoMark'
 import GameBackground from '../components/GameBackground'
 import './auth.css'
@@ -12,9 +13,16 @@ export default function Signup() {
   const { signUp, signInWithGoogle } = useAuth()
   const { showToast } = useToast()
 
+  const [params] = useSearchParams()
   const [form, setForm] = useState({
     fullName: '', email: '', phone: '', password: '', confirm: '',
+    referral: normalizeReferralCode(params.get('ref')) || readStoredReferral(),
   })
+
+  useEffect(() => {
+    const code = captureReferralFromSearch() || readStoredReferral()
+    if (code) setForm((f) => (f.referral ? f : { ...f, referral: code }))
+  }, [])
   const [showPw, setShowPw]   = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError]     = useState('')
@@ -39,6 +47,7 @@ export default function Signup() {
         password: form.password,
         fullName: form.fullName,
         phone:    form.phone,
+        referralCode: form.referral,
       })
       setSuccess(true)
       showToast(`Welcome coupon ${welcomeCouponCode(form.fullName)} — 50% off`, 'success')
@@ -190,6 +199,23 @@ export default function Signup() {
                     style={{ color: '#00ff94' }} aria-hidden="true" />
                 )}
               </div>
+            </div>
+
+            <div>
+              <label htmlFor="signup-ref" className="block text-xs font-display font-semibold mb-1.5"
+                style={{ color: 'rgba(255,255,255,0.5)', letterSpacing: '0.06em' }}>
+                REFERRAL CODE (OPTIONAL)
+              </label>
+              <input
+                id="signup-ref"
+                type="text"
+                value={form.referral}
+                onChange={(e) => setForm((f) => ({ ...f, referral: normalizeReferralCode(e.target.value) }))}
+                placeholder="DENARJUN12AB"
+                className="input-dark"
+                aria-label="Referral code"
+                autoComplete="off"
+              />
             </div>
 
             {/* Terms */}

@@ -4,6 +4,7 @@ import { AdminStat } from './AdminShared'
 import { displayName, formatDate, isLowStock, KYC_LABEL } from './adminHelpers'
 
 export default function AdminOverview({ users, listings, bookings, onOpenTab }) {
+  const kycQueue = users.filter((u) => u.kyc_status === 'submitted').length
   const pendingKyc = users.filter((u) => u.kyc_status === 'pending' || u.kyc_status === 'submitted').length
   const hiddenListings = listings.filter((l) => l.is_published === false).length
   const lowStockItems = listings.filter(isLowStock)
@@ -17,7 +18,7 @@ export default function AdminOverview({ users, listings, bookings, onOpenTab }) 
           icon={<Users size={16} />}
           label="Onboarded users"
           value={users.length}
-          sub={`${pendingKyc} KYC pending`}
+          sub={kycQueue ? `${kycQueue} KYC to review` : `${pendingKyc} KYC pending`}
           tone="magenta"
         />
         <AdminStat

@@ -28,7 +28,27 @@ export default function AdminUsers({ users, patchUser, isSuperAdmin, currentUser
     showToast(okMsg, 'success')
   }
 
-  const handleKyc = (user, kycStatus) => {
+  const handleKyc = async (user, kycStatus) => {
+    if (kycStatus === 'verified' || kycStatus === 'rejected') {
+      const { data } = await supabase
+        .from('kyc_submissions')
+        .select('id')
+        .eq('user_id', user.id)
+        .eq('status', 'submitted')
+        .maybeSingle()
+      if (data?.id) {
+        const { error } = await supabase.rpc('review_kyc', {
+          p_submission_id: data.id,
+          p_status: kycStatus,
+          p_note: kycStatus === 'rejected' ? 'Rejected from users tab' : null,
+        })
+        if (!error) {
+          patchUser(user.id, { kyc_status: kycStatus })
+          showToast(`KYC set to ${KYC_LABEL[kycStatus]}`, 'success')
+          return
+        }
+      }
+    }
     updateUser(user.id, { kyc_status: kycStatus }, `KYC set to ${KYC_LABEL[kycStatus]}`)
   }
 

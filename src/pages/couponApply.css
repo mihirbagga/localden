@@ -44,7 +44,7 @@
   font-weight: 700;
 }
 
-.coupon-clear:hover { color: #fff; }
+.coupon-clear:hover { color: var(--text); }
 
 .coupon-discount-row {
   color: var(--success);
@@ -88,7 +88,7 @@
   font-weight: 800;
   font-size: 0.88rem;
   letter-spacing: 0.04em;
-  color: #fff;
+  color: var(--text);
 }
 
 .coupon-offer__off {

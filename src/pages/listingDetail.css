@@ -79,7 +79,7 @@
   border-radius: 1.4rem;
   overflow: hidden;
   border: 1px solid color-mix(in srgb, var(--ld-accent) 28%, transparent);
-  background: rgba(14, 14, 28, 0.8);
+  background: var(--card);
 }
 
 .ld-gallery__empty {
@@ -243,7 +243,7 @@
 .ld h1 {
   font-family: 'Bungee', cursive;
   font-size: clamp(1.5rem, 4vw, 2rem);
-  color: #fff;
+  color: var(--text);
   line-height: 1.2;
   margin: 0;
 }
@@ -271,7 +271,7 @@
   padding: 1rem 0.6rem;
   border-radius: 1rem;
   border: 1px solid var(--border);
-  background: rgba(14, 14, 28, 0.72);
+  background: var(--card);
   color: inherit;
   cursor: pointer;
   font-family: inherit;
@@ -319,7 +319,7 @@
 }
 
 .ld-tab.is-on {
-  color: #fff;
+  color: var(--text);
   border-color: color-mix(in srgb, var(--ld-accent) 50%, transparent);
   background: color-mix(in srgb, var(--ld-accent) 14%, transparent);
 }
@@ -328,7 +328,7 @@
   padding: 1.35rem 1.4rem;
   border-radius: 1rem;
   border: 1px solid var(--border);
-  background: rgba(14, 14, 28, 0.72);
+  background: var(--card);
 }
 
 .ld-card h3 {
@@ -360,7 +360,7 @@
 
 .ld-specs b {
   font-size: 0.9rem;
-  color: #fff;
+  color: var(--text);
 }
 
 .ld-lister {
@@ -378,7 +378,7 @@
   align-items: center;
   justify-content: center;
   font-family: 'Bungee', cursive;
-  color: #fff;
+  color: var(--text);
   background: linear-gradient(135deg, var(--magenta), var(--cyan));
   flex-shrink: 0;
 }
@@ -415,7 +415,7 @@
 
 .ld-how strong {
   display: block;
-  color: #fff;
+  color: var(--text);
   font-size: 0.88rem;
 }
 
@@ -443,7 +443,7 @@
   margin-bottom: 0.25rem;
 }
 
-.ld-review strong { color: #fff; font-size: 0.88rem; }
+.ld-review strong { color: var(--text); font-size: 0.88rem; }
 .ld-review em { color: var(--gold); font-style: normal; font-size: 0.78rem; }
 .ld-review p { margin: 0; }
 
@@ -486,7 +486,7 @@
   padding: 1.4rem 1.35rem;
   border-radius: 1.25rem;
   border: 1px solid color-mix(in srgb, var(--ld-accent) 28%, transparent);
-  background: rgba(14, 14, 28, 0.85);
+  background: var(--card);
 }
 
 .ld-book.is-sticky {
@@ -531,7 +531,7 @@
 
 .ld-step.is-on,
 .ld-step.is-done {
-  color: #fff;
+  color: var(--text);
   border-color: color-mix(in srgb, var(--ld-accent) 40%, transparent);
 }
 
@@ -558,7 +558,7 @@
 }
 
 .ld-chip.is-on {
-  color: #fff;
+  color: var(--text);
   border-color: var(--ld-accent);
   background: color-mix(in srgb, var(--ld-accent) 14%, transparent);
 }
@@ -571,7 +571,7 @@
 }
 
 .ld-dates .input-dark {
-  color-scheme: dark;
+  color-scheme: inherit;
 }
 
 .ld-break {
@@ -620,7 +620,7 @@
 }
 
 .ld-hand button.is-on {
-  color: #fff;
+  color: var(--text);
   border-color: var(--ld-accent);
 }
 
@@ -641,7 +641,7 @@
 .ld-owner h3,
 .ld-success h3 {
   font-family: 'Bungee', cursive;
-  color: #fff;
+  color: var(--text);
   margin: 0.5rem 0;
 }
 
@@ -683,7 +683,7 @@
 }
 
 .ld-facts span { color: var(--text-dim); }
-.ld-facts b { color: #fff; }
+.ld-facts b { color: var(--text); }
 
 .ld-hint {
   font-size: 0.78rem;

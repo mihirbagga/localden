@@ -33,8 +33,7 @@ const footerLinks = {
 
 export default function Footer() {
   return (
-    <footer className="relative z-10 mt-20"
-      style={{ background: 'rgba(8,8,18,0.98)' }}>
+    <footer className="relative z-10 mt-20 site-footer">
 
       {/* Top neon divider */}
       <div className="neon-divider" />
@@ -58,8 +57,8 @@ export default function Footer() {
               </div>
             </Link>
 
-            <p className="text-sm leading-relaxed mb-5 font-display"
-              style={{ color: 'rgba(255,255,255,0.4)', lineHeight: 1.8 }}>
+            <p className="text-sm leading-relaxed mb-5 font-display site-footer__copy"
+              style={{ lineHeight: 1.8 }}>
               Bangalore's first P2P rental marketplace for gaming consoles and music instruments.
               Rent from real people. Earn from your gear.
             </p>
@@ -88,18 +87,7 @@ export default function Footer() {
             <div className="flex items-center gap-3">
               {[Instagram, Twitter, Youtube].map((Icon, i) => (
                 <a key={i} href="#"
-                  className="w-9 h-9 rounded-xl glass flex items-center justify-center transition-all duration-300 hover:scale-110"
-                  style={{ color: 'rgba(255,255,255,0.35)' }}
-                  onMouseEnter={e => {
-                    e.currentTarget.style.color = '#ff2e6d'
-                    e.currentTarget.style.boxShadow = '0 0 16px rgba(255,46,109,0.35)'
-                    e.currentTarget.style.borderColor = 'rgba(255,46,109,0.3)'
-                  }}
-                  onMouseLeave={e => {
-                    e.currentTarget.style.color = 'rgba(255,255,255,0.35)'
-                    e.currentTarget.style.boxShadow = 'none'
-                    e.currentTarget.style.borderColor = ''
-                  }}>
+                  className="w-9 h-9 rounded-xl glass flex items-center justify-center transition-all duration-300 hover:scale-110 site-footer__social">
                   <Icon size={16} />
                 </a>
               ))}
@@ -117,8 +105,8 @@ export default function Footer() {
                 {links.map(({ label, to }) => (
                   <li key={label}>
                     <Link to={to}
-                      className="text-sm font-display transition-colors duration-200 hover:text-white"
-                      style={{ color: 'rgba(255,255,255,0.4)', letterSpacing: '0.02em' }}>
+                      className="text-sm font-display transition-colors duration-200 site-footer__link"
+                      style={{ letterSpacing: '0.02em' }}>
                       {label}
                     </Link>
                   </li>
@@ -129,10 +117,9 @@ export default function Footer() {
         </div>
 
         {/* ── Bottom bar ─────────────────────────── */}
-        <div className="mt-12 pt-8 flex flex-col sm:flex-row items-center justify-between gap-4"
-          style={{ borderTop: '1px solid rgba(255,255,255,0.05)' }}>
-          <p className="text-xs font-display flex items-center gap-1.5"
-            style={{ color: 'rgba(255,255,255,0.25)', letterSpacing: '0.05em' }}>
+        <div className="mt-12 pt-8 flex flex-col sm:flex-row items-center justify-between gap-4 site-footer__bottom">
+          <p className="text-xs font-display flex items-center gap-1.5 site-footer__copy"
+            style={{ letterSpacing: '0.05em' }}>
             © 2024 लोकल Den · Bangalore, India · Made with
             <Heart size={11} className="text-pink-500 fill-pink-500" />
             for gamers &amp; musicians

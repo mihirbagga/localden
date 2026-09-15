@@ -17,6 +17,7 @@ export function isOnlineMethod(method) {
 export function payButtonLabel(method, total) {
   if (!method) return `Pay ₹${total}`
   if (method.method_type === 'razorpay') return `Pay ₹${total} via Razorpay`
+  if (method.method_type === 'wallet' || method.id === 'wallet') return `Pay ₹${total} from wallet`
   if (method.method_type === 'cash') return `Book · pay ₹${total} on pickup`
   return `I have paid ₹${total}`
 }

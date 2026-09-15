@@ -38,7 +38,7 @@
 .admin-title {
   font-family: 'Bungee', cursive;
   font-size: 1.85rem;
-  color: #fff;
+  color: var(--text);
   line-height: 1.15;
 }
 
@@ -139,7 +139,7 @@
   font-family: 'Rajdhani', sans-serif;
   font-size: 0.85rem;
   font-weight: 700;
-  color: #fff;
+  color: var(--text);
 }
 
 .admin-stat__sub {
@@ -272,7 +272,7 @@
 
 .admin-cell-title {
   font-weight: 700;
-  color: #fff;
+  color: var(--text);
 }
 
 .admin-cell-sub {
@@ -359,7 +359,7 @@
 
 .admin-icon-btn:hover {
   background: rgba(255, 255, 255, 0.08);
-  color: #fff;
+  color: var(--text);
 }
 
 .admin-icon-btn--danger {
@@ -393,9 +393,9 @@
   );
   padding: 0.3rem 0.55rem;
   border-radius: 0.45rem;
-  background: rgba(14, 14, 28, 0.96);
+  background: var(--card);
   border: 1px solid rgba(255, 46, 109, 0.35);
-  color: #fff;
+  color: var(--text);
   font-family: 'Rajdhani', sans-serif;
   font-size: 0.72rem;
   font-weight: 700;
@@ -444,7 +444,7 @@
 
 .admin-empty__title {
   font-family: 'Bungee', cursive;
-  color: #fff;
+  color: var(--text);
   font-size: 1.15rem;
   margin-bottom: 0.35rem;
 }
@@ -501,7 +501,7 @@
   max-width: 26rem;
   border-radius: 1.4rem;
   padding: 1.6rem;
-  background: rgba(14, 14, 28, 0.98);
+  background: var(--card);
   border: 1px solid rgba(255, 46, 109, 0.35);
   box-shadow: 0 24px 80px rgba(0, 0, 0, 0.55);
 }
@@ -515,7 +515,7 @@
 .admin-confirm__title {
   font-family: 'Bungee', cursive;
   font-size: 1.25rem;
-  color: #fff;
+  color: var(--text);
   text-align: center;
   margin: 0.4rem 0 0.5rem;
 }
@@ -587,3 +587,68 @@
 .admin-pay-intro { margin-bottom: 1rem; }
 
 .admin-fee-preview { margin: 0.85rem 0 0; }
+
+.admin-kyc-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.admin-kyc-filters button {
+  min-height: 2.4rem;
+  padding: 0.3rem 0.75rem;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.04);
+  color: rgba(255, 255, 255, 0.5);
+  font-family: 'Rajdhani', sans-serif;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.admin-kyc-filters button.is-on {
+  color: var(--text);
+  border-color: rgba(255, 46, 109, 0.4);
+  background: rgba(255, 46, 109, 0.14);
+}
+
+.admin-kyc-note {
+  max-width: 32rem;
+  margin-bottom: 1rem;
+}
+
+.admin-kyc-list {
+  display: grid;
+  gap: 0.85rem;
+}
+
+.admin-kyc-card__top {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  align-items: flex-start;
+  margin-bottom: 0.35rem;
+}
+
+.admin-kyc-card__note {
+  margin: 0.4rem 0 0.7rem;
+  font-size: 0.82rem;
+  color: #ff8fb0;
+}
+
+.admin-kyc-lightbox {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+  background: rgba(0, 0, 0, 0.88);
+}
+
+.admin-kyc-lightbox img {
+  max-width: 100%;
+  max-height: 90vh;
+  border-radius: 0.8rem;
+}

@@ -6,6 +6,8 @@ import { useAuth } from '../contexts/AuthContext'
 import { useToast } from '../contexts/ToastContext'
 import { supabase } from '../lib/supabase'
 import { usePlatformFee } from '../hooks/usePlatformFee'
+import { needsKyc } from '../lib/kyc'
+import KycGate from '../components/KycGate'
 import { computePlatformFee, platformFeeCopy } from '../lib/platformFee'
 import './couponApply.css'
 import './listItem.css'
@@ -45,7 +47,7 @@ function keepAfterFee(amount, fee) {
 
 export default function ListItem() {
   const navigate = useNavigate()
-  const { user, profile, isBanned } = useAuth()
+  const { user, profile, isBanned, loading: authLoading } = useAuth()
   const { showToast } = useToast()
   const { fee: platformFeeSetting } = usePlatformFee()
 
@@ -135,6 +137,11 @@ export default function ListItem() {
       showToast('Account banned. Contact support.', 'error')
       return
     }
+    if (needsKyc(profile)) {
+      showToast('Complete KYC before listing.', 'error')
+      navigate('/kyc', { state: { from: { pathname: '/list-item' } } })
+      return
+    }
     if (!form.title || !form.itemType || !form.priceDay || !form.location) {
       showToast('Fill required fields.', 'error')
       return
@@ -208,6 +215,25 @@ export default function ListItem() {
   const dayKeep = keepAfterFee(form.priceDay, platformFeeSetting)
   const weekKeep = keepAfterFee(form.priceWeek || (Number(form.priceDay) || 0) * 7, platformFeeSetting)
   const monthKeep = keepAfterFee((Number(form.priceDay) || 0) * 20, platformFeeSetting)
+
+  if (authLoading) {
+    return (
+      <div className="list-page">
+        <div className="grid-floor" />
+        <GameBackground />
+      </div>
+    )
+  }
+
+  if (needsKyc(profile)) {
+    return (
+      <div className="list-page">
+        <div className="grid-floor" />
+        <GameBackground />
+        <KycGate status={profile?.kyc_status} action="list gear" from={{ pathname: '/list-item' }} />
+      </div>
+    )
+  }
 
   if (step === 4) {
     return (

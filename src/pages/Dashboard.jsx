@@ -3,7 +3,7 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import {
   User, Star, Shield, Edit3, Plus, Trash2, Eye,
   Package, Calendar, TrendingUp, Clock, Camera, LogOut,
-  ChevronRight, X, Check, Minus,
+  ChevronRight, X, Check, Minus, Wallet,
 } from 'lucide-react'
 import GameBackground from '../components/GameBackground'
 import ListingCard from '../components/ListingCard'
@@ -13,9 +13,12 @@ import { supabase } from '../lib/supabase'
 import { bookingThreadText, mailtoHref, otherPartyContact, whatsappHref } from '../lib/alerts'
 import { fetchInspections } from '../lib/inspections'
 import InspectionPanel from '../components/InspectionPanel'
+import BookingThread from '../components/BookingThread'
+import DashboardWallet from './DashboardWallet'
+import { useWallet } from '../hooks/useWallet'
 import './dashboard.css'
 
-const TABS = ['overview', 'listings', 'bookings', 'incoming']
+const TABS = ['overview', 'listings', 'bookings', 'incoming', 'wallet']
 const BOOKING_SELECT = '*, listings(id, title, emoji, category, location, contact_phone)'
 const LISTING_SELECT = '*, profiles(full_name, rating, kyc_status)'
 const PAID_STATUSES = ['confirmed', 'active', 'completed']
@@ -312,6 +315,7 @@ function BookingCard({ booking, role, open, onToggle, onStatus }) {
               <button type="button" className="is-danger" onClick={() => onStatus(booking, 'cancelled')} aria-label="Cancel booking">Cancel request</button>
             ) : null}
           </div>
+          <BookingThread booking={booking} />
         </div>
       ) : null}
     </div>
@@ -331,6 +335,7 @@ function EmptyBlock({ emoji, title, body, to, cta, large }) {
 
 export default function Dashboard() {
   const { user, profile, signOut, updateProfile, uploadAvatar, isAdmin } = useAuth()
+  const walletState = useWallet()
   const { showToast } = useToast()
   const navigate = useNavigate()
   const [params, setParams] = useSearchParams()
@@ -457,8 +462,12 @@ export default function Dashboard() {
     {
       done: profile?.kyc_status === 'verified',
       title: 'KYC verified',
-      sub: profile?.kyc_status === 'verified' ? 'You look legit' : 'Admin verifies you. Contact support to start.',
-      go: () => navigate('/contact'),
+      sub: profile?.kyc_status === 'verified'
+        ? 'You look legit'
+        : profile?.kyc_status === 'submitted'
+          ? 'Admin is reviewing your docs'
+          : 'Aadhaar or PAN last 4 + selfie. About 2 minutes.',
+      go: () => navigate('/kyc'),
     },
     {
       done: myListings.length > 0,
@@ -657,7 +666,9 @@ export default function Dashboard() {
               {profile?.kyc_status === 'verified' ? (
                 <span className="dash-pill is-ok"><Shield size={11} /> Verified</span>
               ) : (
-                <Link to="/contact" className="dash-pill is-warn">Complete KYC</Link>
+                <Link to="/kyc" className="dash-pill is-warn">
+                  {profile?.kyc_status === 'submitted' ? 'KYC in review' : 'Complete KYC'}
+                </Link>
               )}
               {profile?.rating > 0 ? (
                 <span className="dash-pill is-gold"><Star size={11} /> {profile.rating}</span>
@@ -700,9 +711,9 @@ export default function Dashboard() {
             value={earned}
             prefix="₹"
             tone="gold"
-            sub="confirmed + done"
-            active={tab === 'incoming'}
-            onClick={() => jumpStat('incoming', 'all')}
+            sub={`wallet ${walletState.wallet.available ? `₹${walletState.wallet.available}` : 'ready'}`}
+            active={tab === 'wallet'}
+            onClick={() => jumpStat('wallet')}
           />
           <StatCard
             icon={<Clock size={18} />}
@@ -721,6 +732,7 @@ export default function Dashboard() {
             { id: 'listings', label: 'My Listings', icon: <Package size={14} />, count: myListings.length },
             { id: 'bookings', label: 'My Bookings', icon: <Calendar size={14} />, count: myBookings.length },
             { id: 'incoming', label: 'Incoming', icon: <Clock size={14} />, count: incoming.length, pulse: pendingIn > 0 },
+            { id: 'wallet', label: 'Wallet', icon: <Wallet size={14} />, count: 0 },
           ].map((item) => (
             <button
               key={item.id}
@@ -1028,6 +1040,17 @@ export default function Dashboard() {
               </div>
             )}
           </div>
+        )}
+
+        {tab === 'wallet' && (
+          <DashboardWallet
+            wallet={walletState.wallet}
+            entries={walletState.entries}
+            referrals={walletState.referrals}
+            code={walletState.code}
+            loading={walletState.loading}
+            onRefresh={walletState.refresh}
+          />
         )}
 
         {tab === 'incoming' && (

@@ -3,6 +3,7 @@ import { AnimatePresence, motion } from 'framer-motion'
 import { AuthProvider } from './contexts/AuthContext'
 import { ToastProvider } from './contexts/ToastContext'
 import { NotificationProvider } from './contexts/NotificationContext'
+import { ThemeProvider } from './contexts/ThemeContext'
 import Navbar from './components/Navbar'
 import Footer from './components/Footer'
 import ProtectedRoute from './components/ProtectedRoute'
@@ -20,6 +21,7 @@ import ForgotPassword from './pages/ForgotPassword'
 import ResetPassword from './pages/ResetPassword'
 import ListingDetail from './pages/ListingDetail'
 import Dashboard from './pages/Dashboard'
+import Kyc from './pages/Kyc'
 import Admin from './pages/Admin'
 
 /* ── Page transition wrapper ─────────────────────── */
@@ -55,6 +57,9 @@ function AnimatedRoutes() {
           <Route path="/dashboard" element={
             <ProtectedRoute><Dashboard /></ProtectedRoute>
           } />
+          <Route path="/kyc" element={
+            <ProtectedRoute><Kyc /></ProtectedRoute>
+          } />
           <Route path="/admin" element={
             <AdminRoute><Admin /></AdminRoute>
           } />
@@ -66,20 +71,22 @@ function AnimatedRoutes() {
 
 export default function App() {
   return (
-    <AuthProvider>
-      <ToastProvider>
-        <NotificationProvider>
-          <BrowserRouter>
-            <div className="min-h-screen flex flex-col">
-              <Navbar />
-              <main className="flex-1">
-                <AnimatedRoutes />
-              </main>
-              <Footer />
-            </div>
-          </BrowserRouter>
-        </NotificationProvider>
-      </ToastProvider>
-    </AuthProvider>
+    <ThemeProvider>
+      <AuthProvider>
+        <ToastProvider>
+          <NotificationProvider>
+            <BrowserRouter>
+              <div className="min-h-screen flex flex-col">
+                <Navbar />
+                <main className="flex-1">
+                  <AnimatedRoutes />
+                </main>
+                <Footer />
+              </div>
+            </BrowserRouter>
+          </NotificationProvider>
+        </ToastProvider>
+      </AuthProvider>
+    </ThemeProvider>
   )
 }

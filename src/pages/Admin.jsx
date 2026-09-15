@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Users, Package, Calendar, Star, Boxes, LayoutDashboard, Shield, Ticket, CreditCard } from 'lucide-react'
+import { Users, Package, Calendar, Star, Boxes, LayoutDashboard, Shield, Ticket, CreditCard, ShieldCheck } from 'lucide-react'
 import GameBackground from '../components/GameBackground'
 import { useAuth } from '../contexts/AuthContext'
 import { useAdminData } from '../hooks/useAdminData'
@@ -12,6 +12,7 @@ import AdminStock from './admin/AdminStock'
 import AdminReviews from './admin/AdminReviews'
 import AdminCoupons from './admin/AdminCoupons'
 import AdminPayments from './admin/AdminPayments'
+import AdminKyc from './admin/AdminKyc'
 import './admin/admin.css'
 
 const TABS = [
@@ -23,6 +24,7 @@ const TABS = [
   { id: 'reviews', label: 'Reviews', icon: Star },
   { id: 'coupons', label: 'Coupons', icon: Ticket },
   { id: 'payments', label: 'Payments', icon: CreditCard },
+  { id: 'kyc', label: 'KYC', icon: ShieldCheck },
 ]
 
 export default function Admin() {
@@ -39,6 +41,7 @@ export default function Admin() {
     reviews: data.reviews.length,
     coupons: data.coupons.length,
     payments: data.paymentMethods.length,
+    kyc: data.kycSubmissions.filter((row) => row.status === 'submitted').length,
   }
 
   return (
@@ -52,7 +55,7 @@ export default function Admin() {
             <p className="admin-kicker">Control room</p>
             <h1 className="admin-title">Admin Panel</h1>
             <p className="admin-subtitle">
-              Review users, listings, bookings, stock, reviews, coupons, and payments.
+              Review users, KYC docs, listings, bookings, stock, reviews, coupons, and payments.
             </p>
           </div>
           <span className={`admin-role-badge admin-role-badge--${isSuperAdmin ? 'super' : 'admin'}`}>
@@ -146,6 +149,14 @@ export default function Admin() {
           <AdminPayments
             methods={data.paymentMethods}
             patchMethod={data.patchPaymentMethod}
+          />
+        ) : null}
+
+        {!data.loading && tab === 'kyc' ? (
+          <AdminKyc
+            submissions={data.kycSubmissions}
+            patchSubmission={data.patchSubmission}
+            patchUser={data.patchUser}
           />
         ) : null}
       </div>

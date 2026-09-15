@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react'
 import { Link, useLocation } from 'react-router-dom'
-import { Menu, X, ChevronRight, LogOut, User, Shield } from 'lucide-react'
+import { Menu, X, ChevronRight, LogOut, User, Shield, Search } from 'lucide-react'
 import LogoMark from './LogoMark'
 import NotificationBell from './NotificationBell'
+import ThemeToggle from './ThemeToggle'
 import { useAuth } from '../contexts/AuthContext'
 import './navbar.css'
 
@@ -34,21 +35,21 @@ function NavbarAuth() {
           {profile?.full_name?.[0]?.toUpperCase() || <User size={16} />}
         </button>
         {open && (
-          <div className="absolute top-12 right-0 glass rounded-2xl p-3 min-w-[180px] z-50"
+          <div className="absolute top-12 right-0 glass rounded-2xl p-3 min-w-[180px] z-50 nav-menu"
             style={{ border: '1px solid rgba(255,46,109,0.2)' }}>
-            <p className="text-xs font-display px-2 pb-2 mb-2 font-semibold text-white"
-              style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+            <p className="text-xs font-display px-2 pb-2 mb-2 font-semibold nav-menu__name"
+              style={{ borderBottom: '1px solid var(--border)' }}>
               {profile?.full_name || 'My Account'}
             </p>
             <Link to="/dashboard"
               onClick={() => setOpen(false)}
-              className="w-full flex items-center gap-2 px-2 py-2 rounded-lg text-sm font-display transition-colors hover:bg-white/5 text-white">
+              className="w-full flex items-center gap-2 px-2 py-2 rounded-lg text-sm font-display transition-colors hover:bg-white/5 nav-menu__link">
               <User size={14} /> My Dashboard
             </Link>
             {isAdmin ? (
               <Link to="/admin"
                 onClick={() => setOpen(false)}
-                className="w-full flex items-center gap-2 px-2 py-2 rounded-lg text-sm font-display transition-colors hover:bg-white/5 text-white"
+                className="w-full flex items-center gap-2 px-2 py-2 rounded-lg text-sm font-display transition-colors hover:bg-white/5 nav-menu__link"
                 aria-label="Open admin panel">
                 <Shield size={14} /> Admin Panel
               </Link>
@@ -92,18 +93,7 @@ export default function Navbar() {
 
   return (
     <nav
-      className="nav-bar fixed top-0 inset-x-0 z-50 transition-all duration-500"
-      style={{
-        background: scrolled ? 'rgba(10,10,20,0.92)' : 'rgba(10,10,20,0.3)',
-        backdropFilter: 'blur(24px)',
-        WebkitBackdropFilter: 'blur(24px)',
-        borderBottom: scrolled
-          ? '1px solid rgba(255,46,109,0.18)'
-          : '1px solid transparent',
-        boxShadow: scrolled
-          ? '0 2px 30px rgba(255,46,109,0.08), 0 0 0 1px rgba(0,229,255,0.04)'
-          : 'none',
-      }}
+      className={`nav-bar fixed top-0 inset-x-0 z-50 transition-all duration-500${scrolled ? ' is-scrolled' : ''}`}
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
@@ -142,11 +132,14 @@ export default function Navbar() {
           </div>
 
           <div className="nav-tools">
+            <ThemeToggle />
+            <Link to="/browse" className="nav-search" aria-label="Search gear">
+              <Search size={16} />
+            </Link>
             {isAuthenticated ? <NotificationBell /> : null}
             <NavbarAuth />
             <button
               className="nav-toggle"
-              style={{ color: 'rgba(255,255,255,0.6)' }}
               onClick={() => setOpen(!open)}
               aria-label={open ? 'Close navigation menu' : 'Open navigation menu'}
               aria-expanded={open}
@@ -158,31 +151,24 @@ export default function Navbar() {
       </div>
 
       <div className={`nav-drawer${open ? ' is-open' : ''}`}>
-        <div className="px-4 pb-4 pt-2 space-y-1"
-          style={{ borderTop: '1px solid rgba(255,46,109,0.12)' }}>
+        <div className="px-4 pb-4 pt-2 space-y-1 nav-drawer__inner">
           {navLinks.map(({ to, label }) => (
             <Link key={to} to={to}
-              className="flex items-center justify-between px-4 py-3 rounded-xl text-sm font-display font-semibold transition-all duration-200"
-              style={{
-                color:      pathname === to ? '#ff2e6d' : 'rgba(255,255,255,0.65)',
-                background: pathname === to ? 'rgba(255,46,109,0.08)' : 'transparent',
-              }}>
+              className={`nav-drawer__link${pathname === to ? ' is-on' : ''}`}>
               {label}
               <ChevronRight size={14} style={{ opacity: 0.4 }} />
             </Link>
           ))}
           {isAuthenticated ? (
             <Link to="/dashboard"
-              className="flex items-center justify-between px-4 py-3 rounded-xl text-sm font-display font-semibold"
-              style={{ color: pathname === '/dashboard' ? '#ff2e6d' : 'rgba(255,255,255,0.65)' }}>
+              className={`nav-drawer__link${pathname === '/dashboard' ? ' is-on' : ''}`}>
               My Dashboard
               <ChevronRight size={14} style={{ opacity: 0.4 }} />
             </Link>
           ) : null}
           {isAdmin ? (
             <Link to="/admin"
-              className="flex items-center justify-between px-4 py-3 rounded-xl text-sm font-display font-semibold"
-              style={{ color: pathname === '/admin' ? '#ff2e6d' : 'rgba(255,255,255,0.65)' }}
+              className={`nav-drawer__link${pathname === '/admin' ? ' is-on' : ''}`}
               aria-label="Open admin panel">
               Admin Panel
               <ChevronRight size={14} style={{ opacity: 0.4 }} />

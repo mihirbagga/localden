@@ -24,8 +24,12 @@ export default function Browse() {
   useEffect(() => {
     const cat = params.get('cat')
     const loc = params.get('loc')
+    const sub = params.get('sub')
+    const q = params.get('q')
     if (cat) setActiveCategory(cat)
     if (loc && LOCATIONS.includes(loc)) setLocation(loc)
+    if (sub) setActiveSub(sub)
+    if (q) setSearch(q)
   }, [params])
 
   /* ── Real data from Supabase ────────────────── */
@@ -63,9 +67,9 @@ export default function Browse() {
       <button key={cat} onClick={() => { setActiveCategory(cat); setActiveSub('All') }}
         className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-display font-bold transition-all duration-300"
         style={{
-          background: active ? `linear-gradient(90deg, ${color}22, ${color}10)` : 'rgba(255,255,255,0.04)',
-          border:     `1px solid ${active ? color + '55' : 'rgba(255,255,255,0.08)'}`,
-          color:      active ? color : 'rgba(255,255,255,0.5)',
+          background: active ? `linear-gradient(90deg, ${color}22, ${color}10)` : 'var(--surface)',
+          border:     `1px solid ${active ? color + '55' : 'var(--border)'}`,
+          color:      active ? color : 'var(--text-muted)',
           boxShadow:  active ? `0 0 18px ${color}28` : 'none',
           letterSpacing: '0.04em',
         }}>
@@ -85,17 +89,17 @@ export default function Browse() {
         <div className="mb-8">
           <p className="section-label mb-2">Bangalore's Gear Marketplace</p>
           <div className="flex items-end justify-between">
-            <h1 className="font-bungee text-4xl text-white">
+            <h1 className="font-bungee text-4xl">
               Browse <span className="gradient-text">Listings</span>
             </h1>
             {/* Grid / List toggle */}
             <div className="flex items-center gap-1 p-1 rounded-xl"
-              style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}>
+              style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
               <button onClick={() => setViewMode('grid')}
                 className="w-9 h-9 rounded-lg flex items-center justify-center transition-all duration-200"
                 style={{
                   background: viewMode === 'grid' ? 'rgba(255,46,109,0.15)' : 'transparent',
-                  color: viewMode === 'grid' ? '#ff2e6d' : 'rgba(255,255,255,0.35)',
+                  color: viewMode === 'grid' ? '#ff2e6d' : 'var(--text-dim)',
                 }}>
                 <LayoutGrid size={16} />
               </button>
@@ -103,13 +107,13 @@ export default function Browse() {
                 className="w-9 h-9 rounded-lg flex items-center justify-center transition-all duration-200"
                 style={{
                   background: viewMode === 'list' ? 'rgba(255,46,109,0.15)' : 'transparent',
-                  color: viewMode === 'list' ? '#ff2e6d' : 'rgba(255,255,255,0.35)',
+                  color: viewMode === 'list' ? '#ff2e6d' : 'var(--text-dim)',
                 }}>
                 <List size={16} />
               </button>
             </div>
           </div>
-          <p className="font-display mt-1" style={{ color: 'rgba(255,255,255,0.4)' }}>
+          <p className="font-display mt-1" style={{ color: 'var(--text-dim)' }}>
             {loading ? 'Loading...' : `${filtered.length} items available · Updated live`}
           </p>
         </div>
@@ -117,7 +121,7 @@ export default function Browse() {
         {/* Search */}
         <div className="relative mb-6">
           <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none"
-            style={{ color: 'rgba(255,255,255,0.3)' }} />
+            style={{ color: 'var(--text-dim)' }} />
           <input type="search" value={search} onChange={e => setSearch(e.target.value)}
             placeholder="Search PS5, Guitar, Roland, Fender..."
             className="input-dark input-icon-both h-14 text-base"
@@ -125,7 +129,7 @@ export default function Browse() {
           {search && (
             <button type="button" onClick={() => setSearch('')}
               className="absolute right-4 top-1/2 -translate-y-1/2"
-              style={{ color: 'rgba(255,255,255,0.35)' }}
+              style={{ color: 'var(--text-dim)' }}
               aria-label="Clear search">
               <X size={16}/>
             </button>
@@ -146,9 +150,9 @@ export default function Browse() {
               <button key={s} onClick={() => setActiveSub(s)}
                 className="px-3 py-1.5 rounded-lg text-xs font-display font-semibold transition-all duration-200"
                 style={{
-                  background: activeSub === s ? 'rgba(255,46,109,0.15)' : 'rgba(255,255,255,0.04)',
-                  border:     `1px solid ${activeSub === s ? 'rgba(255,46,109,0.4)' : 'rgba(255,255,255,0.06)'}`,
-                  color:      activeSub === s ? '#ff6b9d' : 'rgba(255,255,255,0.45)',
+                  background: activeSub === s ? 'rgba(255,46,109,0.15)' : 'var(--surface)',
+                  border:     `1px solid ${activeSub === s ? 'rgba(255,46,109,0.4)' : 'var(--border)'}`,
+                  color:      activeSub === s ? '#ff6b9d' : 'var(--text-muted)',
                 }}>
                 {s}
               </button>
@@ -169,13 +173,13 @@ export default function Browse() {
           <button onClick={() => setShowFilters(!showFilters)}
             className="flex items-center gap-2 h-10 px-4 rounded-xl text-sm font-display font-semibold transition-all duration-300 flex-shrink-0 whitespace-nowrap"
             style={{
-              background: showFilters ? 'rgba(255,46,109,0.12)' : 'rgba(255,255,255,0.04)',
-              border:     `1px solid ${showFilters ? 'rgba(255,46,109,0.35)' : 'rgba(255,255,255,0.08)'}`,
-              color:      showFilters ? '#ff6b9d' : 'rgba(255,255,255,0.5)',
+              background: showFilters ? 'rgba(255,46,109,0.12)' : 'var(--surface)',
+              border:     `1px solid ${showFilters ? 'rgba(255,46,109,0.35)' : 'var(--border)'}`,
+              color:      showFilters ? '#ff6b9d' : 'var(--text-muted)',
             }}>
             <SlidersHorizontal size={14} /> Price
           </button>
-          <div className="ml-auto text-sm font-display" style={{ color: 'rgba(255,255,255,0.35)' }}>
+          <div className="ml-auto text-sm font-display" style={{ color: 'var(--text-dim)' }}>
             {!loading && `${filtered.length} result${filtered.length !== 1 ? 's' : ''}`}
           </div>
         </div>
@@ -183,7 +187,7 @@ export default function Browse() {
         {/* ── Active filter chips ─────────────────── */}
         {activeFilters.length > 0 && (
           <div className="flex flex-wrap items-center gap-2 mb-5">
-            <span className="text-xs font-display" style={{ color: 'rgba(255,255,255,0.3)' }}>Filters:</span>
+            <span className="text-xs font-display" style={{ color: 'var(--text-dim)' }}>Filters:</span>
             {activeFilters.map(f => (
               <button key={f.key} onClick={f.clear}
                 className="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-display font-semibold transition-all duration-200 group"
@@ -200,9 +204,9 @@ export default function Browse() {
               <button
                 onClick={() => { setActiveCategory('all'); setActiveSub('All'); setLocation('All Locations'); setMaxPrice(1000); setSearch('') }}
                 className="text-xs font-display transition-colors"
-                style={{ color: 'rgba(255,255,255,0.3)' }}
-                onMouseEnter={e => e.currentTarget.style.color = 'white'}
-                onMouseLeave={e => e.currentTarget.style.color = 'rgba(255,255,255,0.3)'}>
+                style={{ color: 'var(--text-dim)' }}
+                onMouseEnter={e => e.currentTarget.style.color = 'var(--text)'}
+                onMouseLeave={e => e.currentTarget.style.color = 'var(--text-dim)'}>
                 Clear all
               </button>
             )}
@@ -213,14 +217,14 @@ export default function Browse() {
         {showFilters && (
           <div className="glass rounded-2xl p-5 mb-6">
             <div className="flex items-center justify-between mb-3">
-              <span className="text-sm font-display font-semibold text-white">Max price per day</span>
+              <span className="text-sm font-display font-semibold">Max price per day</span>
               <span className="font-bungee text-sm" style={{ color: '#ff2e6d' }}>₹{maxPrice}</span>
             </div>
             <input type="range" min={50} max={1000} step={50} value={maxPrice}
               onChange={e => setMaxPrice(Number(e.target.value))}
               className="w-full cursor-pointer" style={{ accentColor: '#ff2e6d' }} />
             <div className="flex justify-between text-xs mt-1 font-display"
-              style={{ color: 'rgba(255,255,255,0.25)' }}>
+              style={{ color: 'var(--text-dim)' }}>
               <span>₹50</span><span>₹1,000</span>
             </div>
           </div>
@@ -231,7 +235,7 @@ export default function Browse() {
           <div className="glass rounded-2xl p-5 mb-6 flex items-center gap-3"
             style={{ border: '1px solid rgba(255,46,109,0.3)' }}>
             <AlertCircle size={18} style={{ color: '#ff6b9d', flexShrink: 0 }} />
-            <p className="text-sm font-display" style={{ color: 'rgba(255,255,255,0.6)' }}>
+            <p className="text-sm font-display" style={{ color: 'var(--text-muted)' }}>
               Could not connect to database. Check your <code>.env.local</code> file.
             </p>
           </div>
@@ -245,8 +249,8 @@ export default function Browse() {
             {Array(viewMode === 'grid' ? 8 : 5).fill(0).map((_, i) => (
               <div key={i} className="rounded-2xl overflow-hidden animate-pulse"
                 style={{
-                  background: 'rgba(14,14,28,0.85)',
-                  border: '1px solid rgba(255,255,255,0.06)',
+                  background: 'var(--card)',
+                  border: '1px solid var(--border)',
                   height: viewMode === 'grid' ? 360 : 84,
                 }} />
             ))}
@@ -270,8 +274,8 @@ export default function Browse() {
         {!loading && !error && filtered.length === 0 && (
           <div className="text-center py-24">
             <div className="text-6xl mb-4">🎮</div>
-            <h3 className="font-bungee text-2xl text-white mb-2">No listings yet</h3>
-            <p className="font-display mb-2" style={{ color: 'rgba(255,255,255,0.4)' }}>
+            <h3 className="font-bungee text-2xl mb-2">No listings yet</h3>
+            <p className="font-display mb-2" style={{ color: 'var(--text-dim)' }}>
               {activeFilters.length > 0
                 ? 'Try adjusting your filters'
                 : 'Be the first to list your gear in Bangalore!'}

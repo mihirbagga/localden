@@ -8,6 +8,14 @@ const SYMBOLS = [
 
 export default function GameBackground() {
   const canvasRef = useRef(null)
+  const [themeTick, setThemeTick] = useState(0)
+
+  useEffect(() => {
+    const root = document.documentElement
+    const obs = new MutationObserver(() => setThemeTick((n) => n + 1))
+    obs.observe(root, { attributes: true, attributeFilter: ['data-theme'] })
+    return () => obs.disconnect()
+  }, [])
 
   useEffect(() => {
     const canvas = canvasRef.current
@@ -49,12 +57,11 @@ export default function GameBackground() {
     ]
 
     let frame = 0
+    const fill = getComputedStyle(document.documentElement).getPropertyValue('--bg-900').trim() || '#0a0a14'
     const draw = () => {
       ctx.clearRect(0, 0, W, H)
       frame++
-
-      /* base bg */
-      ctx.fillStyle = '#0a0a14'
+      ctx.fillStyle = fill
       ctx.fillRect(0, 0, W, H)
 
       /* nebula */
@@ -115,7 +122,7 @@ export default function GameBackground() {
     }
     window.addEventListener('resize', onResize)
     return () => { cancelAnimationFrame(animId); window.removeEventListener('resize', onResize) }
-  }, [])
+  }, [themeTick])
 
   return (
     <canvas ref={canvasRef} className="game-bg fixed inset-0 pointer-events-none" />

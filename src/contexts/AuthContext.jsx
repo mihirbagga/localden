@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
+import { applyStoredReferral, captureReferralFromSearch, storeReferralCode } from '../lib/referrals'
 
 const AuthContext = createContext(null)
 
@@ -30,6 +31,10 @@ export function AuthProvider({ children }) {
 
   /* ── Listen to auth state ─────────────────── */
   useEffect(() => {
+    captureReferralFromSearch()
+  }, [])
+
+  useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null)
       if (session?.user) fetchProfile(session.user.id).finally(() => setLoading(false))
@@ -44,6 +49,8 @@ export function AuthProvider({ children }) {
           await ensureWelcomeCoupon(
             session.user.user_metadata?.full_name || session.user.user_metadata?.name || ''
           )
+          await applyStoredReferral(supabase)
+          await supabase.rpc('ensure_referral_code').catch(() => {})
         }
       } else {
         setProfile(null)
@@ -55,7 +62,7 @@ export function AuthProvider({ children }) {
   }, [])
 
   /* ── Sign up with email ───────────────────── */
-  const signUp = async ({ email, password, fullName, phone }) => {
+  const signUp = async ({ email, password, fullName, phone, referralCode }) => {
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
@@ -71,8 +78,11 @@ export function AuthProvider({ children }) {
         phone,
         email,
       })
+      if (referralCode) storeReferralCode(referralCode)
       if (data.session) {
         await ensureWelcomeCoupon(fullName)
+        await applyStoredReferral(supabase)
+        await supabase.rpc('ensure_referral_code').catch(() => {})
       }
     }
     return data
@@ -114,6 +124,11 @@ export function AuthProvider({ children }) {
   }
 
   /* ── Update profile ───────────────────────── */
+  const refreshProfile = async () => {
+    if (!user) return null
+    return fetchProfile(user.id)
+  }
+
   const updateProfile = async (updates) => {
     if (!user) throw new Error('Not authenticated')
     const { data, error } = await supabase
@@ -152,7 +167,7 @@ export function AuthProvider({ children }) {
       user, profile, loading,
       signUp, signIn, signInWithGoogle, signOut,
       requestPasswordReset, updatePassword,
-      updateProfile, uploadAvatar,
+      updateProfile, refreshProfile, uploadAvatar,
       isAuthenticated: !!user,
       isAdmin,
       isSuperAdmin,

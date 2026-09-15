@@ -19,7 +19,7 @@
 .terms-title {
   font-family: 'Bungee', cursive;
   font-size: clamp(1.6rem, 5vw, 2.3rem);
-  color: #fff;
+  color: var(--text);
   margin-bottom: 0.6rem;
 }
 
@@ -48,7 +48,7 @@
 }
 
 .terms-nav a:hover {
-  color: #fff;
+  color: var(--text);
   border-color: rgba(255, 46, 109, 0.4);
 }
 
@@ -63,7 +63,7 @@
 .terms-block h2 {
   font-family: 'Bungee', cursive;
   font-size: 0.95rem;
-  color: #fff;
+  color: var(--text);
   margin-bottom: 0.7rem;
 }
 
@@ -80,7 +80,7 @@
   padding-left: 1.1rem;
 }
 
-.terms-block strong { color: #fff; }
+.terms-block strong { color: var(--text); }
 
 .terms-table {
   width: 100%;
@@ -99,7 +99,7 @@
   vertical-align: top;
 }
 
-.terms-table th { color: #fff; font-weight: 800; }
+.terms-table th { color: var(--text); font-weight: 800; }
 
 .book-terms {
   display: flex;
@@ -128,7 +128,7 @@
 }
 
 .book-terms a {
-  color: #fff;
+  color: var(--text);
   font-weight: 800;
 }
 

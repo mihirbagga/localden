@@ -15,7 +15,7 @@ const RENTER_STEPS = [
   {
     emoji: '🪪',
     title: 'Quick KYC',
-    desc: 'First rental: Aadhaar/PAN + selfie. About 2 minutes. Listers see a verified renter, not a stranger.',
+    desc: 'First rental or listing: Aadhaar or PAN last 4 + ID photo + selfie. Admin reviews. Listers see a verified renter, not a stranger.',
   },
   {
     emoji: '📅',
@@ -58,7 +58,7 @@ const LISTER_STEPS = [
   {
     emoji: '💸',
     title: 'Get paid',
-    desc: '',
+    desc: 'Earnings land in your in-app wallet after return. Share your referral code for ₹200 when a friend books.',
   },
 ]
 
@@ -103,7 +103,7 @@ export default function HowItWorks() {
   const faqs = useMemo(() => ([
     { q: 'What if the item gets damaged?', a: 'Check-in and check-out photos sit on the booking. Deposit covers damage beyond wear. Tell us within 24 hours of return.' },
     { q: 'Why are some calendar dates grey?', a: 'Those days are already booked. The same unit cannot go to two people on overlapping dates.' },
-    { q: 'How long does KYC take?', a: 'Usually under 2 minutes. Upload Aadhaar/PAN and a selfie. Auto or manual review within an hour.' },
+    { q: 'How long does KYC take?', a: 'Upload takes about 2 minutes. Admin reviews Aadhaar/PAN last 4 and a selfie, usually within an hour.' },
     { q: 'Can I list more than one item?', a: 'Yes. Each listing has its own photos, price, and stock. No listing fee.' },
     { q: 'How is the platform fee calculated?', a: platformFeeFaq(fee) },
     { q: 'What areas are covered?', a: 'Bangalore first: Koramangala, Indiranagar, HSR, Whitefield, BTM, Marathahalli, Electronic City, Jayanagar, Sadashivanagar, Malleshwaram, Hebbal. More soon.' },

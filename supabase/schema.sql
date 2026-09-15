@@ -451,3 +451,5 @@ create trigger on_booking_coupon_redeemed
 --
 -- Then run supabase/booking_ops_migration.sql for check-in photos,
 -- availability dates, and booking alerts.
+-- Then run supabase/kyc_migration.sql for manual KYC + private kyc-docs bucket.
+-- Then run supabase/wallet_referral_chat_migration.sql for wallet, referrals, and booking chat.

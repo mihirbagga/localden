@@ -18,7 +18,7 @@
 .list-title {
   font-family: 'Bungee', cursive;
   font-size: 2.2rem;
-  color: #fff;
+  color: var(--text);
 }
 
 .list-steps {
@@ -46,7 +46,7 @@
 .list-step.is-on {
   border-color: rgba(255, 46, 109, 0.4);
   background: rgba(255, 46, 109, 0.1);
-  color: #fff;
+  color: var(--text);
 }
 
 .list-step.is-done {
@@ -89,14 +89,14 @@
 .list-form {
   padding: 1.4rem;
   border-radius: 1.3rem;
-  background: rgba(14, 14, 28, 0.88);
+  background: var(--card);
   border: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .list-form h2 {
   font-family: 'Bungee', cursive;
   font-size: 1.15rem;
-  color: #fff;
+  color: var(--text);
   margin-bottom: 1rem;
 }
 
@@ -121,7 +121,7 @@
   display: block;
   font-family: 'Bungee', cursive;
   font-size: 1rem;
-  color: #fff;
+  color: var(--text);
   margin: 0.35rem 0 0.15rem;
 }
 
@@ -168,7 +168,7 @@
 .list-chip.is-on {
   border-color: rgba(0, 229, 255, 0.45);
   background: rgba(0, 229, 255, 0.12);
-  color: #fff;
+  color: var(--text);
 }
 
 .list-field {
@@ -215,7 +215,7 @@
   display: block;
   font-family: 'Rajdhani', sans-serif;
   font-size: 0.88rem;
-  color: #fff;
+  color: var(--text);
 }
 
 .list-cond span {
@@ -256,7 +256,7 @@
 .list-drop.is-over {
   border-color: #ff2e6d;
   background: rgba(255, 46, 109, 0.1);
-  color: #fff;
+  color: var(--text);
 }
 
 .list-thumbs {
@@ -290,7 +290,7 @@
   border: none;
   border-radius: 999px;
   background: rgba(255, 46, 109, 0.92);
-  color: #fff;
+  color: var(--text);
   cursor: pointer;
   display: grid;
   place-items: center;
@@ -382,7 +382,7 @@
 .list-preview {
   padding: 1rem;
   border-radius: 1.15rem;
-  background: rgba(14, 14, 28, 0.88);
+  background: var(--card);
   border: 1px solid rgba(255, 255, 255, 0.08);
   position: sticky;
   top: 5.5rem;
@@ -419,7 +419,7 @@
   font-family: 'Rajdhani', sans-serif;
   font-size: 1.05rem;
   font-weight: 800;
-  color: #fff;
+  color: var(--text);
   margin-bottom: 0.25rem;
 }
 
@@ -445,14 +445,14 @@
   text-align: center;
   padding: 2.2rem 1.4rem;
   border-radius: 1.4rem;
-  background: rgba(14, 14, 28, 0.92);
+  background: var(--card);
   border: 1px solid rgba(0, 255, 148, 0.28);
 }
 
 .list-success h2 {
   font-family: 'Bungee', cursive;
   font-size: 1.7rem;
-  color: #fff;
+  color: var(--text);
   margin: 0.6rem 0 0.5rem;
 }
 
@@ -483,7 +483,7 @@
     z-index: 12;
     margin: 0 -1rem -1rem;
     padding: 0.75rem 1rem calc(0.75rem + env(safe-area-inset-bottom, 0px));
-    background: rgba(14, 14, 28, 0.96);
+    background: var(--card);
     border-top: 1px solid rgba(255, 255, 255, 0.08);
   }
 }

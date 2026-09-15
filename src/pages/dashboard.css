@@ -18,7 +18,7 @@
 .dash-hello h1 {
   font-family: 'Bungee', cursive;
   font-size: clamp(1.5rem, 4vw, 2.1rem);
-  color: #fff;
+  color: var(--text);
   line-height: 1.15;
 }
 
@@ -38,7 +38,7 @@
   margin-bottom: 1.25rem;
   border-radius: 1.25rem;
   border: 1px solid rgba(255, 46, 109, 0.18);
-  background: rgba(14, 14, 28, 0.72);
+  background: var(--card);
 }
 
 .dash-avatar {
@@ -64,7 +64,7 @@
   justify-content: center;
   font-family: 'Bungee', cursive;
   font-size: 1.6rem;
-  color: #fff;
+  color: var(--text);
   background: linear-gradient(135deg, var(--magenta), var(--cyan));
 }
 
@@ -86,7 +86,7 @@
   justify-content: center;
   background: var(--magenta);
   border: 2px solid #0a0a14;
-  color: #fff;
+  color: var(--text);
   pointer-events: none;
 }
 
@@ -106,7 +106,7 @@
 .dash-name-row h2 {
   font-family: 'Bungee', cursive;
   font-size: 1.25rem;
-  color: #fff;
+  color: var(--text);
 }
 
 .dash-icon-btn {
@@ -123,7 +123,7 @@
 }
 
 .dash-icon-btn:hover {
-  color: #fff;
+  color: var(--text);
 }
 
 .dash-name-edit {
@@ -190,7 +190,7 @@
   padding: 1rem 1.05rem;
   border-radius: 1rem;
   border: 1px solid var(--border);
-  background: rgba(14, 14, 28, 0.72);
+  background: var(--card);
   cursor: pointer;
   color: inherit;
   font-family: inherit;
@@ -230,7 +230,7 @@
   margin-top: 0.3rem;
   font-family: 'Rajdhani', sans-serif;
   font-weight: 700;
-  color: #fff;
+  color: var(--text);
   font-size: 0.9rem;
 }
 
@@ -302,7 +302,7 @@
   padding: 0.85rem 1rem;
   border-radius: 0.95rem;
   border: 1px solid var(--border);
-  background: rgba(14, 14, 28, 0.75);
+  background: var(--card);
   color: var(--text-muted);
   cursor: pointer;
   font-family: 'Rajdhani', sans-serif;
@@ -312,7 +312,7 @@
   display: block;
   font-family: 'Bungee', cursive;
   font-size: 0.82rem;
-  color: #fff;
+  color: var(--text);
   margin-bottom: 0.2rem;
 }
 
@@ -355,7 +355,7 @@
 
 .dash-next p {
   font-size: 0.92rem;
-  color: #fff;
+  color: var(--text);
   font-weight: 700;
 }
 
@@ -375,7 +375,7 @@
   padding: 1.1rem;
   border-radius: 1rem;
   border: 1px solid var(--border);
-  background: rgba(14, 14, 28, 0.72);
+  background: var(--card);
 }
 
 .dash-card__head {
@@ -447,7 +447,7 @@
 .dash-action strong {
   display: block;
   font-size: 0.88rem;
-  color: #fff;
+  color: var(--text);
 }
 
 .dash-action span {
@@ -500,7 +500,7 @@
 .dash-check strong {
   display: block;
   font-size: 0.88rem;
-  color: #fff;
+  color: var(--text);
 }
 
 .dash-check span {
@@ -543,7 +543,7 @@
 .dash-feed__row strong {
   display: block;
   font-size: 0.85rem;
-  color: #fff;
+  color: var(--text);
 }
 
 .dash-feed__row span {
@@ -580,7 +580,7 @@
 .dash-mini strong {
   display: block;
   font-size: 0.88rem;
-  color: #fff;
+  color: var(--text);
 }
 
 .dash-mini span {
@@ -658,7 +658,7 @@
 }
 
 .dash-chip.is-on {
-  color: #fff;
+  color: var(--text);
   border-color: rgba(255, 46, 109, 0.45);
   background: rgba(255, 46, 109, 0.14);
 }
@@ -690,7 +690,7 @@
   border-radius: 0.65rem;
   border: 1px solid var(--border);
   background: rgba(255, 255, 255, 0.06);
-  color: #fff;
+  color: var(--text);
   font-family: 'Rajdhani', sans-serif;
   font-weight: 700;
   font-size: 0.78rem;
@@ -783,7 +783,7 @@
 .dash-book__body strong {
   display: block;
   font-size: 0.9rem;
-  color: #fff;
+  color: var(--text);
 }
 
 .dash-book__body span {
@@ -840,7 +840,7 @@
 
 .dash-book__facts b {
   font-size: 0.82rem;
-  color: #fff;
+  color: var(--text);
 }
 
 .dash-book__acts {
@@ -856,7 +856,7 @@
   border-radius: 0.65rem;
   border: 1px solid var(--border);
   background: rgba(255, 255, 255, 0.06);
-  color: #fff;
+  color: var(--text);
   font-family: 'Rajdhani', sans-serif;
   font-weight: 700;
   font-size: 0.8rem;
@@ -900,7 +900,7 @@
   padding: 1.6rem;
   border-radius: 1.4rem;
   border: 1px solid rgba(255, 46, 109, 0.35);
-  background: rgba(14, 14, 28, 0.98);
+  background: var(--card);
   box-shadow: 0 24px 80px rgba(0, 0, 0, 0.6);
 }
 
@@ -933,7 +933,7 @@
 .dash-modal h2 {
   font-family: 'Bungee', cursive;
   font-size: 1.35rem;
-  color: #fff;
+  color: var(--text);
   text-align: center;
   margin-bottom: 0.4rem;
 }
@@ -958,7 +958,7 @@
 
 .dash-modal__preview b {
   display: block;
-  color: #fff;
+  color: var(--text);
   font-size: 0.88rem;
 }
 
@@ -1007,4 +1007,115 @@
   .dash-listings {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
+}
+
+.dash-wallet {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.dash-wallet__stats {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.7rem;
+}
+
+.dash-wallet__stat {
+  padding: 1rem;
+  border-radius: 1rem;
+  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.dash-wallet__stat span {
+  display: block;
+  font-size: 0.75rem;
+  color: var(--text-dim);
+}
+
+.dash-wallet__stat strong {
+  display: block;
+  margin-top: 0.25rem;
+  font-family: 'Bungee', cursive;
+  font-size: 1.25rem;
+  color: var(--gold);
+}
+
+.dash-wallet__hint {
+  margin: 0;
+  font-size: 0.82rem;
+  color: var(--text-muted);
+}
+
+.dash-wallet__block {
+  padding: 1rem;
+  border-radius: 1rem;
+  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.dash-wallet__block h3 {
+  margin: 0 0 0.4rem;
+  font-family: 'Rajdhani', sans-serif;
+  color: var(--text);
+}
+
+.dash-wallet__block > p {
+  margin: 0 0 0.75rem;
+  font-size: 0.82rem;
+  color: var(--text-muted);
+}
+
+.dash-wallet__code {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  align-items: center;
+  margin-bottom: 0.75rem;
+}
+
+.dash-wallet__code code {
+  padding: 0.45rem 0.7rem;
+  border-radius: 0.6rem;
+  background: rgba(255, 46, 109, 0.12);
+  color: var(--text);
+  font-weight: 800;
+  letter-spacing: 0.06em;
+}
+
+.dash-wallet__refs,
+.dash-wallet__ledger {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.dash-wallet__refs li,
+.dash-wallet__ledger li {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.55rem 0;
+  border-top: 1px solid var(--border);
+}
+
+.dash-wallet__refs strong,
+.dash-wallet__ledger strong {
+  display: block;
+  color: var(--text);
+  font-size: 0.85rem;
+}
+
+.dash-wallet__refs span,
+.dash-wallet__ledger span {
+  font-size: 0.72rem;
+  color: var(--text-dim);
+}
+
+.dash-wallet__ledger .is-in { color: var(--success); }
+.dash-wallet__ledger .is-out { color: var(--magenta); }
+
+.ld-wallet-opt {
+  margin-bottom: 0.85rem;
 }

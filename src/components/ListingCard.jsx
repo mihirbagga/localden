@@ -37,8 +37,8 @@ export default function ListingCard({ listing, listView = false }) {
         <div
           className="flex items-center gap-4 rounded-2xl p-3 transition-all duration-300"
           style={{
-            background:     hovered ? 'rgba(255,255,255,0.05)' : 'rgba(14,14,28,0.8)',
-            border:         `1px solid ${hovered ? accent + '40' : 'rgba(255,255,255,0.07)'}`,
+            background:     hovered ? 'var(--surface-2)' : 'var(--card)',
+            border:         `1px solid ${hovered ? accent + '40' : 'var(--border)'}`,
             boxShadow:      hovered ? `0 8px 30px ${accent}15` : 'none',
           }}
           onMouseEnter={() => setHovered(true)}
@@ -60,7 +60,7 @@ export default function ListingCard({ listing, listView = false }) {
                 ? <span className="text-xs" style={{ color: 'var(--success)' }}>● Available</span>
                 : <span className="text-xs" style={{ color: '#ff6b9d' }}>● Booked</span>}
             </div>
-            <h3 className="font-display font-bold text-white text-sm leading-snug truncate">{listing.title}</h3>
+            <h3 className="font-display font-bold text-sm leading-snug truncate" style={{ color: 'var(--text)' }}>{listing.title}</h3>
             <div className="flex items-center gap-3 mt-1">
               {rating > 0 && (
                 <div className="flex items-center gap-0.5">
@@ -71,7 +71,7 @@ export default function ListingCard({ listing, listView = false }) {
               {listing.location && (
                 <div className="flex items-center gap-0.5">
                   <MapPin size={10} style={{ color: accent }} />
-                  <span className="text-xs font-display" style={{ color: 'rgba(255,255,255,0.4)' }}>{listing.location}</span>
+                  <span className="text-xs font-display" style={{ color: 'var(--text-dim)' }}>{listing.location}</span>
                 </div>
               )}
             </div>
@@ -80,7 +80,7 @@ export default function ListingCard({ listing, listView = false }) {
           {/* Price */}
           <div className="text-right flex-shrink-0">
             <div className="font-bungee text-xl" style={{ color: accent }}>₹{priceDay}</div>
-            <div className="text-xs font-display" style={{ color: 'rgba(255,255,255,0.35)' }}>/day</div>
+            <div className="text-xs font-display" style={{ color: 'var(--text-dim)' }}>/day</div>
           </div>
         </div>
       </Link>
@@ -94,7 +94,7 @@ export default function ListingCard({ listing, listView = false }) {
         className="relative rounded-2xl overflow-hidden cursor-pointer transition-all duration-400"
         style={{
           height:     360,
-          border:     `1px solid ${hovered ? accent + '50' : 'rgba(255,255,255,0.07)'}`,
+          border:     `1px solid ${hovered ? accent + '50' : 'var(--border)'}`,
           boxShadow:  hovered ? `0 24px 70px ${accent}25, 0 0 0 1px ${accent}18` : 'none',
           transform:  hovered ? 'translateY(-4px)' : 'none',
           transition: 'all 0.35s cubic-bezier(0.22,1,0.36,1)',

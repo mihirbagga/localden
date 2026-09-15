@@ -24,7 +24,7 @@
 .pay-method.is-on {
   border-color: rgba(255, 46, 109, 0.45);
   background: rgba(255, 46, 109, 0.1);
-  color: #fff;
+  color: var(--text);
 }
 
 .pay-method__dot {
@@ -77,7 +77,7 @@
   font-family: 'Rajdhani', sans-serif;
   font-size: 0.85rem;
   font-weight: 700;
-  color: #fff;
+  color: var(--text);
   overflow: hidden;
   text-overflow: ellipsis;
 }
@@ -89,7 +89,7 @@
   margin-bottom: 0.25rem;
 }
 
-.pay-bank-line strong { color: #fff; }
+.pay-bank-line strong { color: var(--text); }
 
 .admin-pay-card {
   margin-bottom: 1rem;
@@ -107,7 +107,7 @@
 .admin-pay-title {
   font-family: 'Bungee', cursive;
   font-size: 0.95rem;
-  color: #fff;
+  color: var(--text);
 }
 
 .admin-pay-type {
