@@ -18,6 +18,13 @@ export function AuthProvider({ children }) {
     }
   }
 
+  const ensureReferralCode = async () => {
+    const { error } = await supabase.rpc('ensure_referral_code')
+    if (error && !/schema cache|does not exist|Could not find/i.test(error.message || '')) {
+      console.warn('Referral code:', error.message)
+    }
+  }
+
   /* ── Fetch profile row ────────────────────── */
   const fetchProfile = async (userId) => {
     const { data } = await supabase
@@ -50,7 +57,7 @@ export function AuthProvider({ children }) {
             session.user.user_metadata?.full_name || session.user.user_metadata?.name || ''
           )
           await applyStoredReferral(supabase)
-          await supabase.rpc('ensure_referral_code').catch(() => {})
+          await ensureReferralCode()
         }
       } else {
         setProfile(null)
@@ -82,7 +89,7 @@ export function AuthProvider({ children }) {
       if (data.session) {
         await ensureWelcomeCoupon(fullName)
         await applyStoredReferral(supabase)
-        await supabase.rpc('ensure_referral_code').catch(() => {})
+        await ensureReferralCode()
       }
     }
     return data

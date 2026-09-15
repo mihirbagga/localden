@@ -21,7 +21,7 @@ export function NotificationProvider({ children }) {
       return
     }
     setLoading(true)
-    await supabase.rpc('issue_due_booking_alerts').catch(() => {})
+    await supabase.rpc('issue_due_booking_alerts')
     const { data, error } = await supabase
       .from('notifications')
       .select('*')
