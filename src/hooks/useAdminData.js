@@ -17,6 +17,13 @@ function hydrateBookings(bookings, usersById) {
   }))
 }
 
+function hydrateKyc(rows, usersById) {
+  return rows.map((row) => ({
+    ...row,
+    profiles: usersById[row.user_id] || null,
+  }))
+}
+
 function hydrateReviews(reviews, usersById) {
   return reviews.map((row) => ({
     ...row,
@@ -43,7 +50,7 @@ async function fetchAll() {
     loadRows('reviews', '*, listings(id, title, emoji)'),
     loadRows('coupons', '*'),
     loadRows('payment_methods', '*', 'sort_order'),
-    loadRows('kyc_submissions', '*, profiles(id, full_name, email, phone, kyc_status)', 'submitted_at'),
+    loadRows('kyc_submissions', '*', 'submitted_at'),
   ])
 
   const labels = ['users', 'listings', 'bookings', 'reviews', 'coupons', 'payments', 'kyc']
@@ -68,7 +75,7 @@ async function fetchAll() {
     reviews: hydrateReviews(reviews, usersById),
     coupons,
     paymentMethods,
-    kycSubmissions,
+    kycSubmissions: hydrateKyc(kycSubmissions, usersById),
     failures,
   }
 }
