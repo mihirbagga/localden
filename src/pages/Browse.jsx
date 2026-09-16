@@ -4,6 +4,7 @@ import { Search, SlidersHorizontal, Gamepad2, Music, X, RefreshCw, AlertCircle, 
 import GameBackground from '../components/GameBackground'
 import ListingCard from '../components/ListingCard'
 import { useListings } from '../hooks/useListings'
+import SEOHead from '../components/SEOHead'
 
 const LOCATIONS    = ['All Locations','Koramangala','Indiranagar','HSR Layout','Whitefield','BTM Layout','Marathahalli','Electronic City','Jayanagar','Sadashivanagar','Malleshwaram','Hebbal']
 const SORT_OPTIONS = ['Newest','Price: Low to High','Price: High to Low','Top Rated']
@@ -80,6 +81,7 @@ export default function Browse() {
 
   return (
     <div className="relative min-h-screen pt-24 pb-20">
+      <SEOHead title="Browse Listings" description="Find gaming consoles, guitars, DJ equipment and more for rent in Bangalore. Browse by location, category and price." />
       <div className="grid-floor" />
       <GameBackground />
 

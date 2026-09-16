@@ -30,6 +30,8 @@ import AvailabilityCalendar from '../components/AvailabilityCalendar'
 import './terms.css'
 import './couponApply.css'
 import './listingDetail.css'
+import SEOHead from '../components/SEOHead'
+import { useReviews } from '../hooks/useReviews'
 
 const SAVED_KEY = 'ldSaved'
 const HOW_STEPS = [
@@ -211,6 +213,8 @@ function BookingWidget({ listing, mobile = false, forceOpen = false }) {
   const [handover, setHandover] = useState('pickup')
   const [address, setAddress] = useState('')
   const [stepFocus, setStepFocus] = useState(1)
+  const [insuranceOpted, setInsuranceOpted] = useState(false)
+  const INSURANCE_FEE = 99
 
   const days = startDate && endDate
     ? Math.max(1, Math.ceil((new Date(endDate) - new Date(startDate)) / 86400000))
@@ -223,7 +227,8 @@ function BookingWidget({ listing, mobile = false, forceOpen = false }) {
     coupon: appliedCoupon,
     fee: platformFeeSetting,
   })
-  const { subtotal, discount, platformFee, total } = priced
+  const { subtotal, discount, platformFee, total: baseTotal } = priced
+  const total = baseTotal + (insuranceOpted ? INSURANCE_FEE : 0)
   const canWallet = isAuthenticated && days > 0 && total > 0 && (wallet.available || 0) >= total
   const selectedPay = payMethodId === 'wallet'
     ? walletMethod
@@ -302,6 +307,8 @@ function BookingWidget({ listing, mobile = false, forceOpen = false }) {
       razorpay_payment_id: paymentId || null,
       delivery_type: handover,
       delivery_address: handover === 'delivery' ? address.trim() || null : null,
+      insurance_opted: insuranceOpted,
+      insurance_amount: insuranceOpted ? INSURANCE_FEE : 0,
     })
     if (error) {
       setSaving(false)
@@ -619,6 +626,7 @@ function BookingWidget({ listing, mobile = false, forceOpen = false }) {
           {discount > 0 ? <div className="is-off"><span>Coupon {appliedCoupon?.code}</span><b>−₹{discount}</b></div> : null}
           {platformFee > 0 ? <div><span>{platformFeeLabel(platformFeeSetting)}</span><b>₹{platformFee}</b></div> : null}
           <div><span>Security deposit</span><b>₹{deposit}</b></div>
+          {insuranceOpted ? <div><span>Damage Protection</span><b>₹{INSURANCE_FEE}</b></div> : null}
           <div className="is-total"><span>Total</span><span>₹{total}</span></div>
           <p>Deposit back after a clean return.</p>
         </div>
@@ -700,6 +708,15 @@ function BookingWidget({ listing, mobile = false, forceOpen = false }) {
             />
           ) : null}
 
+          <div className="book-damage" style={{ marginBottom: 12 }}>
+            <label className="flex items-start gap-3 cursor-pointer">
+              <input type="checkbox" className="mt-1" checked={insuranceOpted} onChange={e => setInsuranceOpted(e.target.checked)} />
+              <div>
+                <strong style={{ display: 'block', color: '#ff2e6d' }}>+ ₹{INSURANCE_FEE} Damage Protection</strong>
+                <p style={{ margin: 0, fontSize: '0.75rem', opacity: 0.8 }}>Waiver for accidental scratches and minor dents (up to ₹2,000).</p>
+              </div>
+            </label>
+          </div>
           <div className="book-damage">
             <strong>Damage policy (short)</strong>
             <p>Wear is free. Scratches come from deposit. Smash / water / loss = used-market value. Photos at pickup and return.</p>
@@ -917,6 +934,11 @@ export default function ListingDetail() {
 
   return (
     <div className={`ld${isGaming ? ' is-gaming' : ' is-music'}`}>
+      <SEOHead
+        title={listing?.title}
+        description={listing?.description || `Rent ${listing?.title} in Bangalore for ₹${listing?.price_day}/day.`}
+        image={listing?.photos?.[0]}
+      />
       <div className="grid-floor" />
       <GameBackground />
 

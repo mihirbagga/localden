@@ -16,6 +16,7 @@ import InspectionPanel from '../components/InspectionPanel'
 import BookingThread from '../components/BookingThread'
 import DashboardWallet from './DashboardWallet'
 import { useWallet } from '../hooks/useWallet'
+import { StatusBadge, acceptBooking, rejectBooking, markActive, markCompleted } from '../lib/bookingStatus'
 import './dashboard.css'
 
 const TABS = ['overview', 'listings', 'bookings', 'incoming', 'wallet']
@@ -313,6 +314,27 @@ function BookingCard({ booking, role, open, onToggle, onStatus }) {
             ) : null}
             {renterActs && status === 'pending' ? (
               <button type="button" className="is-danger" onClick={() => onStatus(booking, 'cancelled')} aria-label="Cancel booking">Cancel request</button>
+            ) : null}
+            {/* Leave Review — renter only on completed */}
+            {renterActs && status === 'completed' ? (
+              <Link to={`/review/${booking.id}`} className="is-ok" aria-label="Leave a review">⭐ Review</Link>
+            ) : null}
+            {/* Raise Dispute — both parties on active or completed */}
+            {['active', 'completed'].includes(status) ? (
+              <Link to={`/dispute/${booking.id}`} className="is-danger" aria-label="Raise dispute">⚖️ Dispute</Link>
+            ) : null}
+            {/* Download Agreement PDF */}
+            {['confirmed', 'active', 'completed'].includes(status) ? (
+              <button type="button" className="is-cyan"
+                onClick={async () => {
+                  try {
+                    const { generateAgreementPDF } = await import('../lib/rentalAgreement')
+                    await generateAgreementPDF(booking, booking.listings, role === 'renter' ? 'You' : (other?.full_name || 'Lister'), role === 'lister' ? 'You' : (other?.full_name || 'Renter'))
+                  } catch (err) { console.error(err) }
+                }}
+                aria-label="Download rental agreement PDF">
+                📄 Agreement
+              </button>
             ) : null}
           </div>
           <BookingThread booking={booking} />
@@ -985,6 +1007,13 @@ export default function Dashboard() {
                         >
                           <Plus size={12} />
                         </button>
+                        <Link
+                          to={`/list-item/edit/${listing.id}`}
+                          className="is-view"
+                          aria-label={`Edit ${listing.title}`}
+                        >
+                          <Edit3 size={12} /> Edit
+                        </Link>
                         <button
                           type="button"
                           className="is-danger"

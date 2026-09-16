@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useParams } from 'react-router-dom'
 import { Upload, X, AlertCircle, Gamepad2, Music, ChevronRight } from 'lucide-react'
 import GameBackground from '../components/GameBackground'
 import { useAuth } from '../contexts/AuthContext'
@@ -47,6 +47,8 @@ function keepAfterFee(amount, fee) {
 
 export default function ListItem() {
   const navigate = useNavigate()
+  const { id: editId } = useParams()
+  const isEdit = Boolean(editId)
   const { user, profile, isBanned, loading: authLoading } = useAuth()
   const { showToast } = useToast()
   const { fee: platformFeeSetting } = usePlatformFee()
@@ -54,6 +56,7 @@ export default function ListItem() {
   const [step, setStep] = useState(1)
   const [category, setCategory] = useState('')
   const [photos, setPhotos] = useState([])
+  const [existingPhotos, setExistingPhotos] = useState([])
   const [dragOver, setDragOver] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -74,6 +77,33 @@ export default function ListItem() {
   useEffect(() => () => {
     previews.forEach((url) => URL.revokeObjectURL(url))
   }, [previews])
+
+  // Load existing listing data in edit mode
+  useEffect(() => {
+    if (!editId || !user) return
+    supabase.from('listings').select('*').eq('id', editId).eq('user_id', user.id).single()
+      .then(({ data, error: err }) => {
+        if (err || !data) { showToast('Listing not found', 'error'); navigate('/dashboard'); return }
+        setCategory(data.category)
+        setStep(2)
+        setForm({
+          title:        data.title         || '',
+          description:  data.description   || '',
+          itemType:     data.subcategory   || '',
+          brand:        data.brand         || '',
+          model:        data.model         || '',
+          condition:    data.condition     || 'good',
+          location:     data.location      || 'Koramangala',
+          priceDay:     String(data.price_day     || ''),
+          priceWeekend: String(data.price_weekend || ''),
+          priceWeek:    String(data.price_week    || ''),
+          deposit:      String(data.deposit_amount || '5000'),
+          phone:        data.contact_phone || profile?.phone || '',
+          stockQty:     String(data.stock_qty || '1'),
+        })
+        if (data.photos?.length) setExistingPhotos(data.photos)
+      })
+  }, [editId, user])
 
   const addFiles = (fileList) => {
     const incoming = Array.from(fileList || []).filter((f) => f.type.startsWith('image/'))
@@ -137,7 +167,7 @@ export default function ListItem() {
       showToast('Account banned. Contact support.', 'error')
       return
     }
-    if (needsKyc(profile)) {
+    if (!isEdit && needsKyc(profile)) {
       showToast('Complete KYC before listing.', 'error')
       navigate('/kyc', { state: { from: { pathname: '/list-item' } } })
       return
@@ -162,39 +192,65 @@ export default function ListItem() {
         console.warn('Profile upsert skipped:', profileErr.message)
       }
 
-      const listingId = crypto.randomUUID()
-      let photoUrls = []
-      if (photos.length > 0) {
-        photoUrls = await uploadPhotos(listingId)
+      if (isEdit) {
+        let photoUrls = existingPhotos
+        if (photos.length > 0) {
+          const newUrls = await uploadPhotos(editId)
+          photoUrls = [...existingPhotos, ...newUrls].slice(0, 5)
+        }
+        const { error: updErr } = await supabase.from('listings').update({
+          title:          form.title.trim(),
+          description:    form.description.trim(),
+          subcategory:    form.itemType,
+          condition:      form.condition,
+          brand:          form.brand.trim() || null,
+          model:          form.model.trim() || null,
+          price_day:      parseInt(form.priceDay, 10),
+          price_weekend:  form.priceWeekend ? parseInt(form.priceWeekend, 10) : null,
+          price_week:     form.priceWeek ? parseInt(form.priceWeek, 10) : null,
+          deposit_amount: parseInt(form.deposit, 10) || 5000,
+          location:       form.location,
+          contact_phone:  form.phone || profile?.phone || null,
+          photos:         photoUrls,
+          stock_qty:      parseInt(form.stockQty, 10) || 1,
+          updated_at:     new Date().toISOString(),
+        }).eq('id', editId).eq('user_id', user.id)
+        if (updErr) throw updErr
+        showToast('Listing updated!', 'success')
+        navigate('/dashboard')
+      } else {
+        const listingId = crypto.randomUUID()
+        let photoUrls = []
+        if (photos.length > 0) {
+          photoUrls = await uploadPhotos(listingId)
+        }
+        const { error: insErr } = await supabase.from('listings').insert({
+          id: listingId,
+          user_id: user.id,
+          title: form.title.trim(),
+          description: form.description.trim(),
+          category,
+          subcategory: form.itemType,
+          condition: form.condition,
+          brand: form.brand.trim() || null,
+          model: form.model.trim() || null,
+          price_day: parseInt(form.priceDay, 10),
+          price_weekend: form.priceWeekend ? parseInt(form.priceWeekend, 10) : null,
+          price_week: form.priceWeek ? parseInt(form.priceWeek, 10) : null,
+          deposit_amount: parseInt(form.deposit, 10) || 5000,
+          location: form.location,
+          contact_phone: form.phone || profile?.phone || null,
+          emoji: CATEGORY_EMOJI[form.itemType] || (category === 'gaming' ? '🎮' : '🎵'),
+          photos: photoUrls,
+          is_available: true,
+          is_published: true,
+          stock_qty: parseInt(form.stockQty, 10) || 1,
+          stock_total: parseInt(form.stockQty, 10) || 1,
+        })
+        if (insErr) throw insErr
+        showToast('Listing live', 'success')
+        setStep(4)
       }
-
-      const { error: insErr } = await supabase.from('listings').insert({
-        id: listingId,
-        user_id: user.id,
-        title: form.title.trim(),
-        description: form.description.trim(),
-        category,
-        subcategory: form.itemType,
-        condition: form.condition,
-        brand: form.brand.trim() || null,
-        model: form.model.trim() || null,
-        price_day: parseInt(form.priceDay, 10),
-        price_weekend: form.priceWeekend ? parseInt(form.priceWeekend, 10) : null,
-        price_week: form.priceWeek ? parseInt(form.priceWeek, 10) : null,
-        deposit_amount: parseInt(form.deposit, 10) || 5000,
-        location: form.location,
-        contact_phone: form.phone || profile?.phone || null,
-        emoji: CATEGORY_EMOJI[form.itemType] || (category === 'gaming' ? '🎮' : '🎵'),
-        photos: photoUrls,
-        is_available: true,
-        is_published: true,
-        stock_qty: parseInt(form.stockQty, 10) || 1,
-        stock_total: parseInt(form.stockQty, 10) || 1,
-      })
-
-      if (insErr) throw insErr
-      showToast('Listing live', 'success')
-      setStep(4)
     } catch (err) {
       const msg = err.message || 'Failed to list item. Please try again.'
       setError(msg)

@@ -138,7 +138,7 @@ export default function Login() {
           </div>
 
           {/* Google */}
-          <button onClick={handleGoogle}
+          <button type="button" onClick={handleGoogle}
             className="w-full flex items-center justify-center gap-3 py-3 rounded-xl font-display font-semibold text-sm transition-all duration-300"
             style={{
               background: 'rgba(255,255,255,0.04)',

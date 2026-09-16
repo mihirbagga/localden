@@ -8,6 +8,8 @@ import Navbar from './components/Navbar'
 import Footer from './components/Footer'
 import ProtectedRoute from './components/ProtectedRoute'
 import AdminRoute from './components/AdminRoute'
+import ScrollToTop from './components/ScrollToTop'
+import InstallPrompt from './components/InstallPrompt'
 import Home from './pages/Home'
 import Browse from './pages/Browse'
 import ListItem from './pages/ListItem'
@@ -23,6 +25,10 @@ import ListingDetail from './pages/ListingDetail'
 import Dashboard from './pages/Dashboard'
 import Kyc from './pages/Kyc'
 import Admin from './pages/Admin'
+import Review from './pages/Review'
+import Dispute from './pages/Dispute'
+import BlogIndex from './pages/blog/BlogIndex'
+import BlogPost from './pages/blog/BlogPost'
 
 /* ── Page transition wrapper ─────────────────────── */
 const pageVariants = {
@@ -49,9 +55,14 @@ function AnimatedRoutes() {
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/reset-password"  element={<ResetPassword />} />
           <Route path="/listing/:id"  element={<ListingDetail />} />
+          <Route path="/blog"          element={<BlogIndex />} />
+          <Route path="/blog/:slug"    element={<BlogPost />} />
 
           {/* Protected routes — require login */}
           <Route path="/list-item" element={
+            <ProtectedRoute><ListItem /></ProtectedRoute>
+          } />
+          <Route path="/list-item/edit/:id" element={
             <ProtectedRoute><ListItem /></ProtectedRoute>
           } />
           <Route path="/dashboard" element={
@@ -59,6 +70,12 @@ function AnimatedRoutes() {
           } />
           <Route path="/kyc" element={
             <ProtectedRoute><Kyc /></ProtectedRoute>
+          } />
+          <Route path="/review/:bookingId" element={
+            <ProtectedRoute><Review /></ProtectedRoute>
+          } />
+          <Route path="/dispute/:bookingId" element={
+            <ProtectedRoute><Dispute /></ProtectedRoute>
           } />
           <Route path="/admin" element={
             <AdminRoute><Admin /></AdminRoute>
@@ -76,12 +93,14 @@ export default function App() {
         <ToastProvider>
           <NotificationProvider>
             <BrowserRouter>
+              <ScrollToTop />
               <div className="min-h-screen flex flex-col">
                 <Navbar />
                 <main className="flex-1">
                   <AnimatedRoutes />
                 </main>
                 <Footer />
+                <InstallPrompt />
               </div>
             </BrowserRouter>
           </NotificationProvider>

@@ -10,6 +10,7 @@ import { supabase } from '../lib/supabase'
 import { usePlatformFee } from '../hooks/usePlatformFee'
 import { platformFeeCopy } from '../lib/platformFee'
 import { shiftIso, todayIso } from '../lib/bookingDates'
+import SEOHead from '../components/SEOHead'
 import './home.css'
 
 const AREAS = ['Koramangala', 'Indiranagar', 'HSR Layout', 'Whitefield', 'BTM Layout']
@@ -197,6 +198,10 @@ export default function Home() {
 
   return (
     <div className="home">
+      <SEOHead
+        title="Rent Gaming & Music Gear in Bangalore"
+        description="P2P rental for PS5, guitars, DJ equipment & more in Bangalore. Rent by the day from real people near you."
+      />
       <div className="grid-floor" />
       <GameBackground />
 

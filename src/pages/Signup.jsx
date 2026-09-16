@@ -246,7 +246,14 @@ export default function Signup() {
           </div>
 
           {/* Google */}
-          <button onClick={signInWithGoogle}
+          <button type="button" onClick={async () => {
+            setError('')
+            try {
+              await signInWithGoogle()
+            } catch (err) {
+              setError(err.message || 'Google sign in failed')
+            }
+          }}
             className="w-full flex items-center justify-center gap-3 py-3 rounded-xl font-display font-semibold text-sm transition-all duration-300"
             style={{
               background: 'rgba(255,255,255,0.04)',
