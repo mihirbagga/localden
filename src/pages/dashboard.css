@@ -820,8 +820,8 @@
 .dash-status.is-disputed { color: var(--magenta); background: rgba(255, 46, 109, 0.12); }
 
 .dash-book__more {
-  margin-top: 0.8rem;
-  padding-top: 0.75rem;
+  margin-top: 0.5rem;
+  padding-top: 0.5rem;
   border-top: 1px solid var(--border);
 }
 
@@ -829,7 +829,7 @@
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 0.45rem 0.8rem;
-  margin-bottom: 0.75rem;
+  margin-bottom: 0.5rem;
 }
 
 .dash-book__facts span {
@@ -846,13 +846,13 @@
 .dash-book__acts {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.4rem;
+  gap: 0.25rem;
 }
 
 .dash-book__acts button,
 .dash-book__acts a {
-  min-height: 2.75rem;
-  padding: 0.4rem 0.75rem;
+  min-height: 2.25rem;
+  padding: 0.3rem 0.6rem;
   border-radius: 0.65rem;
   border: 1px solid var(--border);
   background: rgba(255, 255, 255, 0.06);

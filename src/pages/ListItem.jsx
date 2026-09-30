@@ -23,7 +23,7 @@ const CONDITIONS   = [
 ]
 const PRICE_PRESETS = [199, 299, 499, 799, 999]
 const DEPOSIT_PRESETS = [2000, 5000, 10000]
-const STEP_LABELS = ['Category', 'Details', 'Pricing']
+const STEP_LABELS = ['What & Where', 'Price & Publish']
 
 const CATEGORY_EMOJI = {
   Console: '🎮', Controller: '🕹️', 'VR Headset': '🥽', 'Gaming Mouse': '🖱️',
@@ -87,7 +87,7 @@ export default function ListItem() {
       .then(({ data, error: err }) => {
         if (err || !data) { showToast('Listing not found', 'error'); navigate('/dashboard'); return }
         setCategory(data.category)
-        setStep(2)
+        setStep(1)
         setForm({
           title:        data.title         || '',
           description:  data.description   || '',
@@ -148,12 +148,8 @@ export default function ListItem() {
 
   const goStep = (n) => {
     if (n === step) return
-    if (n === 2 && !category) {
-      showToast('Pick gaming or music first.', 'error')
-      return
-    }
-    if (n === 3 && (!form.itemType || !form.title)) {
-      showToast('Type and title needed first.', 'error')
+    if (n === 2 && (!category || !form.itemType || !form.title)) {
+      showToast('Category, type, and title are required.', 'error')
       return
     }
     if (n > step + 1) {
@@ -254,7 +250,7 @@ export default function ListItem() {
         })
         if (insErr) throw insErr
         showToast('Listing live', 'success')
-        setStep(4)
+        setStep(3)
       }
     } catch (err) {
       const msg = err.message || 'Failed to list item. Please try again.'
@@ -300,7 +296,7 @@ export default function ListItem() {
     )
   }
 
-  if (step === 4) {
+  if (step === 3) {
     return (
       <div className="list-page">
         <div className="grid-floor" />
@@ -417,28 +413,6 @@ export default function ListItem() {
                   </div>
                 ) : null}
 
-                <div className="list-actions">
-                  <button
-                    type="button"
-                    className="btn-primary"
-                    onClick={() => {
-                      if (!category || !form.itemType) {
-                        showToast('Pick a category and type.', 'error')
-                        return
-                      }
-                      goStep(2)
-                    }}
-                    aria-label="Continue to details"
-                  >
-                    Next: Details <ChevronRight size={16} aria-hidden="true" />
-                  </button>
-                </div>
-              </div>
-            ) : null}
-
-            {step === 2 ? (
-              <div>
-                <h2>Item details</h2>
                 <div className="list-field">
                   <label className="field-label" htmlFor="list-title">Listing title *</label>
                   <input
@@ -515,45 +489,6 @@ export default function ListItem() {
                 </div>
 
                 <div className="list-field">
-                  <p className="field-label">Fulfillment & Storage Option *</p>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-1">
-                    <button
-                      type="button"
-                      onClick={() => setForm((f) => ({ ...f, fulfillmentType: 'direct' }))}
-                      className={`p-4 rounded-2xl text-left transition-all duration-200 border ${
-                        form.fulfillmentType === 'direct'
-                          ? 'bg-pink-500/15 border-pink-500 text-white shadow-lg'
-                          : 'bg-white/5 border-white/10 text-white/60 hover:bg-white/10'
-                      }`}
-                    >
-                      <div className="flex items-center gap-2 font-display font-bold text-sm text-white mb-1">
-                        <span>🏠</span> Deliver From My Place
-                      </div>
-                      <div className="text-xs font-display text-white/50 leading-relaxed">
-                        Keep gear at your home/studio. Fulfill pickup or doorstep delivery directly with renters.
-                      </div>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => setForm((f) => ({ ...f, fulfillmentType: 'warehouse' }))}
-                      className={`p-4 rounded-2xl text-left transition-all duration-200 border ${
-                        form.fulfillmentType === 'warehouse'
-                          ? 'bg-cyan-500/15 border-cyan-500 text-white shadow-lg'
-                          : 'bg-white/5 border-white/10 text-white/60 hover:bg-white/10'
-                      }`}
-                    >
-                      <div className="flex items-center gap-2 font-display font-bold text-sm text-white mb-1">
-                        <span>🏬</span> Store at लोकल Den Hub
-                      </div>
-                      <div className="text-xs font-display text-white/50 leading-relaxed">
-                        Store gear at our Koramangala Warehouse. We manage inspection, storage, and dispatch.
-                      </div>
-                    </button>
-                  </div>
-                </div>
-
-                <div className="list-field">
                   <p className="field-label">Photos (up to 5)</p>
                   <label
                     className={`list-drop${dragOver ? ' is-over' : ''}`}
@@ -592,16 +527,15 @@ export default function ListItem() {
                 </div>
 
                 <div className="list-actions">
-                  <button type="button" className="btn-outline" onClick={() => goStep(1)} aria-label="Back to category">← Back</button>
                   <button
                     type="button"
                     className="btn-primary"
                     onClick={() => {
-                      if (!form.itemType || !form.title) {
-                        showToast('Item type and title are required.', 'error')
+                      if (!category || !form.itemType || !form.title) {
+                        showToast('Category, type, and title are required.', 'error')
                         return
                       }
-                      goStep(3)
+                      goStep(2)
                     }}
                     aria-label="Continue to pricing"
                   >
@@ -611,9 +545,49 @@ export default function ListItem() {
               </div>
             ) : null}
 
-            {step === 3 ? (
+            {step === 2 ? (
               <form onSubmit={handleSubmit}>
                 <h2>Set your pricing</h2>
+
+                <div className="list-field">
+                  <p className="field-label">Fulfillment & Storage Option *</p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-1">
+                    <button
+                      type="button"
+                      onClick={() => setForm((f) => ({ ...f, fulfillmentType: 'direct' }))}
+                      className={`p-4 rounded-2xl text-left transition-all duration-200 border ${
+                        form.fulfillmentType === 'direct'
+                          ? 'bg-pink-500/15 border-pink-500 text-white shadow-lg'
+                          : 'bg-white/5 border-white/10 text-white/60 hover:bg-white/10'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2 font-display font-bold text-sm text-white mb-1">
+                        <span>🏠</span> Deliver From My Place
+                      </div>
+                      <div className="text-xs font-display text-white/50 leading-relaxed">
+                        Keep gear at your home/studio. Fulfill pickup or doorstep delivery directly with renters.
+                      </div>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setForm((f) => ({ ...f, fulfillmentType: 'warehouse' }))}
+                      className={`p-4 rounded-2xl text-left transition-all duration-200 border ${
+                        form.fulfillmentType === 'warehouse'
+                          ? 'bg-cyan-500/15 border-cyan-500 text-white shadow-lg'
+                          : 'bg-white/5 border-white/10 text-white/60 hover:bg-white/10'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2 font-display font-bold text-sm text-white mb-1">
+                        <span>🏬</span> Store at लोकल Den Hub
+                      </div>
+                      <div className="text-xs font-display text-white/50 leading-relaxed">
+                        Store gear at our Koramangala Warehouse. We manage inspection, storage, and dispatch.
+                      </div>
+                    </button>
+                  </div>
+                </div>
+
                 <p className="list-fee-note">{platformFeeCopy(platformFeeSetting)}</p>
 
                 {/* Smart Dynamic Pricing Recommendation Card */}
@@ -737,7 +711,7 @@ export default function ListItem() {
                 </div>
 
                 <div className="list-actions">
-                  <button type="button" className="btn-outline" onClick={() => goStep(2)} aria-label="Back to details">← Back</button>
+                  <button type="button" className="btn-outline" onClick={() => goStep(1)} aria-label="Back to details">← Back</button>
                   <button type="submit" disabled={loading} className="btn-primary" aria-label="Publish listing">
                     {loading ? 'Publishing…' : '🚀 Publish Listing'}
                   </button>

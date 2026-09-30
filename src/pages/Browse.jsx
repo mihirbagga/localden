@@ -7,7 +7,7 @@ import { useListings } from '../hooks/useListings'
 import SEOHead from '../components/SEOHead'
 
 const LOCATIONS    = ['All Locations','Koramangala','Indiranagar','HSR Layout','Whitefield','BTM Layout','Marathahalli','Electronic City','Jayanagar','Sadashivanagar','Malleshwaram','Hebbal']
-const SORT_OPTIONS = ['Newest','Price: Low to High','Price: High to Low','Top Rated']
+const SORT_OPTIONS = ['Newest','Price: Low to High','Price: High to Low','Top Rated', 'Most Popular']
 const GAMING_SUBS  = ['All','Console','Controller','VR Headset','Gaming Mouse','Racing Wheel','Gaming Chair','Monitor','Headset']
 const MUSIC_SUBS   = ['All','Guitar','Bass','Piano / Keyboard','Drums','DJ Controller','Microphone','Amplifier','Synthesizer','Violin','Saxophone']
 
@@ -19,8 +19,10 @@ export default function Browse() {
   const [sortBy, setSortBy]           = useState('Newest')
   const [search, setSearch]           = useState('')
   const [showFilters, setShowFilters] = useState(false)
-  const [maxPrice, setMaxPrice]       = useState(1000)
+  const [maxPrice, setMaxPrice]       = useState(5000)
   const [viewMode, setViewMode]       = useState('grid') // 'grid' | 'list'
+  const [fulfillment, setFulfillment] = useState('All Fulfillment')
+  const [inStockOnly, setInStockOnly] = useState(false)
 
   useEffect(() => {
     const cat = params.get('cat')
@@ -37,16 +39,55 @@ export default function Browse() {
   const { listings, loading, error } = useListings({
     category: activeCategory,
     location: location !== 'All Locations' ? location : undefined,
-    search:   search || undefined,
     maxPrice,
-    sortBy,
   })
 
-  /* ── Client-side subcategory filter ────────── */
+  /* ── Client-side filtering & sorting ────────── */
   const filtered = useMemo(() => {
-    if (activeSub === 'All') return listings
-    return listings.filter(l => l.subcategory === activeSub)
-  }, [listings, activeSub])
+    let result = listings
+
+    if (activeSub !== 'All') {
+      result = result.filter(l => l.subcategory === activeSub)
+    }
+
+    if (fulfillment === '🏠 Direct Handover') {
+      result = result.filter(l => l.fulfillment_type === 'direct')
+    } else if (fulfillment === '🏬 Hub Stored') {
+      result = result.filter(l => l.fulfillment_type === 'warehouse')
+    }
+
+    if (inStockOnly) {
+      result = result.filter(l => l.is_available && (l.stock > 0 || l.stock_qty > 0))
+    }
+
+    if (search) {
+      const q = search.toLowerCase()
+      result = result.filter(l => {
+        const str = [l.title, l.brand, l.model, l.description, l.subcategory, l.category, l.location]
+          .filter(Boolean)
+          .join(' ')
+          .toLowerCase()
+        return str.includes(q)
+      })
+    }
+
+    const sorted = [...result]
+    switch (sortBy) {
+      case 'Price: Low to High':
+        sorted.sort((a, b) => (a.price_day || 0) - (b.price_day || 0)); break
+      case 'Price: High to Low':
+        sorted.sort((a, b) => (b.price_day || 0) - (a.price_day || 0)); break
+      case 'Top Rated':
+        sorted.sort((a, b) => (b.rating || 0) - (a.rating || 0)); break
+      case 'Most Popular':
+        sorted.sort((a, b) => (b.total_reviews || 0) - (a.total_reviews || 0)); break
+      case 'Newest':
+      default:
+        sorted.sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0)); break
+    }
+
+    return sorted
+  }, [listings, activeSub, fulfillment, inStockOnly, search, sortBy])
 
   const subcats = activeCategory === 'gaming' ? GAMING_SUBS
     : activeCategory === 'music'  ? MUSIC_SUBS
@@ -57,8 +98,10 @@ export default function Browse() {
     activeCategory !== 'all'        && { key: 'cat',      label: activeCategory === 'gaming' ? '🎮 Gaming' : '🎵 Music',  clear: () => { setActiveCategory('all'); setActiveSub('All') } },
     activeSub !== 'All'             && { key: 'sub',      label: activeSub,                                                clear: () => setActiveSub('All') },
     location  !== 'All Locations'  && { key: 'loc',      label: `📍 ${location}`,                                         clear: () => setLocation('All Locations') },
-    maxPrice  < 1000                && { key: 'price',    label: `Max ₹${maxPrice}/day`,                                   clear: () => setMaxPrice(1000) },
+    maxPrice  < 5000                && { key: 'price',    label: `Max ₹${maxPrice}/day`,                                   clear: () => setMaxPrice(5000) },
     search                          && { key: 'search',   label: `"${search}"`,                                            clear: () => setSearch('') },
+    fulfillment !== 'All Fulfillment' && { key: 'fulfillment', label: fulfillment,                                         clear: () => setFulfillment('All Fulfillment') },
+    inStockOnly                     && { key: 'instock',  label: 'In Stock Only',                                          clear: () => setInStockOnly(false) },
   ].filter(Boolean)
 
   /* ── Category button ─────────────────────── */
@@ -172,6 +215,21 @@ export default function Browse() {
             className="select-dark text-sm h-10 flex-shrink-0" style={{ minWidth: 150 }}>
             {SORT_OPTIONS.map(o => <option key={o}>{o}</option>)}
           </select>
+          <select value={fulfillment} onChange={e => setFulfillment(e.target.value)}
+            className="select-dark text-sm h-10 flex-shrink-0" style={{ minWidth: 160 }}>
+            <option>All Fulfillment</option>
+            <option>🏠 Direct Handover</option>
+            <option>🏬 Hub Stored</option>
+          </select>
+          <button onClick={() => setInStockOnly(!inStockOnly)}
+            className="flex items-center gap-2 h-10 px-4 rounded-xl text-sm font-display font-semibold transition-all duration-300 flex-shrink-0 whitespace-nowrap"
+            style={{
+              background: inStockOnly ? 'rgba(255,46,109,0.12)' : 'var(--surface)',
+              border:     `1px solid ${inStockOnly ? 'rgba(255,46,109,0.35)' : 'var(--border)'}`,
+              color:      inStockOnly ? '#ff6b9d' : 'var(--text-muted)',
+            }}>
+            In Stock Only
+          </button>
           <button onClick={() => setShowFilters(!showFilters)}
             className="flex items-center gap-2 h-10 px-4 rounded-xl text-sm font-display font-semibold transition-all duration-300 flex-shrink-0 whitespace-nowrap"
             style={{
@@ -204,7 +262,7 @@ export default function Browse() {
             ))}
             {activeFilters.length > 1 && (
               <button
-                onClick={() => { setActiveCategory('all'); setActiveSub('All'); setLocation('All Locations'); setMaxPrice(1000); setSearch('') }}
+                onClick={() => { setActiveCategory('all'); setActiveSub('All'); setLocation('All Locations'); setMaxPrice(5000); setSearch(''); setFulfillment('All Fulfillment'); setInStockOnly(false); }}
                 className="text-xs font-display transition-colors"
                 style={{ color: 'var(--text-dim)' }}
                 onMouseEnter={e => e.currentTarget.style.color = 'var(--text)'}
@@ -222,12 +280,12 @@ export default function Browse() {
               <span className="text-sm font-display font-semibold">Max price per day</span>
               <span className="font-bungee text-sm" style={{ color: '#ff2e6d' }}>₹{maxPrice}</span>
             </div>
-            <input type="range" min={50} max={1000} step={50} value={maxPrice}
+            <input type="range" min={50} max={5000} step={50} value={maxPrice}
               onChange={e => setMaxPrice(Number(e.target.value))}
               className="w-full cursor-pointer" style={{ accentColor: '#ff2e6d' }} />
             <div className="flex justify-between text-xs mt-1 font-display"
               style={{ color: 'var(--text-dim)' }}>
-              <span>₹50</span><span>₹1,000</span>
+              <span>₹50</span><span>₹5,000</span>
             </div>
           </div>
         )}
@@ -274,18 +332,57 @@ export default function Browse() {
 
         {/* Empty state */}
         {!loading && !error && filtered.length === 0 && (
-          <div className="text-center py-24">
-            <div className="text-6xl mb-4">🎮</div>
-            <h3 className="font-bungee text-2xl mb-2">No listings yet</h3>
-            <p className="font-display mb-2" style={{ color: 'var(--text-dim)' }}>
-              {activeFilters.length > 0
-                ? 'Try adjusting your filters'
-                : 'Be the first to list your gear in Bangalore!'}
+          <div className="text-center py-16 px-4 rounded-3xl max-w-3xl mx-auto mt-8 glass" style={{ border: '1px solid var(--border)' }}>
+            <div className="text-5xl mb-5">🔍</div>
+            <h3 className="font-bungee text-3xl mb-3">No gear found!</h3>
+            <p className="font-display mb-8" style={{ color: 'var(--text-muted)' }}>
+              We couldn't find exactly what you're looking for. <br className="hidden sm:block" />
+              Try clearing some filters or check out these popular searches:
             </p>
-            <div className="flex flex-wrap justify-center gap-3 mt-6">
+            
+            <div className="flex flex-wrap justify-center gap-3 mb-8">
+              {[
+                { icon: '🎮', label: 'PS5 Consoles', query: 'PS5' },
+                { icon: '🎸', label: 'Guitars & Amps', query: 'Guitar' },
+                { icon: '💻', label: 'RTX 4090 GPUs', query: '4090' },
+                { icon: '🥽', label: 'VR Headsets', query: 'VR' },
+                { icon: '🎹', label: 'Keyboards & Pianos', query: 'Keyboard' },
+                { icon: '🎤', label: 'Microphones', query: 'Microphone' }
+              ].map(chip => (
+                <button
+                  key={chip.label}
+                  onClick={() => {
+                    setSearch(chip.query);
+                    setActiveCategory('all');
+                    setActiveSub('All');
+                    setLocation('All Locations');
+                    setMaxPrice(5000);
+                  }}
+                  className="flex items-center gap-2 px-4 py-2 rounded-full text-sm font-display font-semibold transition-all duration-300 hover:scale-105"
+                  style={{
+                    background: 'var(--card)',
+                    border: '1px solid var(--border)',
+                    color: 'var(--text)'
+                  }}
+                  onMouseEnter={e => {
+                    e.currentTarget.style.background = 'rgba(255,46,109,0.1)'
+                    e.currentTarget.style.border = '1px solid rgba(255,46,109,0.4)'
+                  }}
+                  onMouseLeave={e => {
+                    e.currentTarget.style.background = 'var(--card)'
+                    e.currentTarget.style.border = '1px solid var(--border)'
+                  }}
+                >
+                  <span>{chip.icon}</span>
+                  <span>{chip.label}</span>
+                </button>
+              ))}
+            </div>
+
+            <div className="flex flex-wrap justify-center gap-4">
               {activeFilters.length > 0 && (
                 <button
-                  onClick={() => { setActiveCategory('all'); setActiveSub('All'); setSearch(''); setMaxPrice(1000); setLocation('All Locations') }}
+                  onClick={() => { setActiveCategory('all'); setActiveSub('All'); setSearch(''); setMaxPrice(5000); setLocation('All Locations'); setFulfillment('All Fulfillment'); setInStockOnly(false); }}
                   className="btn-outline flex items-center gap-2">
                   <RefreshCw size={14} /> Clear all filters
                 </button>

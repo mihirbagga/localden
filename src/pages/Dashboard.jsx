@@ -14,13 +14,15 @@ import { bookingThreadText, mailtoHref, otherPartyContact, whatsappHref } from '
 import { fetchInspections } from '../lib/inspections'
 import InspectionPanel from '../components/InspectionPanel'
 import BookingThread from '../components/BookingThread'
+import LiveTrackingModal from '../components/LiveTrackingModal'
 import DashboardWallet from './DashboardWallet'
 import { useWallet } from '../hooks/useWallet'
-import { StatusBadge, acceptBooking, rejectBooking, markActive, markCompleted } from '../lib/bookingStatus'
+import { adjustListingStock } from '../lib/stockService'
+
 import './dashboard.css'
 
 const TABS = ['overview', 'listings', 'bookings', 'incoming', 'wallet']
-const BOOKING_SELECT = '*, listings(id, title, emoji, category, location, contact_phone)'
+const BOOKING_SELECT = '*, listings(id, title, emoji, category, location, contact_phone), renter:profiles!renter_id(id, full_name, phone, email, kyc_status, rating), lister:profiles!lister_id(id, full_name, phone, email, kyc_status, rating)'
 const LISTING_SELECT = '*, profiles(full_name, rating, kyc_status)'
 const PAID_STATUSES = ['confirmed', 'active', 'completed']
 const STATUS_CHIPS = ['all', 'pending', 'confirmed', 'active', 'completed', 'cancelled']
@@ -183,6 +185,7 @@ function BookingCard({ booking, role, open, onToggle, onStatus }) {
   const [other, setOther] = useState(null)
   const [forcePhase, setForcePhase] = useState('')
   const [pendingStatus, setPendingStatus] = useState('')
+  const [trackingOpen, setTrackingOpen] = useState(false)
 
   useEffect(() => {
     if (!open) return undefined
@@ -197,12 +200,23 @@ function BookingCard({ booking, role, open, onToggle, onStatus }) {
     return () => { cancelled = true }
   }, [open, role, booking.renter_id, booking.lister_id])
 
+  const partyName = role === 'lister'
+    ? (booking.renter?.full_name || other?.full_name || 'Renter')
+    : (booking.lister?.full_name || other?.full_name || 'Lister')
+  const partyPhone = role === 'lister'
+    ? (booking.renter?.phone || other?.phone || '')
+    : (booking.lister?.phone || other?.phone || '')
+  const partyKyc = role === 'lister'
+    ? (booking.renter?.kyc_status || other?.kyc_status || 'unverified')
+    : (booking.lister?.kyc_status || other?.kyc_status || 'unverified')
+  const partyId = role === 'lister' ? booking.renter_id : booking.lister_id
+
   const contact = {
     ...otherPartyContact({ ...booking, renter: other, lister: other }, role),
     ...(other || {}),
   }
   const thread = bookingThreadText(booking)
-  const wa = contact.phone ? whatsappHref(contact.phone, thread) : ''
+  const wa = (partyPhone || contact.phone) ? whatsappHref(partyPhone || contact.phone, thread) : ''
   const mail = contact.email ? mailtoHref(contact.email, `लोकल Den · ${listing?.title || 'Booking'}`, thread) : ''
 
   const askThenStatus = async (next) => {
@@ -235,16 +249,50 @@ function BookingCard({ booking, role, open, onToggle, onStatus }) {
         <div className="dash-book__emoji">{listing?.emoji || '🎮'}</div>
         <div className="dash-book__body">
           <strong>{listing?.title || 'Listing'}</strong>
-          <span>{when} · {booking.total_days} day{booking.total_days === 1 ? '' : 's'}</span>
+          <span>{when} · {booking.total_days}d · {role === 'lister' ? `Renter: ${partyName}` : `Host: ${partyName}`}</span>
         </div>
         <div className="dash-book__money">
           <b>{rupee(booking.total_amount)}</b>
-          <span className={`dash-status is-${status}`}>{STATUS_LABEL[status] || status}</span>
+          <div className="flex items-center gap-1.5">
+            <span className={`dash-status is-${status}`}>{STATUS_LABEL[status] || status}</span>
+          </div>
         </div>
       </button>
 
       {open ? (
         <div className="dash-book__more">
+          {/* User Identity & Delivery Information Card */}
+          <div className="p-3 rounded-xl bg-white/[0.04] border border-white/10 my-2 space-y-1.5 text-xs">
+            <div className="flex items-center justify-between flex-wrap gap-2">
+              <div className="flex items-center gap-2">
+                <span className="font-bold text-white">
+                  {role === 'lister' ? '👤 Renter:' : '🏠 Host:'}{' '}
+                  {partyId ? (
+                    <Link to={`/lister/${partyId}`} className="text-cyan-300 hover:underline">
+                      {partyName}
+                    </Link>
+                  ) : partyName}
+                </span>
+                {partyKyc === 'verified' && (
+                  <span className="px-1.5 py-0.5 rounded text-[10px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-semibold">
+                    ✓ Verified
+                  </span>
+                )}
+              </div>
+              {partyPhone && (
+                <a href={`tel:${partyPhone}`} className="text-cyan-400 hover:underline text-xs flex items-center gap-1 font-semibold">
+                  📞 {partyPhone}
+                </a>
+              )}
+            </div>
+            {booking.delivery_type === 'delivery' && booking.delivery_address && (
+              <div className="text-[11px] text-white/80 bg-black/40 p-2 rounded border border-white/10 mt-1">
+                <strong className="text-cyan-400 block mb-0.5">📍 Delivery Address:</strong>
+                <span className="font-mono">{booking.delivery_address}</span>
+              </div>
+            )}
+          </div>
+
           <div className="dash-book__facts">
             <div>
               <span>Pay</span>
@@ -279,29 +327,44 @@ function BookingCard({ booking, role, open, onToggle, onStatus }) {
           ) : null}
 
           <div className="dash-book__acts">
+            <button
+              type="button"
+              className="is-ok font-bold"
+              onClick={() => setTrackingOpen(true)}
+            >
+              🚚 Live Tracking
+            </button>
             {listingId ? (
               <Link to={`/listing/${listingId}`} className="is-cyan">Open listing</Link>
             ) : null}
             {wa ? (
-              <a href={wa} target="_blank" rel="noreferrer" className="is-ok" aria-label={`WhatsApp ${contact.name}`}>
-                WhatsApp {contact.name.split(' ')[0]}
+              <a href={wa} target="_blank" rel="noreferrer" className="is-ok" aria-label={`WhatsApp ${partyName}`}>
+                WhatsApp {partyName.split(' ')[0]}
               </a>
             ) : null}
             {mail ? (
-              <a href={mail} className="is-cyan" aria-label={`Email ${contact.name}`}>Email</a>
+              <a href={mail} className="is-cyan" aria-label={`Email ${partyName}`}>Email</a>
             ) : null}
+
             {listerActs && status === 'pending' ? (
               <>
-                <button type="button" className="is-ok" onClick={() => onStatus(booking, 'confirmed')} aria-label="Confirm booking">Confirm</button>
-                <button type="button" className="is-danger" onClick={() => onStatus(booking, 'cancelled')} aria-label="Decline booking">Decline</button>
+                <button type="button" className="is-ok font-bold" onClick={() => onStatus(booking, 'confirmed')} aria-label="Confirm booking">✓ Confirm</button>
+                <button type="button" className="is-danger font-bold" onClick={() => onStatus(booking, 'cancelled')} aria-label="Decline booking">✕ Decline</button>
               </>
             ) : null}
             {listerActs && status === 'confirmed' ? (
-              <button type="button" className="is-ok" onClick={() => askThenStatus('active')} aria-label="Mark booking active">Mark handed over</button>
+              <>
+                <button type="button" className="is-ok font-bold" onClick={() => askThenStatus('active')} aria-label="Mark booking active">🚚 Handed Over</button>
+                <button type="button" className="is-danger" onClick={() => onStatus(booking, 'cancelled')} aria-label="Cancel booking">Cancel Booking</button>
+              </>
             ) : null}
             {listerActs && status === 'active' ? (
-              <button type="button" className="is-ok" onClick={() => askThenStatus('completed')} aria-label="Mark booking complete">Mark returned</button>
+              <>
+                <button type="button" className="is-ok font-bold" onClick={() => askThenStatus('completed')} aria-label="Mark booking complete">✓ Mark Returned</button>
+                <button type="button" className="is-danger" onClick={() => onStatus(booking, 'cancelled')} aria-label="Cancel booking">Cancel Booking</button>
+              </>
             ) : null}
+
             {renterActs && status === 'confirmed' ? (
               <button type="button" className="is-ok" onClick={() => setForcePhase('checkin')} aria-label="Add check-in photos">
                 Check in
@@ -315,6 +378,25 @@ function BookingCard({ booking, role, open, onToggle, onStatus }) {
             {renterActs && status === 'pending' ? (
               <button type="button" className="is-danger" onClick={() => onStatus(booking, 'cancelled')} aria-label="Cancel booking">Cancel request</button>
             ) : null}
+
+            {/* Lister Status Override Selector */}
+            {listerActs && status !== 'completed' && status !== 'cancelled' ? (
+              <div className="flex items-center gap-1.5 ml-auto">
+                <span className="text-[10px] text-white/40 uppercase font-semibold">Set Status:</span>
+                <select
+                  className="select-dark text-xs py-1 px-2 h-8"
+                  value={status}
+                  onChange={(e) => onStatus(booking, e.target.value)}
+                >
+                  <option value="pending">Pending</option>
+                  <option value="confirmed">Confirmed</option>
+                  <option value="active">Active / Handed Over</option>
+                  <option value="completed">Completed / Returned</option>
+                  <option value="cancelled">Cancelled</option>
+                </select>
+              </div>
+            ) : null}
+
             {/* Leave Review — renter only on completed */}
             {renterActs && status === 'completed' ? (
               <Link to={`/review/${booking.id}`} className="is-ok" aria-label="Leave a review">⭐ Review</Link>
@@ -329,7 +411,7 @@ function BookingCard({ booking, role, open, onToggle, onStatus }) {
                 onClick={async () => {
                   try {
                     const { generateAgreementPDF } = await import('../lib/rentalAgreement')
-                    await generateAgreementPDF(booking, booking.listings, role === 'renter' ? 'You' : (other?.full_name || 'Lister'), role === 'lister' ? 'You' : (other?.full_name || 'Renter'))
+                    await generateAgreementPDF(booking, booking.listings, role === 'renter' ? 'You' : partyName, role === 'lister' ? 'You' : partyName)
                   } catch (err) { console.error(err) }
                 }}
                 aria-label="Download rental agreement PDF">
@@ -340,6 +422,9 @@ function BookingCard({ booking, role, open, onToggle, onStatus }) {
           <BookingThread booking={booking} />
         </div>
       ) : null}
+      {trackingOpen && (
+        <LiveTrackingModal booking={booking} onClose={() => setTrackingOpen(false)} />
+      )}
     </div>
   )
 }
@@ -363,8 +448,8 @@ export default function Dashboard() {
   const [params, setParams] = useSearchParams()
 
   const tab = TABS.includes(params.get('tab')) ? params.get('tab') : 'overview'
-  const [path, setPath] = useState('rent')
   const [bookFilter, setBookFilter] = useState('all')
+  const [incomingFilter, setIncomingFilter] = useState('all')
   const [listFilter, setListFilter] = useState('all')
   const [openBook, setOpenBook] = useState(null)
 
@@ -543,7 +628,7 @@ export default function Dashboard() {
 
   const shownListings = filterListings(myListings, listFilter)
   const shownBooks = filterBookings(myBookings, bookFilter)
-  const shownIncoming = filterBookings(incoming, bookFilter)
+  const shownIncoming = filterBookings(incoming, incomingFilter)
 
   const confirmDelete = async () => {
     if (!deleteTarget) return
@@ -596,14 +681,28 @@ export default function Dashboard() {
   }
 
   const setBookingStatus = async (booking, status) => {
-    const { error } = await supabase
+    if (status === 'cancelled' && !window.confirm('Cancel this booking?')) return
+    const { data: updated, error } = await supabase
       .from('bookings')
       .update({ status, updated_at: new Date().toISOString() })
       .eq('id', booking.id)
+      .select('id')
     if (error) {
       showToast(error.message, 'error')
       return
     }
+    if (!updated?.length) {
+      showToast('Could not update booking (not permitted or already changed)', 'error')
+      return
+    }
+
+    // Auto-return stock if booking is cancelled, declined, completed, or returned
+    const listingId = booking.listing_id || booking.listings?.id
+    if (['cancelled', 'declined', 'completed', 'returned'].includes(status) && listingId) {
+      await adjustListingStock(listingId, 1)
+      loadListings?.()
+    }
+
     const apply = (prev) => prev.map((row) => (row.id === booking.id ? { ...row, status } : row))
     setMyBookings(apply)
     setIncoming(apply)
@@ -779,27 +878,6 @@ export default function Dashboard() {
 
         {tab === 'overview' && (
           <div>
-            <div className="dash-paths" role="tablist" aria-label="Dashboard focus">
-              <button
-                type="button"
-                className={`dash-path is-rent${path === 'rent' ? ' is-on' : ''}`}
-                aria-selected={path === 'rent'}
-                onClick={() => setPath('rent')}
-              >
-                <strong>I rent gear</strong>
-                <span>Bookings, KYC, weekend plans</span>
-              </button>
-              <button
-                type="button"
-                className={`dash-path is-earn${path === 'earn' ? ' is-on' : ''}`}
-                aria-selected={path === 'earn'}
-                onClick={() => setPath('earn')}
-              >
-                <strong>I earn from gear</strong>
-                <span>Listings, incoming, payouts</span>
-              </button>
-            </div>
-
             <div className="dash-next">
               <div>
                 <strong>NEXT UP</strong>
@@ -856,7 +934,7 @@ export default function Dashboard() {
 
               <div className="dash-card">
                 <div className="dash-card__head">
-                  <h3>{path === 'earn' ? 'YOUR GEAR' : 'RECENT LISTINGS'}</h3>
+                  <h3>YOUR LISTINGS</h3>
                   <button type="button" className="dash-ghost" onClick={() => setTab('listings')} aria-label="View all listings">View all</button>
                 </div>
                 {loadingL ? (
@@ -907,48 +985,59 @@ export default function Dashboard() {
 
               <div className="dash-card dash-span-2">
                 <div className="dash-card__head is-cyan">
-                  <h3>{path === 'earn' ? 'INCOMING' : 'YOUR BOOKINGS'}</h3>
+                  <h3>YOUR BOOKINGS</h3>
                   <button
                     type="button"
                     className="dash-ghost"
-                    onClick={() => setTab(path === 'earn' ? 'incoming' : 'bookings')}
+                    onClick={() => setTab('bookings')}
                     aria-label="View all bookings"
                   >
                     View all
                   </button>
                 </div>
-                {path === 'earn' ? (
-                  loadingIn ? <><div className="dash-skel" /><div className="dash-skel" /></> : (
-                    incoming.length === 0
-                      ? <EmptyBlock emoji="📥" title="No incoming yet" body="Renters who book your gear land here." />
-                      : incoming.slice(0, 3).map((booking) => (
-                        <BookingCard
-                          key={booking.id}
-                          booking={booking}
-                          role="lister"
-                          open={openBook === booking.id}
-                          onToggle={() => setOpenBook(openBook === booking.id ? null : booking.id)}
-                          onStatus={setBookingStatus}
-                        />
-                      ))
-                  )
-                ) : (
-                  loadingB ? <><div className="dash-skel" /><div className="dash-skel" /></> : (
-                    myBookings.length === 0
-                      ? <EmptyBlock emoji="📅" title="No bookings yet" body="Find gear across Bangalore." to="/browse" cta="Browse gear" />
-                      : myBookings.slice(0, 3).map((booking) => (
-                        <BookingCard
-                          key={booking.id}
-                          booking={booking}
-                          role="renter"
-                          open={openBook === booking.id}
-                          onToggle={() => setOpenBook(openBook === booking.id ? null : booking.id)}
-                          onStatus={setBookingStatus}
-                        />
-                      ))
-                  )
+                {loadingB ? <><div className="dash-skel" /><div className="dash-skel" /></> : (
+                  myBookings.length === 0
+                    ? <EmptyBlock emoji="📅" title="No bookings yet" body="Find gear across Bangalore." to="/browse" cta="Browse gear" />
+                    : myBookings.slice(0, 3).map((booking) => (
+                      <BookingCard
+                        key={booking.id}
+                        booking={booking}
+                        role="renter"
+                        open={openBook === booking.id}
+                        onToggle={() => setOpenBook(openBook === booking.id ? null : booking.id)}
+                        onStatus={setBookingStatus}
+                      />
+                    ))
                 )}
               </div>
+
+              {incoming.length > 0 && (
+                <div className="dash-card dash-span-2">
+                  <div className="dash-card__head is-cyan">
+                    <h3>INCOMING REQUESTS</h3>
+                    <button
+                      type="button"
+                      className="dash-ghost"
+                      onClick={() => setTab('incoming')}
+                      aria-label="View all incoming"
+                    >
+                      View all
+                    </button>
+                  </div>
+                  {loadingIn ? <><div className="dash-skel" /><div className="dash-skel" /></> : (
+                    incoming.slice(0, 3).map((booking) => (
+                      <BookingCard
+                        key={booking.id}
+                        booking={booking}
+                        role="lister"
+                        open={openBook === booking.id}
+                        onToggle={() => setOpenBook(openBook === booking.id ? null : booking.id)}
+                        onStatus={setBookingStatus}
+                      />
+                    ))
+                  )}
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -1097,9 +1186,9 @@ export default function Dashboard() {
                   <button
                     key={chip}
                     type="button"
-                    className={`dash-chip${bookFilter === chip ? ' is-on' : ''}`}
-                    onClick={() => setBookFilter(chip)}
-                    aria-pressed={bookFilter === chip}
+                    className={`dash-chip${incomingFilter === chip ? ' is-on' : ''}`}
+                    onClick={() => setIncomingFilter(chip)}
+                    aria-pressed={incomingFilter === chip}
                     aria-label={`Filter incoming ${chip}`}
                   >
                     {chip}

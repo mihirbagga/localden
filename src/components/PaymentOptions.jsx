@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { methodConfig } from '../lib/payments'
 import { useToast } from '../contexts/ToastContext'
 import '../pages/paymentMethods.css'
@@ -16,6 +17,7 @@ export default function PaymentOptions({
   const { showToast } = useToast()
   const selected = methods.find((m) => m.id === selectedId)
   const cfg = methodConfig(selected)
+  const [qrFailed, setQrFailed] = useState('')
 
   const copy = async (label, value) => {
     if (!value) return
@@ -70,7 +72,21 @@ export default function PaymentOptions({
           {cfg.instructions ? <p className="pay-detail__hint">{cfg.instructions}</p> : null}
 
           {selected.method_type === 'qr' && cfg.qr_image_url ? (
-            <img src={cfg.qr_image_url} alt="Payment QR code" className="pay-qr" />
+            qrFailed === cfg.qr_image_url ? (
+              <p className="pay-detail__hint">
+                QR image could not load.{' '}
+                <a href={cfg.qr_image_url} target="_blank" rel="noreferrer">Open it directly</a>
+                {cfg.upi_id ? ' or pay to the UPI ID below.' : '.'}
+              </p>
+            ) : (
+              <img
+                src={cfg.qr_image_url}
+                alt="Payment QR code"
+                className="pay-qr"
+                referrerPolicy="no-referrer"
+                onError={() => setQrFailed(cfg.qr_image_url)}
+              />
+            )
           ) : null}
 
           {(selected.method_type === 'qr' || selected.method_type === 'upi') && cfg.upi_id ? (

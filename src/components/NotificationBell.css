@@ -46,6 +46,18 @@
   box-shadow: 0 16px 40px rgba(0, 0, 0, 0.18);
 }
 
+@media (max-width: 640px) {
+  .nbell__panel {
+    position: fixed;
+    top: 4.5rem;
+    left: 1rem;
+    right: 1rem;
+    width: auto;
+    max-width: calc(100vw - 2rem);
+    z-index: 99999;
+  }
+}
+
 .nbell__head {
   display: flex;
   align-items: center;

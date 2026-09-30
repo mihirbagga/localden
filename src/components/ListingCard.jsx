@@ -21,7 +21,10 @@ export default function ListingCard({ listing, listView = false }) {
   const priceDay     = listing.price_day     ?? listing.price?.day     ?? 0
   const priceWeekend = listing.price_weekend ?? listing.price?.weekend ?? 0
   const priceWeek    = listing.price_week    ?? listing.price?.week    ?? 0
-  const available    = listing.is_available  ?? listing.available      ?? true
+  const rawAvailable = listing.is_available  ?? listing.available      ?? true
+  const stockQty     = listing.stock_qty !== undefined && listing.stock_qty !== null ? Number(listing.stock_qty) : null
+  const available    = rawAvailable && (stockQty === null || stockQty > 0)
+  const isBookedOut  = !available
   const verified     = listing.is_verified   ?? listing.verified       ?? false
   const reviewCount  = listing.total_reviews ?? listing.reviews        ?? 0
   const rating       = listing.rating        ?? 0
@@ -35,30 +38,45 @@ export default function ListingCard({ listing, listView = false }) {
     return (
       <Link to={`/listing/${listing.id}`} style={{ textDecoration: 'none' }}>
         <div
-          className="flex items-center gap-4 rounded-2xl p-3 transition-all duration-300"
+          className="flex items-center gap-4 rounded-2xl p-3 transition-all duration-300 relative overflow-hidden"
           style={{
             background:     hovered ? 'var(--surface-2)' : 'var(--card)',
             border:         `1px solid ${hovered ? accent + '40' : 'var(--border)'}`,
             boxShadow:      hovered ? `0 8px 30px ${accent}15` : 'none',
+            opacity:        isBookedOut ? 0.85 : 1,
           }}
           onMouseEnter={() => setHovered(true)}
           onMouseLeave={() => setHovered(false)}
         >
           {/* Thumbnail */}
-          <div className="w-20 h-20 rounded-xl overflow-hidden flex-shrink-0 flex items-center justify-center text-3xl"
+          <div className="w-20 h-20 rounded-xl overflow-hidden flex-shrink-0 flex items-center justify-center text-3xl relative"
             style={{ background: `linear-gradient(135deg, ${accent}18, rgba(10,10,20,0.6))` }}>
             {heroPhoto
               ? <img src={heroPhoto} alt={listing.title} className="w-full h-full object-cover" />
               : emoji}
+            {isBookedOut && (
+              <div className="absolute inset-0 bg-black/60 flex items-center justify-center text-[10px] font-bold text-red-400 uppercase tracking-wider">
+                Booked
+              </div>
+            )}
           </div>
 
           {/* Details */}
           <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 mb-1">
+            <div className="flex items-center gap-2 mb-1 flex-wrap">
               <span className={tagClass} style={{ fontSize: '0.62rem', padding: '2px 8px' }}>{subcat}</span>
-              {available
-                ? <span className="text-xs" style={{ color: 'var(--success)' }}>● Available</span>
-                : <span className="text-xs" style={{ color: '#ff6b9d' }}>● Booked</span>}
+              {listing.fulfillment_type === 'warehouse' && (
+                <span className="px-1.5 py-0.5 rounded-full text-[10px] font-display font-bold text-cyan-300 bg-cyan-950/80 border border-cyan-500/40">
+                  🏬 Hub Stored
+                </span>
+              )}
+              {available ? (
+                <span className="text-xs font-semibold" style={{ color: 'var(--success)' }}>● Available</span>
+              ) : (
+                <span className="text-xs font-semibold px-1.5 py-0.5 rounded text-red-400 bg-red-950/60 border border-red-500/30">
+                  🚫 Booked Out
+                </span>
+              )}
             </div>
             <h3 className="font-display font-bold text-sm leading-snug truncate" style={{ color: 'var(--text)' }}>{listing.title}</h3>
             <div className="flex items-center gap-3 mt-1">
@@ -79,7 +97,7 @@ export default function ListingCard({ listing, listView = false }) {
 
           {/* Price */}
           <div className="text-right flex-shrink-0">
-            <div className="font-bungee text-xl" style={{ color: accent }}>₹{priceDay}</div>
+            <div className="font-bungee text-xl" style={{ color: isBookedOut ? 'rgba(255,255,255,0.4)' : accent }}>₹{priceDay}</div>
             <div className="text-xs font-display" style={{ color: 'var(--text-dim)' }}>/day</div>
           </div>
         </div>
@@ -94,7 +112,7 @@ export default function ListingCard({ listing, listView = false }) {
         className="relative rounded-2xl overflow-hidden cursor-pointer transition-all duration-400"
         style={{
           height:     360,
-          border:     `1px solid ${hovered ? accent + '50' : 'var(--border)'}`,
+          border:     `1px solid ${hovered ? (isBookedOut ? 'rgba(255,46,109,0.4)' : accent + '50') : 'var(--border)'}`,
           boxShadow:  hovered ? `0 24px 70px ${accent}25, 0 0 0 1px ${accent}18` : 'none',
           transform:  hovered ? 'translateY(-4px)' : 'none',
           transition: 'all 0.35s cubic-bezier(0.22,1,0.36,1)',
@@ -105,7 +123,7 @@ export default function ListingCard({ listing, listView = false }) {
         {/* ── Full background photo / emoji ── */}
         {heroPhoto ? (
           <img src={heroPhoto} alt={listing.title}
-            className="absolute inset-0 w-full h-full object-cover transition-transform duration-500"
+            className={`absolute inset-0 w-full h-full object-cover transition-transform duration-500 ${isBookedOut ? 'grayscale-[40%]' : ''}`}
             style={{ transform: hovered ? 'scale(1.06)' : 'scale(1)' }} />
         ) : (
           <div className="absolute inset-0 flex items-center justify-center"
@@ -130,18 +148,28 @@ export default function ListingCard({ listing, listView = false }) {
               : `linear-gradient(to top, rgba(6,6,16,0.98) 0%, rgba(6,6,16,0.3) 60%, transparent 100%)`,
           }} />
 
+        {/* ── Booked Out Overlay Banner ── */}
+        {isBookedOut && (
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-[1px] z-10 flex items-center justify-center pointer-events-none">
+            <div className="bg-red-950/80 border border-red-500/50 text-red-300 font-display font-bold text-xs uppercase px-3.5 py-1.5 rounded-full shadow-xl tracking-wider flex items-center gap-1.5 backdrop-blur-md">
+              <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
+              Booked Out
+            </div>
+          </div>
+        )}
+
         {/* ── Top badges ──────────────────── */}
-        <div className="absolute top-3 left-3 right-3 flex items-start justify-between z-10">
-          <div className="flex items-center gap-1.5">
+        <div className="absolute top-3 left-3 right-3 flex items-start justify-between z-20 pointer-events-none">
+          <div className="flex flex-col items-start gap-1 pointer-events-auto max-w-[60%]">
             <span className={tagClass}>{subcat}</span>
             {listing.fulfillment_type === 'warehouse' && (
-              <span className="px-2 py-0.5 rounded-full text-[10px] font-display font-bold text-cyan-300 bg-cyan-500/20 border border-cyan-500/40 backdrop-blur-md">
-                🏬 Hub Stored
+              <span className="px-2 py-0.5 rounded-full text-[10px] font-display font-bold text-cyan-300 bg-cyan-950/85 border border-cyan-500/40 backdrop-blur-md shadow-md flex items-center gap-1">
+                <span>🏬</span> Hub Stored
               </span>
             )}
           </div>
 
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-1.5 pointer-events-auto flex-shrink-0">
             {/* Save button */}
             <button
               onClick={e => { e.preventDefault(); e.stopPropagation(); setSaved(s => !s) }}
@@ -153,21 +181,22 @@ export default function ListingCard({ listing, listView = false }) {
               <Heart size={13} style={{ color: 'white' }} fill={saved ? 'white' : 'none'} />
             </button>
             {/* Availability dot */}
-            <div className="flex items-center gap-1 px-2 py-1 rounded-full text-xs font-display font-semibold"
+            <div className="flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-display font-semibold"
               style={{
-                background: 'rgba(0,0,0,0.55)',
+                background: isBookedOut ? 'rgba(153, 27, 27, 0.75)' : 'rgba(0,0,0,0.55)',
                 backdropFilter: 'blur(8px)',
-                color: available ? 'var(--success)' : 'var(--magenta)',
+                color: available ? 'var(--success)' : '#ff8080',
+                border: isBookedOut ? '1px solid rgba(239, 68, 68, 0.4)' : 'none',
               }}>
               <span className="w-1.5 h-1.5 rounded-full"
-                style={{ background: available ? 'var(--success)' : 'var(--magenta)' }} />
-              {available ? 'Available' : 'Booked'}
+                style={{ background: available ? 'var(--success)' : '#ef4444' }} />
+              {available ? 'Available' : 'Booked Out'}
             </div>
           </div>
         </div>
 
         {/* ── Bottom content ──────────────── */}
-        <div className="absolute bottom-0 left-0 right-0 p-4 z-10">
+        <div className="absolute bottom-0 left-0 right-0 p-4 z-20">
 
           {/* Rating row */}
           {rating > 0 && (
@@ -197,7 +226,15 @@ export default function ListingCard({ listing, listView = false }) {
                 </span>
               </div>
             )}
-            <div className="flex items-center gap-1 ml-auto">
+            <div 
+              className="flex items-center gap-1 ml-auto cursor-pointer hover:bg-white/10 p-1 -m-1 rounded transition-colors" 
+              onClick={(e) => { 
+                e.preventDefault()
+                e.stopPropagation()
+                const listerId = listing.user_id || listing.lister_id || listing.profiles?.id
+                if (listerId) navigate(`/lister/${listerId}`) 
+              }}
+            >
               <div className="w-4 h-4 rounded-full flex items-center justify-center text-xs font-bold text-white flex-shrink-0"
                 style={{ background: 'linear-gradient(135deg, #ff2e6d, #00e5ff)', fontSize: '0.55rem' }}>
                 {listerName?.[0]?.toUpperCase() || '?'}
@@ -216,7 +253,7 @@ export default function ListingCard({ listing, listView = false }) {
             style={{ borderTop: `1px solid rgba(255,255,255,0.1)` }}>
             <div>
               <div className="flex items-baseline gap-1">
-                <span className="font-bungee text-xl" style={{ color: accent }}>₹{priceDay}</span>
+                <span className="font-bungee text-xl" style={{ color: isBookedOut ? 'rgba(255,255,255,0.4)' : accent }}>₹{priceDay}</span>
                 <span className="text-xs font-display" style={{ color: 'rgba(255,255,255,0.35)' }}>/day</span>
               </div>
               {priceWeekend > 0 && (
@@ -228,15 +265,15 @@ export default function ListingCard({ listing, listView = false }) {
 
             <button
               type="button"
-              className={`card-rent${hovered ? ' is-hot' : ''}${isGaming ? ' is-gaming' : ' is-music'}`}
+              className={`card-rent${isBookedOut ? ' is-booked-out' : (hovered ? ' is-hot' : '')}${isGaming ? ' is-gaming' : ' is-music'}`}
               onClick={(e) => {
                 e.preventDefault()
                 e.stopPropagation()
                 navigate(`/listing/${listing.id}?rent=1`)
               }}
-              aria-label={`Rent ${listing.title} now`}
+              aria-label={isBookedOut ? `${listing.title} is Booked Out` : `Rent ${listing.title} now`}
             >
-              Rent now
+              {isBookedOut ? 'Booked Out' : 'Rent now'}
             </button>
           </div>
         </div>

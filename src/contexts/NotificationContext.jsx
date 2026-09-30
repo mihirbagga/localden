@@ -40,6 +40,7 @@ export function NotificationProvider({ children }) {
       setItems([])
       return undefined
     }
+    const mountTime = Date.now()
     load(user.id)
 
     const channel = supabase
@@ -50,8 +51,9 @@ export function NotificationProvider({ children }) {
         (payload) => {
           const row = payload.new
           setItems((prev) => (prev.some((item) => item.id === row.id) ? prev : [row, ...prev]))
-          if (row?.title) showToast(row.title, 'info')
-          if (typeof window !== 'undefined' && window.Notification?.permission === 'granted') {
+          const isFresh = row?.created_at ? new Date(row.created_at).getTime() >= (mountTime - 3000) : true
+          if (row?.title && isFresh) showToast(row.title, 'info')
+          if (typeof window !== 'undefined' && window.Notification?.permission === 'granted' && isFresh) {
             try { new window.Notification(row.title, { body: row.body || '' }) } catch { /* ignore */ }
           }
         }

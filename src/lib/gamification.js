@@ -22,7 +22,7 @@ export function getUserBadges(profile, listing = null) {
   if (profile?.kyc_status === 'verified') {
     badges.push({
       id: 'kyc_verified',
-      label: '🔒 Verified Rig Owner',
+      label: '🔒 Verified Owner',
       desc: '100% Govt ID & Selfie Verified Host',
       tone: 'emerald',
     })
@@ -37,23 +37,37 @@ export function getUserBadges(profile, listing = null) {
     })
   }
 
-  const gpu = (listing?.gpu || listing?.title || '').toLowerCase()
-  if (gpu.includes('4090') || gpu.includes('4080') || gpu.includes('4070') || gpu.includes('7900')) {
-    badges.push({
-      id: 'beast_gpu',
-      label: '🎮 Pro Gaming Beast',
-      desc: 'Ultra High-Performance RTX 40-Series / RX 7000 GPU',
-      tone: 'pink',
-    })
-  }
+  if (listing) {
+    const isMusic = listing.category === 'music'
+    const titleLower = (listing.title || '').toLowerCase()
+    const gpu = (listing.gpu || listing.title || '').toLowerCase()
 
-  if (listing && (listing.brand || listing.specs?.ram >= 32)) {
-    badges.push({
-      id: 'workstation_certified',
-      label: '⚡ AI & Workstation Certified',
-      desc: 'High RAM & compute capacity for AI / 3D Rendering',
-      tone: 'cyan',
-    })
+    if (!isMusic && (gpu.includes('4090') || gpu.includes('4080') || gpu.includes('4070') || gpu.includes('3090') || gpu.includes('7900'))) {
+      badges.push({
+        id: 'beast_gpu',
+        label: '🎮 Pro Gaming Beast',
+        desc: 'Ultra High-Performance RTX 40-Series / RX 7000 GPU',
+        tone: 'pink',
+      })
+    }
+
+    if (!isMusic && (listing.specs?.ram >= 32 || titleLower.includes('workstation') || titleLower.includes('macbook pro') || titleLower.includes('64gb') || titleLower.includes('32gb') || titleLower.includes('threadripper'))) {
+      badges.push({
+        id: 'workstation_certified',
+        label: '⚡ AI & Workstation Certified',
+        desc: 'High RAM & compute capacity for AI / 3D Rendering',
+        tone: 'cyan',
+      })
+    }
+
+    if (isMusic) {
+      badges.push({
+        id: 'pro_audio',
+        label: '🎵 Pro Studio Audio',
+        desc: 'Verified High-Fidelity Audio & Performance Instrument',
+        tone: 'cyan',
+      })
+    }
   }
 
   return badges

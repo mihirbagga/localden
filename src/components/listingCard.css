@@ -1,22 +1,44 @@
 .card-rent {
   min-height: 2.5rem;
-  padding: 0.4rem 0.9rem;
+  padding: 0.45rem 1rem;
   border: none;
   border-radius: 0.75rem;
-  background: rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.08);
   color: rgba(255, 255, 255, 0.85);
   font-family: 'Rajdhani', sans-serif;
   font-weight: 700;
   font-size: 0.75rem;
+  letter-spacing: 0.03em;
   cursor: pointer;
+  transition: all 0.25s cubic-bezier(0.22,1,0.36,1);
+}
+
+.card-rent:hover {
+  background: rgba(255, 255, 255, 0.15);
+  transform: translateY(-1px);
 }
 
 .card-rent.is-hot.is-gaming {
   background: var(--magenta);
   color: #fff;
+  box-shadow: 0 4px 16px rgba(255, 46, 109, 0.3);
 }
 
 .card-rent.is-hot.is-music {
   background: var(--cyan);
   color: #0a0a14;
+  box-shadow: 0 4px 16px rgba(0, 229, 255, 0.25);
 }
+
+.card-rent.is-booked-out {
+  background: rgba(255, 255, 255, 0.05);
+  color: rgba(255, 255, 255, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: none;
+  cursor: not-allowed;
+}
+.card-rent.is-booked-out:hover {
+  background: rgba(255, 255, 255, 0.05);
+  transform: none;
+}
+

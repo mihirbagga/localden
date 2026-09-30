@@ -32,11 +32,13 @@ import TrustBadges from '../components/TrustBadges'
 import MaintenanceLogModal from '../components/MaintenanceLogModal'
 import { fetchMaintenanceLogs, MAINTENANCE_TYPES } from '../lib/maintenance'
 import AvailabilityCalendar from '../components/AvailabilityCalendar'
+import SEOHead from '../components/SEOHead'
+import { useReviews } from '../hooks/useReviews'
+import DeliveryAddressForm from '../components/DeliveryAddressForm'
+import { adjustListingStock } from '../lib/stockService'
 import './terms.css'
 import './couponApply.css'
 import './listingDetail.css'
-import SEOHead from '../components/SEOHead'
-import { useReviews } from '../hooks/useReviews'
 
 const SAVED_KEY = 'ldSaved'
 const HOW_STEPS = [
@@ -217,7 +219,6 @@ function BookingWidget({ listing, mobile = false, forceOpen = false }) {
   const [acceptTerms, setAcceptTerms] = useState(false)
   const [handover, setHandover] = useState('pickup')
   const [address, setAddress] = useState('')
-  const [stepFocus, setStepFocus] = useState(1)
   const { plans: protectionSettings } = useProtectionPlans()
   const [protectionPlan, setProtectionPlan] = useState('none')
   const [insuranceOpted, setInsuranceOpted] = useState(false)
@@ -233,15 +234,24 @@ function BookingWidget({ listing, mobile = false, forceOpen = false }) {
     coupon: appliedCoupon,
     fee: platformFeeSetting,
   })
-  const { subtotal, discount, platformFee, total: baseTotal } = priced
+  const { subtotal, discount: couponDiscount, platformFee } = priced
+  
+  let discountRate = 0
+  if (days >= 14) discountRate = 0.20
+  else if (days >= 7) discountRate = 0.10
+  else if (days >= 3) discountRate = 0.05
+
+  const durationDiscount = Math.round((listing.price_day * days) * discountRate)
+  const totalDiscount = durationDiscount + couponDiscount
+  const subtotalAfterDuration = Math.max(0, subtotal - durationDiscount)
+  const baseTotal = Math.max(0, subtotalAfterDuration - couponDiscount) + platformFee + deposit
+  
   const protectionCost = calculateProtectionCost(protectionPlan, days, protectionSettings)
   const total = baseTotal + protectionCost
   const canWallet = isAuthenticated && days > 0 && total > 0 && (wallet.available || 0) >= total
   const selectedPay = payMethodId === 'wallet'
     ? walletMethod
     : (payMethods.find((m) => m.id === payMethodId) || payMethods[0] || (canWallet ? walletMethod : null))
-
-  const step = days < 1 ? 1 : 2 + (acceptTerms ? 1 : 0)
 
   const applyRange = (from, to, chip) => {
     if (from && to && rangeHasBusy(from, to, busyRef.current)) {
@@ -254,7 +264,6 @@ function BookingWidget({ listing, mobile = false, forceOpen = false }) {
     setStartDate(from)
     setEndDate(to)
     setQuick(chip)
-    if (from && to) setStepFocus(2)
   }
 
   useEffect(() => {
@@ -303,7 +312,7 @@ function BookingWidget({ listing, mobile = false, forceOpen = false }) {
       subtotal,
       platform_fee: platformFee,
       deposit,
-      discount_amount: discount,
+      discount_amount: totalDiscount,
       coupon_id: appliedCoupon?.id || null,
       coupon_code: appliedCoupon?.code || null,
       total_amount: total,
@@ -346,6 +355,7 @@ function BookingWidget({ listing, mobile = false, forceOpen = false }) {
       total_bookings: (listing.total_bookings || 0) + 1,
       updated_at: new Date().toISOString(),
     }).eq('id', listing.id)
+    await adjustListingStock(listing.id, -1)
     setBooking({
       id: bookingId,
       startDate,
@@ -354,7 +364,7 @@ function BookingWidget({ listing, mobile = false, forceOpen = false }) {
       total,
       paymentId,
       couponCode: appliedCoupon?.code,
-      discount,
+      discount: totalDiscount,
       paid: isPaid,
       methodName: method?.name,
     })
@@ -433,17 +443,14 @@ function BookingWidget({ listing, mobile = false, forceOpen = false }) {
     }
     if (!startDate || !endDate || days < 1) {
       showToast('Pick rental dates first.', 'error')
-      setStepFocus(1)
       return
     }
     if (rangeHasBusy(startDate, endDate, busyRef.current)) {
       showToast('Those dates are already booked.', 'error')
-      setStepFocus(1)
       return
     }
     if (!acceptTerms) {
       showToast('Accept Terms and Damage Policy first.', 'error')
-      setStepFocus(3)
       return
     }
     if (!selectedPay && payMethodId !== 'wallet') {
@@ -556,24 +563,6 @@ function BookingWidget({ listing, mobile = false, forceOpen = false }) {
         {listing.price_weekend > 0 ? <span className="ml-auto">Wknd ₹{listing.price_weekend}</span> : null}
       </div>
 
-      <div className="ld-steps" role="tablist" aria-label="Rent steps">
-        {[
-          { n: 1, label: '1 · Dates' },
-          { n: 2, label: '2 · Pay' },
-          { n: 3, label: '3 · Confirm' },
-        ].map((item) => (
-          <button
-            key={item.n}
-            type="button"
-            className={`ld-step${stepFocus === item.n ? ' is-on' : ''}${step > item.n ? ' is-done' : ''}`}
-            onClick={() => setStepFocus(item.n)}
-            aria-pressed={stepFocus === item.n}
-          >
-            {item.label}
-          </button>
-        ))}
-      </div>
-
       {/* Fulfillment / Storage badge */}
       {listing.fulfillment_type === 'warehouse' ? (
         <div className="flex items-center gap-3 p-3 rounded-2xl bg-cyan-500/10 border border-cyan-500/30 mb-4">
@@ -595,12 +584,12 @@ function BookingWidget({ listing, mobile = false, forceOpen = false }) {
 
       {outOfStock ? <p className="ld-hint">Out of stock right now. Check similar gear below.</p> : null}
 
-      <p className="field-label">Quick dates</p>
-      <div className="ld-chips" role="group" aria-label="Quick rental dates">
-        <button type="button" className={`ld-chip${quick === 'tonight' ? ' is-on' : ''}`} onClick={() => applyRange(today, shiftIso(today, 1), 'tonight')} aria-label="Rent tonight">Tonight</button>
-        <button type="button" className={`ld-chip${quick === 'weekend' ? ' is-on' : ''}`} onClick={() => { const w = weekendRange(); applyRange(w.from, w.to, 'weekend') }} aria-label="Rent this weekend">Weekend</button>
-        <button type="button" className={`ld-chip${quick === '3' ? ' is-on' : ''}`} onClick={() => applyRange(today, shiftIso(today, 3), '3')} aria-label="Rent three days">3 days</button>
-        <button type="button" className={`ld-chip${quick === 'week' ? ' is-on' : ''}`} onClick={() => applyRange(today, shiftIso(today, 7), 'week')} aria-label="Rent one week">Week</button>
+      <h4 className="text-xs font-semibold tracking-wider text-white/40 uppercase mt-5 mb-2">DATES</h4>
+      <div className="ld-chips flex gap-2 flex-wrap" role="group" aria-label="Quick rental dates">
+        <button type="button" className={`ld-chip transition-all duration-300${quick === 'tonight' ? ' is-on !border-cyan-400 !bg-cyan-500/20 !shadow-[0_0_12px_rgba(34,211,238,0.4)]' : ' hover:border-cyan-400/50 hover:bg-cyan-500/5'}`} onClick={() => applyRange(today, shiftIso(today, 1), 'tonight')} aria-label="Rent tonight">⚡ Tonight (1d)</button>
+        <button type="button" className={`ld-chip transition-all duration-300${quick === 'weekend' ? ' is-on !border-magenta !bg-magenta/20 !shadow-[0_0_12px_rgba(255,42,133,0.4)]' : ' hover:border-magenta/50 hover:bg-magenta/5'}`} onClick={() => { const w = weekendRange(); applyRange(w.from, w.to, 'weekend') }} aria-label="Rent this weekend">🎉 Weekend (Sat–Mon)</button>
+        <button type="button" className={`ld-chip transition-all duration-300${quick === '3' ? ' is-on !border-orange-400 !bg-orange-500/20 !shadow-[0_0_12px_rgba(249,115,22,0.4)]' : ' hover:border-orange-400/50 hover:bg-orange-500/5'}`} onClick={() => applyRange(today, shiftIso(today, 3), '3')} aria-label="Rent three days">🔥 3 Days (5% OFF)</button>
+        <button type="button" className={`ld-chip transition-all duration-300${quick === 'week' ? ' is-on !border-purple-400 !bg-purple-500/20 !shadow-[0_0_12px_rgba(168,85,247,0.4)]' : ' hover:border-purple-400/50 hover:bg-purple-500/5'}`} onClick={() => applyRange(today, shiftIso(today, 7), 'week')} aria-label="Rent one week">💎 1 Week (10% OFF)</button>
       </div>
 
       <AvailabilityCalendar
@@ -648,8 +637,17 @@ function BookingWidget({ listing, mobile = false, forceOpen = false }) {
 
       {days > 0 ? (
         <div className="ld-break">
+          <h4 className="text-xs font-semibold tracking-wider text-white/40 uppercase mb-2">PRICE BREAKDOWN</h4>
           <div><span>₹{listing.price_day} × {days} day{days === 1 ? '' : 's'}</span><b>₹{subtotal}</b></div>
-          {discount > 0 ? <div className="is-off"><span>Coupon {appliedCoupon?.code}</span><b>−₹{discount}</b></div> : null}
+          {durationDiscount > 0 && (
+            <div className="flex justify-between items-center text-xs font-semibold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-1.5 rounded-lg my-1">
+              <span className="flex items-center gap-1">
+                <span>🎉</span> {days >= 14 ? 'Monthly Saver (20% OFF)' : days >= 7 ? 'Weekly Saver (10% OFF)' : '3-Day Saver (5% OFF)'}
+              </span>
+              <span>-₹{durationDiscount}</span>
+            </div>
+          )}
+          {couponDiscount > 0 ? <div className="is-off"><span>Coupon {appliedCoupon?.code}</span><b>−₹{couponDiscount}</b></div> : null}
           {platformFee > 0 ? <div><span>{platformFeeLabel(platformFeeSetting)}</span><b>₹{platformFee}</b></div> : null}
           <div><span>Security deposit</span><b>₹{deposit}</b></div>
           {insuranceOpted ? <div><span>Damage Protection</span><b>₹{INSURANCE_FEE}</b></div> : null}
@@ -662,6 +660,7 @@ function BookingWidget({ listing, mobile = false, forceOpen = false }) {
 
       {days > 0 ? (
         <>
+          <h4 className="text-xs font-semibold tracking-wider text-white/40 uppercase mt-5 mb-2">DELIVERY</h4>
           <p className="field-label">Handover</p>
           <div className="ld-hand" role="group" aria-label="Handover type">
             <button type="button" className={handover === 'pickup' ? 'is-on' : ''} onClick={() => setHandover('pickup')} aria-pressed={handover === 'pickup'}>Pickup</button>
@@ -669,23 +668,17 @@ function BookingWidget({ listing, mobile = false, forceOpen = false }) {
           </div>
           {handover === 'delivery' ? (
             <div>
-              <label className="field-label" htmlFor={`book-addr-${uid}`}>Delivery address</label>
-              <input
-                id={`book-addr-${uid}`}
-                className="input-dark"
-                value={address}
-                onChange={(e) => setAddress(e.target.value)}
-                placeholder="Area, landmark, pin"
-                aria-label="Delivery address"
-              />
+              <label className="field-label">Delivery Address</label>
+              <DeliveryAddressForm value={address} onChange={setAddress} />
             </div>
           ) : null}
 
+          <h4 className="text-xs font-semibold tracking-wider text-white/40 uppercase mt-5 mb-2">COUPON</h4>
           <div className="coupon-box">
             <label className="field-label" htmlFor={`booking-coupon-${uid}`}>Coupon code</label>
             {appliedCoupon ? (
               <div className="coupon-applied">
-                <span>{appliedCoupon.code} saved ₹{discount}</span>
+                <span>{appliedCoupon.code} saved ₹{couponDiscount}</span>
                 <button type="button" className="coupon-clear" onClick={clearCoupon} aria-label="Remove coupon">Remove</button>
               </div>
             ) : (
@@ -713,6 +706,54 @@ function BookingWidget({ listing, mobile = false, forceOpen = false }) {
             />
           </div>
 
+          {protectionSettings?.enabled ? (
+            <>
+              <h4 className="text-xs font-semibold tracking-wider text-white/40 uppercase mt-5 mb-2">PROTECTION</h4>
+              <div className="book-damage" style={{ marginBottom: 12 }}>
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-xs font-bold text-purple-400 uppercase tracking-wider flex items-center gap-1">
+                    <Shield size={14} /> Damage Protection Waiver
+                  </span>
+                  <span className="text-[10px] text-white/50">Admin Configured</span>
+                </div>
+                <div className="space-y-2">
+                  {[
+                    getProtectionPlanDetails('none', protectionSettings),
+                    getProtectionPlanDetails('basic', protectionSettings),
+                    getProtectionPlanDetails('full', protectionSettings),
+                  ].map((plan) => {
+                    const planCost = calculateProtectionCost(plan.id, days, protectionSettings)
+                    const isSelected = protectionPlan === plan.id
+                    return (
+                      <button
+                        key={plan.id}
+                        type="button"
+                        onClick={() => setProtectionPlan(plan.id)}
+                        className={`w-full text-left p-2.5 rounded-xl transition-all border ${
+                          isSelected
+                            ? 'bg-purple-500/20 border-purple-500 text-white'
+                            : 'bg-white/5 border-white/10 text-white/70 hover:bg-white/10'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="font-bold text-xs">{plan.name}</span>
+                          <span className="text-xs font-semibold text-emerald-400">
+                            {planCost > 0 ? `+ ₹${planCost}` : '₹0'}
+                          </span>
+                        </div>
+                        <p className="text-[10px] text-white/60 mt-0.5">{plan.desc}</p>
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+            </>
+          ) : null}
+
+          {(canWallet || payMethods.length > 0) && (
+            <h4 className="text-xs font-semibold tracking-wider text-white/40 uppercase mt-5 mb-2">PAYMENT</h4>
+          )}
+
           {canWallet ? (
             <button
               type="button"
@@ -732,47 +773,6 @@ function BookingWidget({ listing, mobile = false, forceOpen = false }) {
               paymentRef={paymentRef}
               onPaymentRef={setPaymentRef}
             />
-          ) : null}
-
-          {protectionSettings?.enabled ? (
-            <div className="book-damage" style={{ marginBottom: 12 }}>
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-xs font-bold text-purple-400 uppercase tracking-wider flex items-center gap-1">
-                  <Shield size={14} /> Damage Protection Waiver
-                </span>
-                <span className="text-[10px] text-white/50">Admin Configured</span>
-              </div>
-              <div className="space-y-2">
-                {[
-                  getProtectionPlanDetails('none', protectionSettings),
-                  getProtectionPlanDetails('basic', protectionSettings),
-                  getProtectionPlanDetails('full', protectionSettings),
-                ].map((plan) => {
-                  const planCost = calculateProtectionCost(plan.id, days, protectionSettings)
-                  const isSelected = protectionPlan === plan.id
-                  return (
-                    <button
-                      key={plan.id}
-                      type="button"
-                      onClick={() => setProtectionPlan(plan.id)}
-                      className={`w-full text-left p-2.5 rounded-xl transition-all border ${
-                        isSelected
-                          ? 'bg-purple-500/20 border-purple-500 text-white'
-                          : 'bg-white/5 border-white/10 text-white/70 hover:bg-white/10'
-                      }`}
-                    >
-                      <div className="flex items-center justify-between">
-                        <span className="font-bold text-xs">{plan.name}</span>
-                        <span className="text-xs font-semibold text-emerald-400">
-                          {planCost > 0 ? `+ ₹${planCost}` : '₹0'}
-                        </span>
-                      </div>
-                      <p className="text-[10px] text-white/60 mt-0.5">{plan.desc}</p>
-                    </button>
-                  )
-                })}
-              </div>
-            </div>
           ) : null}
           <div className="book-damage">
             <strong>Damage policy (short)</strong>
@@ -802,6 +802,17 @@ function BookingWidget({ listing, mobile = false, forceOpen = false }) {
           <button type="button" onClick={() => setPayError('')} aria-label="Dismiss error"><X size={12} /></button>
         </div>
       ) : null}
+
+      <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3 my-3 space-y-2 text-xs">
+        <div className="flex items-center gap-2 text-emerald-400 font-semibold">
+          <Shield size={14} className="flex-shrink-0" />
+          <span>🔒 Deposit Held Safely · Auto-refunded within 48h</span>
+        </div>
+        <div className="flex items-center gap-2 text-cyan-300">
+          <CheckCircle size={14} className="flex-shrink-0" />
+          <span>🛡️ Normal wear & tear covered · Verified hardware</span>
+        </div>
+      </div>
 
       <button
         type="button"
@@ -1209,18 +1220,26 @@ export default function ListingDetail() {
 
             <div className="ld-card">
               <h3>LISTED BY</h3>
-              <div className="ld-lister">
+              <div 
+                className="ld-lister cursor-pointer hover:bg-white/5 p-2 -m-2 rounded-xl transition-all" 
+                onClick={() => {
+                  const listerId = listing.user_id || listing.lister_id || listing.profiles?.id
+                  if (listerId) navigate(`/lister/${listerId}`)
+                }}
+              >
                 <div className="ld-lister__face">
                   {lister?.avatar_url
                     ? <img src={lister.avatar_url} alt="" />
                     : (lister?.full_name?.[0]?.toUpperCase() || <User size={20} />)}
                 </div>
-                <div>
-                  <strong className="text-white">{lister?.full_name || 'Anonymous'}</strong>
-                  {lister?.kyc_status === 'verified' ? (
-                    <span className="ld-pill is-ok"><Shield size={11} /> Verified</span>
-                  ) : null}
-                  <p>Member since {new Date(listing.created_at).getFullYear()}</p>
+                <div className="flex flex-col gap-1">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <strong className="text-white font-bold text-sm">{lister?.full_name || 'Anonymous'}</strong>
+                    {lister?.kyc_status === 'verified' ? (
+                      <span className="ld-pill is-ok font-bold text-[11px] inline-flex items-center gap-1"><Shield size={11} /> Verified</span>
+                    ) : null}
+                  </div>
+                  <p className="text-xs text-white/50 m-0">Member since {new Date(listing.created_at).getFullYear()}</p>
                 </div>
               </div>
             </div>

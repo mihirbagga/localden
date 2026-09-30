@@ -1,3 +1,4 @@
+import { lazy, Suspense } from 'react'
 import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { AuthProvider } from './contexts/AuthContext'
@@ -12,23 +13,24 @@ import ScrollToTop from './components/ScrollToTop'
 import InstallPrompt from './components/InstallPrompt'
 import Home from './pages/Home'
 import Browse from './pages/Browse'
-import ListItem from './pages/ListItem'
-import HowItWorks from './pages/HowItWorks'
-import Contact from './pages/Contact'
-import About from './pages/About'
-import Terms from './pages/Terms'
-import Login from './pages/Login'
-import Signup from './pages/Signup'
-import ForgotPassword from './pages/ForgotPassword'
-import ResetPassword from './pages/ResetPassword'
-import ListingDetail from './pages/ListingDetail'
-import Dashboard from './pages/Dashboard'
-import Kyc from './pages/Kyc'
-import Admin from './pages/Admin'
-import Review from './pages/Review'
-import Dispute from './pages/Dispute'
-import BlogIndex from './pages/blog/BlogIndex'
-import BlogPost from './pages/blog/BlogPost'
+const ListItem = lazy(() => import('./pages/ListItem'))
+const HowItWorks = lazy(() => import('./pages/HowItWorks'))
+const Contact = lazy(() => import('./pages/Contact'))
+const About = lazy(() => import('./pages/About'))
+const Terms = lazy(() => import('./pages/Terms'))
+const Login = lazy(() => import('./pages/Login'))
+const Signup = lazy(() => import('./pages/Signup'))
+const ForgotPassword = lazy(() => import('./pages/ForgotPassword'))
+const ResetPassword = lazy(() => import('./pages/ResetPassword'))
+const ListingDetail = lazy(() => import('./pages/ListingDetail'))
+const ListerProfile = lazy(() => import('./pages/ListerProfile'))
+const Dashboard = lazy(() => import('./pages/Dashboard'))
+const Kyc = lazy(() => import('./pages/Kyc'))
+const Admin = lazy(() => import('./pages/Admin'))
+const Review = lazy(() => import('./pages/Review'))
+const Dispute = lazy(() => import('./pages/Dispute'))
+const BlogIndex = lazy(() => import('./pages/blog/BlogIndex'))
+const BlogPost = lazy(() => import('./pages/blog/BlogPost'))
 
 /* ── Page transition wrapper ─────────────────────── */
 const pageVariants = {
@@ -53,6 +55,7 @@ function AnimatedRoutes() {
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/reset-password"  element={<ResetPassword />} />
           <Route path="/listing/:id"  element={<ListingDetail />} />
+          <Route path="/lister/:id"   element={<ListerProfile />} />
           <Route path="/blog"          element={<BlogIndex />} />
           <Route path="/blog/:slug"    element={<BlogPost />} />
 
@@ -83,6 +86,12 @@ function AnimatedRoutes() {
   )
 }
 
+const LoadingFallback = () => (
+  <div className="min-h-[60vh] flex items-center justify-center">
+    <div className="w-10 h-10 border-2 border-white/10 border-t-[var(--magenta)] rounded-full animate-spin" />
+  </div>
+)
+
 export default function App() {
   return (
     <ThemeProvider>
@@ -94,7 +103,9 @@ export default function App() {
               <div className="min-h-screen flex flex-col">
                 <Navbar />
                 <main className="flex-1">
-                  <AnimatedRoutes />
+                  <Suspense fallback={<LoadingFallback />}>
+                    <AnimatedRoutes />
+                  </Suspense>
                 </main>
                 <Footer />
                 <InstallPrompt />

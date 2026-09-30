@@ -85,7 +85,20 @@ body {
   overflow-x: hidden;
   position: relative;
   transition: background-color 0.25s ease, color 0.25s ease;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  line-height: 1.5;
 }
+
+/* ─── Focus Visible ──────────────────────────────── */
+:focus-visible {
+  outline: 2px solid var(--magenta);
+  outline-offset: 2px;
+}
+
+/* ─── Smooth link transitions ────────────────────── */
+a { transition: color 0.2s ease; }
 
 /* ─── Scrollbar ───────────────────────────────────── */
 ::-webkit-scrollbar { width: 5px; }
@@ -176,6 +189,13 @@ body {
   box-shadow: 0 6px 20px rgba(255, 46, 109, 0.28);
 }
 .btn-primary:active { transform: translateY(0) scale(0.98); }
+
+.btn-primary:disabled, .btn-secondary:disabled, .btn-outline:disabled, .btn-gold:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
 
 /* ─── Secondary Button ────────────────────────────── */
 .btn-secondary {
@@ -300,10 +320,11 @@ body {
 
 /* ─── Card Hover ──────────────────────────────────── */
 .card-hover {
-  transition: transform 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease;
+  transition: transform 0.3s cubic-bezier(0.22,1,0.36,1), box-shadow 0.3s ease, border-color 0.3s ease;
 }
 .card-hover:hover {
-  transform: translateY(-6px);
+  transform: translateY(-4px);
+  box-shadow: 0 12px 40px rgba(0,0,0,0.3), 0 0 0 1px var(--border);
 }
 
 /* ─── Tags ────────────────────────────────────────── */
@@ -434,16 +455,27 @@ body {
   background: linear-gradient(90deg, transparent, var(--magenta), var(--cyan), transparent);
 }
 
+/* ─── Subtle Divider ─────────────────────────────── */
+.subtle-divider {
+  height: 1px;
+  background: var(--border);
+  margin: 1.5rem 0;
+}
+
 /* ─── Stat Card ───────────────────────────────────── */
 .stat-card {
   text-align: center;
-  padding: 24px;
-  border-radius: 16px;
+  padding: 20px;
+  border-radius: 14px;
   background: var(--surface);
   border: 1px solid var(--border);
-  transition: transform 0.3s ease, box-shadow 0.3s ease;
+  transition: transform 0.3s cubic-bezier(0.22,1,0.36,1), box-shadow 0.3s ease, border-color 0.3s ease;
 }
-.stat-card:hover { transform: translateY(-4px); }
+.stat-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 8px 30px rgba(0,0,0,0.2);
+  border-color: rgba(255, 255, 255, 0.12);
+}
 
 /* ─── Utilities ───────────────────────────────────── */
 .font-bungee  { font-family: 'Bungee', cursive; }
@@ -468,6 +500,19 @@ body {
   color: var(--text-dim);
   margin-bottom: 6px;
   text-transform: uppercase;
+}
+
+/* ─── Section Header ──────────────────────────────── */
+.section-header {
+  font-family: 'Rajdhani', sans-serif;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  padding-bottom: 0.5rem;
+  margin-bottom: 0.75rem;
+  border-bottom: 1px solid var(--border);
 }
 
 /* ─── Outline Button ───────────────────────────────── */

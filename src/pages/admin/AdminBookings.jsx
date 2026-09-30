@@ -4,10 +4,14 @@ import { supabase } from '../../lib/supabase'
 import { useToast } from '../../contexts/ToastContext'
 import { AdminEmpty, AdminSearch, matchesQuery } from './AdminShared'
 import { BOOKING_LABEL, BOOKING_STATUSES, displayName, explainAdminError, formatDate, shortId } from './adminHelpers'
+import { adjustListingStock } from '../../lib/stockService'
+
+import LiveTrackingModal from '../../components/LiveTrackingModal'
 
 export default function AdminBookings({ bookings, patchBooking }) {
   const { showToast } = useToast()
   const [query, setQuery] = useState('')
+  const [activeTrackingBooking, setActiveTrackingBooking] = useState(null)
 
   const filtered = useMemo(() => (
     bookings.filter((b) => matchesQuery([
@@ -29,6 +33,10 @@ export default function AdminBookings({ bookings, patchBooking }) {
     if (error) {
       showToast(explainAdminError(error), 'error')
       return
+    }
+    const listingId = booking.listing_id || booking.listings?.id
+    if (['cancelled', 'declined', 'completed', 'returned'].includes(status) && listingId) {
+      await adjustListingStock(listingId, 1)
     }
     patchBooking(booking.id, { status })
     showToast(`Booking ${BOOKING_LABEL[status] || status}`, 'success')
@@ -58,7 +66,7 @@ export default function AdminBookings({ bookings, patchBooking }) {
                 <th>Lister</th>
                 <th>Dates</th>
                 <th>Amount</th>
-                <th>Status</th>
+                <th>Status & Tracking</th>
               </tr>
             </thead>
             <tbody>
@@ -93,23 +101,39 @@ export default function AdminBookings({ bookings, patchBooking }) {
                     </span>
                   </td>
                   <td>
-                    <select
-                      className="select-dark admin-select"
-                      value={booking.status}
-                      aria-label={`Status for booking ${shortId(booking.id)}`}
-                      title="Change booking status"
-                      onChange={(e) => handleStatus(booking, e.target.value)}
-                    >
-                      {BOOKING_STATUSES.map((opt) => (
-                        <option key={opt} value={opt}>{BOOKING_LABEL[opt]}</option>
-                      ))}
-                    </select>
+                    <div className="flex flex-col gap-1.5">
+                      <select
+                        className="select-dark admin-select"
+                        value={booking.status}
+                        aria-label={`Status for booking ${shortId(booking.id)}`}
+                        title="Change booking status"
+                        onChange={(e) => handleStatus(booking, e.target.value)}
+                      >
+                        {BOOKING_STATUSES.map((opt) => (
+                          <option key={opt} value={opt}>{BOOKING_LABEL[opt]}</option>
+                        ))}
+                      </select>
+                      <button
+                        type="button"
+                        onClick={() => setActiveTrackingBooking(booking)}
+                        className="px-2 py-1 rounded bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 text-xs font-bold hover:bg-cyan-500/30 transition-all flex items-center justify-center gap-1"
+                      >
+                        🚚 Tracking Control
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
+      )}
+      {activeTrackingBooking && (
+        <LiveTrackingModal
+          booking={activeTrackingBooking}
+          onClose={() => setActiveTrackingBooking(null)}
+          isAdmin={true}
+        />
       )}
     </div>
   )
