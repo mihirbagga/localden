@@ -6,6 +6,7 @@ import { METHOD_LABEL, methodConfig } from '../../lib/payments'
 import { AdminBadge } from './AdminShared'
 import { explainAdminError } from './adminHelpers'
 import AdminPlatformFee from './AdminPlatformFee'
+import AdminProtectionPlans from './AdminProtectionPlans'
 import '../paymentMethods.css'
 
 function nextConfig(method, patch) {
@@ -117,6 +118,7 @@ export default function AdminPayments({ methods, patchMethod }) {
         Enable methods renters see at checkout. Razorpay needs a Key ID. QR needs an uploaded image.
       </p>
       <AdminPlatformFee />
+      <AdminProtectionPlans />
       {methods.map((method) => {
         const draft = getDraft(method)
         const type = method.method_type

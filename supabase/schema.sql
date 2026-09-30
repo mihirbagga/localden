@@ -15,7 +15,7 @@ create table if not exists public.profiles (
   avatar_url    text,
   bio           text,
   location      text default 'Bangalore',
-  kyc_status    text default 'pending' check (kyc_status in ('pending', 'submitted', 'verified', 'rejected')),
+  kyc_status    text default 'pending' check (kyc_status in ('pending', 'submitted', 'verified', 'rejected', 'required', 'not_required', 'none', 'unverified')),
   aadhaar_last4 text,
   is_lister     boolean default false,
   is_admin      boolean default false,

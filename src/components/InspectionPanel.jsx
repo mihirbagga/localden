@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { Camera, X } from 'lucide-react'
+import { Camera, X, Sparkles, CheckCircle2, ShieldAlert, FileSignature } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import { useToast } from '../contexts/ToastContext'
 import {
@@ -11,6 +11,8 @@ import {
   saveInspection,
   uploadInspectionPhotos,
 } from '../lib/inspections'
+import { analyzeInspectionPhotos } from '../lib/aiInspection'
+import SignatureModal from './SignatureModal'
 import './InspectionPanel.css'
 
 const PHASE_COPY = {
@@ -125,7 +127,7 @@ function InspectionModal({ booking, role, phase, onClose, onSaved }) {
       showToast(`${copy.title} photos saved`, 'success')
       onSaved()
     } catch (err) {
-      showToast(err.message || 'Could not save photos. Run the booking_ops SQL if this table is missing.', 'error')
+      showToast(err.message || 'Could not save photos.', 'error')
     }
     setSaving(false)
   }
@@ -198,8 +200,13 @@ export default function InspectionPanel({
   onAfterSave,
 }) {
   const { user } = useAuth()
+  const { showToast } = useToast()
   const [rows, setRows] = useState([])
   const [phase, setPhase] = useState('')
+  const [aiAnalyzing, setAiAnalyzing] = useState(false)
+  const [aiResult, setAiResult] = useState(null)
+  const [signatureModalOpen, setSignatureModalOpen] = useState(false)
+  const [signatureData, setSignatureData] = useState(booking?.signatureData || null)
 
   const load = async () => {
     try {
@@ -217,6 +224,27 @@ export default function InspectionPanel({
     if (forcePhase) setPhase(forcePhase)
   }, [forcePhase])
 
+  const checkinRows = phaseInspections(rows, 'checkin')
+  const checkoutRows = phaseInspections(rows, 'checkout')
+
+  const prePhoto = checkinRows[0]?.photos?.[0]
+  const postPhoto = checkoutRows[0]?.photos?.[0]
+  const canRunAi = Boolean(prePhoto && postPhoto)
+
+  const runAiDiff = async () => {
+    if (!canRunAi) return
+    setAiAnalyzing(true)
+    try {
+      const res = await analyzeInspectionPhotos(prePhoto, postPhoto)
+      setAiResult(res)
+      showToast(`AI Inspection Complete: ${res.integrityScore}% Match`, 'success')
+    } catch (err) {
+      showToast('AI analysis failed to processing image diff', 'error')
+    } finally {
+      setAiAnalyzing(false)
+    }
+  }
+
   const mine = (which) => rows.some((row) => row.phase === which && row.submitted_by === user?.id)
   const status = booking.status || 'pending'
   const canCheckin = ['confirmed', 'active', 'completed'].includes(status) && !mine('checkin')
@@ -231,22 +259,86 @@ export default function InspectionPanel({
   }
 
   return (
-    <div className="insp">
-      <p className="insp__title">Condition check-in / check-out</p>
+    <div className="insp space-y-4">
+      <div className="flex items-center justify-between">
+        <p className="insp__title">Condition Check-in / Check-out</p>
+        <button
+          type="button"
+          onClick={() => setSignatureModalOpen(true)}
+          className="text-xs font-display flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/20 transition-all"
+        >
+          <FileSignature size={14} />
+          {signatureData ? '✍️ Agreement E-Signed' : '✍️ E-Sign Agreement'}
+        </button>
+      </div>
+
       <div className="insp__cols">
         <PhaseBlock
           phase="checkin"
-          rows={phaseInspections(rows, 'checkin')}
+          rows={checkinRows}
           canAdd={canCheckin}
           onAdd={() => setPhase('checkin')}
         />
         <PhaseBlock
           phase="checkout"
-          rows={phaseInspections(rows, 'checkout')}
+          rows={checkoutRows}
           canAdd={canCheckout}
           onAdd={() => setPhase('checkout')}
         />
       </div>
+
+      {/* AI Photo Inspection Trigger & Result Card */}
+      {canRunAi && (
+        <div className="p-4 rounded-2xl bg-gradient-to-r from-cyan-950/40 via-purple-950/40 to-slate-900 border border-cyan-500/30 text-xs font-display space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Sparkles className="text-cyan-400 animate-pulse" size={16} />
+              <span className="font-bold text-white uppercase tracking-wider">AI Photo Integrity Scanner</span>
+            </div>
+            <button
+              type="button"
+              onClick={runAiDiff}
+              disabled={aiAnalyzing}
+              className="px-3 py-1.5 rounded-xl bg-cyan-500/20 border border-cyan-500/50 text-cyan-300 font-bold hover:bg-cyan-500/30 transition-all disabled:opacity-50"
+            >
+              {aiAnalyzing ? 'Analyzing Pixels…' : '⚡ Run AI Comparison'}
+            </button>
+          </div>
+
+          {aiResult && (
+            <div className="mt-3 p-3 rounded-xl bg-black/40 border border-white/10 space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-white/80">Visual Integrity Match Score:</span>
+                <span className={`font-bold text-sm text-${aiResult.badgeColor}-400`}>
+                  {aiResult.integrityScore}% ({aiResult.status})
+                </span>
+              </div>
+              <p className="text-white/60 text-[11px]">{aiResult.summary}</p>
+
+              {aiResult.flaggedSectors?.length > 0 && (
+                <div className="mt-2 pt-2 border-t border-white/10">
+                  <span className="text-amber-400 font-bold block mb-1">Flagged Anomaly Regions:</span>
+                  <div className="flex flex-wrap gap-1.5">
+                    {aiResult.flaggedSectors.map((sec, idx) => (
+                      <span key={idx} className="px-2 py-0.5 rounded bg-amber-500/20 border border-amber-500/30 text-amber-300 text-[10px]">
+                        📍 {sec.region} ({sec.intensity})
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {aiResult.diffDataUrl && (
+                <div className="mt-2">
+                  <span className="text-white/50 block text-[10px] mb-1">AI Difference Heatmap Overlay:</span>
+                  <img src={aiResult.diffDataUrl} alt="AI Difference Heatmap" className="w-full h-24 object-cover rounded-lg border border-cyan-500/20" />
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
       {phase ? (
         <InspectionModal
           booking={booking}
@@ -256,6 +348,21 @@ export default function InspectionPanel({
           onSaved={handleSaved}
         />
       ) : null}
+
+      {signatureModalOpen && (
+        <SignatureModal
+          booking={booking}
+          signerName={user?.user_metadata?.full_name || user?.email}
+          signerRole={role}
+          onClose={() => setSignatureModalOpen(false)}
+          onSaveSignature={(payload) => {
+            setSignatureData(payload)
+            booking.renter_signature = payload.signatureUrl
+            booking.signedAt = payload.signedAt
+            booking.signerRole = payload.signerRole
+          }}
+        />
+      )}
     </div>
   )
 }

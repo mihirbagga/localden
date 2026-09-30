@@ -26,6 +26,11 @@ import { needsKyc } from '../lib/kyc'
 import { rupee } from '../lib/wallet'
 import { useWallet } from '../hooks/useWallet'
 import { useBusyDates } from '../hooks/useBusyDates'
+import { useProtectionPlans } from '../hooks/useProtectionPlans'
+import { calculateProtectionCost, getProtectionPlanDetails } from '../lib/protectionPlans'
+import TrustBadges from '../components/TrustBadges'
+import MaintenanceLogModal from '../components/MaintenanceLogModal'
+import { fetchMaintenanceLogs, MAINTENANCE_TYPES } from '../lib/maintenance'
 import AvailabilityCalendar from '../components/AvailabilityCalendar'
 import './terms.css'
 import './couponApply.css'
@@ -213,8 +218,9 @@ function BookingWidget({ listing, mobile = false, forceOpen = false }) {
   const [handover, setHandover] = useState('pickup')
   const [address, setAddress] = useState('')
   const [stepFocus, setStepFocus] = useState(1)
+  const { plans: protectionSettings } = useProtectionPlans()
+  const [protectionPlan, setProtectionPlan] = useState('none')
   const [insuranceOpted, setInsuranceOpted] = useState(false)
-  const INSURANCE_FEE = 99
 
   const days = startDate && endDate
     ? Math.max(1, Math.ceil((new Date(endDate) - new Date(startDate)) / 86400000))
@@ -228,7 +234,8 @@ function BookingWidget({ listing, mobile = false, forceOpen = false }) {
     fee: platformFeeSetting,
   })
   const { subtotal, discount, platformFee, total: baseTotal } = priced
-  const total = baseTotal + (insuranceOpted ? INSURANCE_FEE : 0)
+  const protectionCost = calculateProtectionCost(protectionPlan, days, protectionSettings)
+  const total = baseTotal + protectionCost
   const canWallet = isAuthenticated && days > 0 && total > 0 && (wallet.available || 0) >= total
   const selectedPay = payMethodId === 'wallet'
     ? walletMethod
@@ -727,15 +734,46 @@ function BookingWidget({ listing, mobile = false, forceOpen = false }) {
             />
           ) : null}
 
-          <div className="book-damage" style={{ marginBottom: 12 }}>
-            <label className="flex items-start gap-3 cursor-pointer">
-              <input type="checkbox" className="mt-1" checked={insuranceOpted} onChange={e => setInsuranceOpted(e.target.checked)} />
-              <div>
-                <strong style={{ display: 'block', color: '#ff2e6d' }}>+ ₹{INSURANCE_FEE} Damage Protection</strong>
-                <p style={{ margin: 0, fontSize: '0.75rem', opacity: 0.8 }}>Waiver for accidental scratches and minor dents (up to ₹2,000).</p>
+          {protectionSettings?.enabled ? (
+            <div className="book-damage" style={{ marginBottom: 12 }}>
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs font-bold text-purple-400 uppercase tracking-wider flex items-center gap-1">
+                  <Shield size={14} /> Damage Protection Waiver
+                </span>
+                <span className="text-[10px] text-white/50">Admin Configured</span>
               </div>
-            </label>
-          </div>
+              <div className="space-y-2">
+                {[
+                  getProtectionPlanDetails('none', protectionSettings),
+                  getProtectionPlanDetails('basic', protectionSettings),
+                  getProtectionPlanDetails('full', protectionSettings),
+                ].map((plan) => {
+                  const planCost = calculateProtectionCost(plan.id, days, protectionSettings)
+                  const isSelected = protectionPlan === plan.id
+                  return (
+                    <button
+                      key={plan.id}
+                      type="button"
+                      onClick={() => setProtectionPlan(plan.id)}
+                      className={`w-full text-left p-2.5 rounded-xl transition-all border ${
+                        isSelected
+                          ? 'bg-purple-500/20 border-purple-500 text-white'
+                          : 'bg-white/5 border-white/10 text-white/70 hover:bg-white/10'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="font-bold text-xs">{plan.name}</span>
+                        <span className="text-xs font-semibold text-emerald-400">
+                          {planCost > 0 ? `+ ₹${planCost}` : '₹0'}
+                        </span>
+                      </div>
+                      <p className="text-[10px] text-white/60 mt-0.5">{plan.desc}</p>
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+          ) : null}
           <div className="book-damage">
             <strong>Damage policy (short)</strong>
             <p>Wear is free. Scratches come from deposit. Smash / water / loss = used-market value. Photos at pickup and return.</p>
@@ -852,7 +890,19 @@ export default function ListingDetail() {
   const [similar, setSimilar] = useState([])
   const [panel, setPanel] = useState('about')
   const [howStep, setHowStep] = useState(0)
+  const [maintLogs, setMaintLogs] = useState([])
+  const [maintModalOpen, setMaintModalOpen] = useState(false)
   const wantRent = params.get('rent') === '1'
+
+  const loadMaint = async (listingId) => {
+    if (!listingId) return
+    const logs = await fetchMaintenanceLogs(listingId)
+    setMaintLogs(logs)
+  }
+
+  useEffect(() => {
+    if (listing?.id) loadMaint(listing.id)
+  }, [listing?.id])
 
   useEffect(() => {
     if (!id) return
@@ -1006,6 +1056,9 @@ export default function ListingDetail() {
               <span><MapPin size={14} /> {listing.location}, Bangalore</span>
             </div>
 
+            {/* Gamification Trust & Performance Badges */}
+            <TrustBadges profile={lister} listing={listing} />
+
             <div className="ld-prices">
               {[
                 { key: 'tonight', label: 'Per Day', price: listing.price_day, tone: '' },
@@ -1029,6 +1082,7 @@ export default function ListingDetail() {
               {[
                 { id: 'about', label: 'About' },
                 { id: 'specs', label: 'Details' },
+                { id: 'maint', label: `Servicing (${maintLogs.length})` },
                 { id: 'howto', label: 'How rent works' },
                 { id: 'reviews', label: `Reviews (${reviews.length})` },
               ].map((tab) => (
@@ -1072,6 +1126,42 @@ export default function ListingDetail() {
                     </div>
                   ))}
                 </div>
+              </div>
+            ) : null}
+
+            {panel === 'maint' ? (
+              <div className="ld-card space-y-4">
+                <div className="flex items-center justify-between">
+                  <h3>🛠️ VERIFIED MAINTENANCE & SERVICING LOGS</h3>
+                  {user?.id === listing.user_id && (
+                    <button
+                      type="button"
+                      onClick={() => setMaintModalOpen(true)}
+                      className="px-3 py-1.5 rounded-xl bg-amber-500/20 border border-amber-500/40 text-amber-300 text-xs font-bold hover:bg-amber-500/30 transition-all"
+                    >
+                      + Record Service Log
+                    </button>
+                  )}
+                </div>
+
+                {maintLogs.length === 0 ? (
+                  <p className="text-xs text-white/50 italic">No formal servicing logs recorded yet by the owner.</p>
+                ) : (
+                  <div className="space-y-3">
+                    {maintLogs.map((log) => {
+                      const serviceDef = MAINTENANCE_TYPES.find((t) => t.id === log.service_type)
+                      return (
+                        <div key={log.id} className="p-3 rounded-xl bg-white/5 border border-white/10 text-xs font-display">
+                          <div className="flex items-center justify-between mb-1">
+                            <strong className="text-amber-400 font-bold">{serviceDef?.label || log.service_type}</strong>
+                            <span className="text-white/40 text-[10px]">{log.serviced_at}</span>
+                          </div>
+                          {log.notes && <p className="text-white/70 text-[11px] mt-1">{log.notes}</p>}
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
               </div>
             ) : null}
 
@@ -1155,6 +1245,14 @@ export default function ListingDetail() {
         </div>
         <div className="lg:hidden listing-mobile-spacer" />
       </div>
+
+      {maintModalOpen && (
+        <MaintenanceLogModal
+          listing={listing}
+          onClose={() => setMaintModalOpen(false)}
+          onSaved={() => loadMaint(listing.id)}
+        />
+      )}
     </div>
   )
 }

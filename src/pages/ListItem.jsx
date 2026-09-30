@@ -9,6 +9,7 @@ import { usePlatformFee } from '../hooks/usePlatformFee'
 import { needsKyc } from '../lib/kyc'
 import KycGate from '../components/KycGate'
 import { computePlatformFee, platformFeeCopy } from '../lib/platformFee'
+import { calculateSuggestedPricing } from '../lib/dynamicPricing'
 import './couponApply.css'
 import './listItem.css'
 
@@ -614,6 +615,35 @@ export default function ListItem() {
               <form onSubmit={handleSubmit}>
                 <h2>Set your pricing</h2>
                 <p className="list-fee-note">{platformFeeCopy(platformFeeSetting)}</p>
+
+                {/* Smart Dynamic Pricing Recommendation Card */}
+                <div className="mb-4 p-3.5 rounded-2xl bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-between text-xs font-display">
+                  <div>
+                    <span className="font-bold text-cyan-400 block mb-0.5">⚡ Smart AI Price Recommendation</span>
+                    <span className="text-white/70 text-[11px]">
+                      Based on {form.title || form.brand || 'your gear specs'}, suggested rate is{' '}
+                      <strong className="text-emerald-400">
+                        ₹{calculateSuggestedPricing({ gpu: form.title, cpu: form.model, category }).suggestedDaily}/day
+                      </strong>
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const rec = calculateSuggestedPricing({ gpu: form.title, cpu: form.model, category })
+                      setForm((f) => ({
+                        ...f,
+                        priceDay: String(rec.suggestedDaily),
+                        priceWeekend: String(rec.weekendPrice),
+                        deposit: String(rec.recommendedDeposit),
+                      }))
+                      showToast(`Applied smart rate ₹${rec.suggestedDaily}/day`, 'success')
+                    }}
+                    className="px-3 py-1.5 rounded-xl bg-cyan-500/20 border border-cyan-500/50 text-cyan-300 font-bold hover:bg-cyan-500/30 transition-all flex-shrink-0"
+                  >
+                    Apply AI Price
+                  </button>
+                </div>
 
                 <div className="list-field">
                   <p className="field-label">Quick day price</p>
