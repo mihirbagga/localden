@@ -4,6 +4,7 @@ export const WALLET_KIND_LABEL = {
   listing_earning: 'Listing earning',
   referral_referrer: 'Referral reward',
   referral_referee: 'Referral bonus',
+  welcome_bonus: 'Welcome Onboarding Bonus 🎁',
   spend: 'Paid from wallet',
   payout_request: 'Payout requested',
 }

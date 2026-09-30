@@ -20,20 +20,33 @@ export default function DashboardWallet({ wallet, entries, referrals, code, load
     }
   }
 
+  const welcomeBonusTotal = (entries || [])
+    .filter((e) => e.kind === 'welcome_bonus' && e.amount > 0)
+    .reduce((sum, e) => sum + e.amount, 0)
+
+  const totalSpent = Math.abs(
+    (entries || []).filter((e) => e.kind === 'spend' && e.amount < 0).reduce((sum, e) => sum + e.amount, 0)
+  )
+
+  const promoCreditRemaining = Math.max(0, welcomeBonusTotal - totalSpent)
+  const withdrawableAmount = Math.max(0, (wallet?.available || 0) - promoCreditRemaining)
+
   const payout = async () => {
-    const amount = Number(wallet.available) || 0
-    if (amount < PAYOUT_MIN) {
-      showToast(`Minimum payout is ${rupee(PAYOUT_MIN)}`, 'error')
+    if (withdrawableAmount < PAYOUT_MIN) {
+      showToast(
+        `Minimum withdrawable payout is ${rupee(PAYOUT_MIN)}. Welcome Den Cash (${rupee(promoCreditRemaining)}) can only be spent on gear rentals.`,
+        'error'
+      )
       return
     }
     setBusy(true)
-    const { error } = await supabase.rpc('request_wallet_payout', { p_amount: amount })
+    const { error } = await supabase.rpc('request_wallet_payout', { p_amount: withdrawableAmount })
     setBusy(false)
     if (error) {
       showToast(error.message || 'Payout failed. Run the wallet SQL.', 'error')
       return
     }
-    showToast('Payout requested. Admin will send it.', 'success')
+    showToast('Payout requested. Admin will send it to your bank.', 'success')
     onRefresh?.()
   }
 
@@ -41,8 +54,18 @@ export default function DashboardWallet({ wallet, entries, referrals, code, load
     <div className="dash-wallet">
       <div className="dash-wallet__stats">
         <div className="dash-wallet__stat">
-          <span>Available</span>
+          <span>Total Balance</span>
           <strong>{loading ? '…' : rupee(wallet.available)}</strong>
+        </div>
+        {promoCreditRemaining > 0 && (
+          <div className="dash-wallet__stat">
+            <span>Promo Den Cash (Rental Only)</span>
+            <strong style={{ color: '#ff2e6d' }}>{loading ? '…' : rupee(promoCreditRemaining)}</strong>
+          </div>
+        )}
+        <div className="dash-wallet__stat">
+          <span>Withdrawable (Bank Payout)</span>
+          <strong style={{ color: '#00ff94' }}>{loading ? '…' : rupee(withdrawableAmount)}</strong>
         </div>
         <div className="dash-wallet__stat">
           <span>Payout pending</span>
@@ -50,17 +73,16 @@ export default function DashboardWallet({ wallet, entries, referrals, code, load
         </div>
       </div>
       <p className="dash-wallet__hint">
-        Earnings land after a completed return (rent minus platform fee). Deposit stays on the booking.
-        Spend the balance at checkout, or request a payout from ₹{PAYOUT_MIN}.
+        Earnings land after a completed return. Welcome Den Cash ({rupee(200)}) can be spent on any gear rental. Only earnings and referral rewards can be withdrawn to bank (min. ₹{PAYOUT_MIN}).
       </p>
       <button
         type="button"
         className="btn-primary"
-        disabled={busy || (wallet.available || 0) < PAYOUT_MIN}
+        disabled={busy || withdrawableAmount < PAYOUT_MIN}
         onClick={payout}
         aria-label="Request wallet payout"
       >
-        <Wallet size={14} /> Request payout {wallet.available >= PAYOUT_MIN ? rupee(wallet.available) : ''}
+        <Wallet size={14} /> Request payout {withdrawableAmount >= PAYOUT_MIN ? rupee(withdrawableAmount) : ''}
       </button>
 
       <section className="dash-wallet__block">

@@ -25,13 +25,42 @@ export function AuthProvider({ children }) {
     }
   }
 
+  const ensureWelcomeWalletBonus = async () => {
+    const { error } = await supabase.rpc('ensure_welcome_wallet_bonus')
+    if (error && !/schema cache|does not exist|Could not find/i.test(error.message || '')) {
+      console.warn('Welcome wallet bonus:', error.message)
+    }
+  }
+
   /* ── Fetch profile row ────────────────────── */
-  const fetchProfile = async (userId) => {
-    const { data } = await supabase
+  const fetchProfile = async (userId, currentUser = null) => {
+    let { data } = await supabase
       .from('profiles')
       .select('*')
       .eq('id', userId)
-      .single()
+      .maybeSingle()
+
+    const activeUser = currentUser || user
+    if (!data && activeUser) {
+      const meta = activeUser.user_metadata || {}
+      const fullName = meta.full_name || meta.name || activeUser.email?.split('@')[0] || ''
+      const avatarUrl = meta.avatar_url || meta.picture || null
+
+      const { data: newProfile } = await supabase
+        .from('profiles')
+        .upsert({
+          id: activeUser.id,
+          email: activeUser.email,
+          full_name: fullName,
+          avatar_url: avatarUrl,
+          created_at: new Date().toISOString(),
+        })
+        .select()
+        .maybeSingle()
+
+      data = newProfile
+    }
+
     setProfile(data)
     return data
   }
@@ -42,30 +71,45 @@ export function AuthProvider({ children }) {
   }, [])
 
   useEffect(() => {
+    let isMounted = true
+
     supabase.auth.getSession().then(({ data: { session } }) => {
-      setUser(session?.user ?? null)
-      if (session?.user) fetchProfile(session.user.id).finally(() => setLoading(false))
-      else setLoading(false)
+      if (!isMounted) return
+      const currentUser = session?.user ?? null
+      setUser(currentUser)
+      if (currentUser) {
+        fetchProfile(currentUser.id, currentUser).finally(() => {
+          if (isMounted) setLoading(false)
+        })
+      } else {
+        setLoading(false)
+      }
     })
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      setUser(session?.user ?? null)
-      if (session?.user) {
-        await fetchProfile(session.user.id)
+      if (!isMounted) return
+      const currentUser = session?.user ?? null
+      setUser(currentUser)
+      if (currentUser) {
+        await fetchProfile(currentUser.id, currentUser)
         if (event === 'SIGNED_IN' || event === 'USER_UPDATED') {
           await ensureWelcomeCoupon(
-            session.user.user_metadata?.full_name || session.user.user_metadata?.name || ''
+            currentUser.user_metadata?.full_name || currentUser.user_metadata?.name || ''
           )
           await applyStoredReferral(supabase)
           await ensureReferralCode()
+          await ensureWelcomeWalletBonus()
         }
       } else {
         setProfile(null)
       }
-      setLoading(false)
+      if (isMounted) setLoading(false)
     })
 
-    return () => subscription.unsubscribe()
+    return () => {
+      isMounted = false
+      subscription.unsubscribe()
+    }
   }, [])
 
   /* ── Sign up with email ───────────────────── */
@@ -90,6 +134,7 @@ export function AuthProvider({ children }) {
         await ensureWelcomeCoupon(fullName)
         await applyStoredReferral(supabase)
         await ensureReferralCode()
+        await ensureWelcomeWalletBonus()
       }
     }
     return data

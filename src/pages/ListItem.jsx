@@ -272,11 +272,15 @@ export default function ListItem() {
   const weekKeep = keepAfterFee(form.priceWeek || (Number(form.priceDay) || 0) * 7, platformFeeSetting)
   const monthKeep = keepAfterFee((Number(form.priceDay) || 0) * 20, platformFeeSetting)
 
-  if (authLoading) {
+  if (authLoading || (user && !profile)) {
     return (
-      <div className="list-page">
+      <div className="list-page min-h-screen flex items-center justify-center">
         <div className="grid-floor" />
         <GameBackground />
+        <div className="relative z-10 flex flex-col items-center gap-3">
+          <div className="w-10 h-10 border-2 border-white/20 border-t-[#ff2e6d] rounded-full animate-spin" />
+          <span className="text-xs font-display text-white/40">Loading studio...</span>
+        </div>
       </div>
     )
   }

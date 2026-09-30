@@ -759,6 +759,9 @@ function BookingWidget({ listing, mobile = false, forceOpen = false }) {
         {!isProcessing && isAuthenticated && !needsKyc(profile) && outOfStock ? 'Out of stock' : null}
         {!isProcessing && isAuthenticated && !needsKyc(profile) && !outOfStock && days < 1 ? <><Calendar size={16} /> Pick dates to rent</> : null}
         {!isProcessing && isAuthenticated && !needsKyc(profile) && !outOfStock && days > 0 ? <><CreditCard size={16} /> Rent now · {payButtonLabel(selectedPay, total)}</> : null}
+        {!isProcessing && isAuthenticated && outOfStock ? 'Out of stock' : null}
+        {!isProcessing && isAuthenticated && !outOfStock && days < 1 ? <><Calendar size={16} /> Pick dates to rent</> : null}
+        {!isProcessing && isAuthenticated && !outOfStock && days > 0 ? <><CreditCard size={16} /> Rent now · {payButtonLabel(selectedPay, total)}</> : null}
       </button>
 
       <div className="ld-trust">
@@ -790,10 +793,10 @@ function BookingWidget({ listing, mobile = false, forceOpen = false }) {
               }
               setSheetOpen(true)
             }}
-            aria-label={needsKyc(profile) ? 'Complete KYC to rent' : isAuthenticated ? 'Open rent form' : 'Sign in to rent'}
+            aria-label={isAuthenticated ? 'Open rent form' : 'Sign in to rent'}
             disabled={outOfStock}
           >
-            {outOfStock ? 'Out of stock' : isAuthenticated && needsKyc(profile) ? 'Complete KYC' : 'Rent now'}
+            {outOfStock ? 'Out of stock' : 'Rent now'}
           </button>
         </div>
         {sheetOpen ? createPortal(
