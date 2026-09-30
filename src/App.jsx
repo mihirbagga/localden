@@ -1,5 +1,5 @@
 import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom'
-import { AnimatePresence, motion } from 'framer-motion'
+import { motion } from 'framer-motion'
 import { AuthProvider } from './contexts/AuthContext'
 import { ToastProvider } from './contexts/ToastContext'
 import { NotificationProvider } from './contexts/NotificationContext'
@@ -34,14 +34,12 @@ import BlogPost from './pages/blog/BlogPost'
 const pageVariants = {
   initial: { opacity: 0, y: 16 },
   animate: { opacity: 1, y: 0, transition: { duration: 0.3, ease: [0.22, 1, 0.36, 1] } },
-  exit:    { opacity: 0, y: -8, transition: { duration: 0.18 } },
 }
 
 function AnimatedRoutes() {
   const location = useLocation()
   return (
-    <AnimatePresence mode="wait">
-      <motion.div key={location.pathname} variants={pageVariants} initial="initial" animate="animate" exit="exit">
+    <motion.div key={location.pathname} variants={pageVariants} initial="initial" animate="animate">
         <Routes location={location}>
           {/* Public routes */}
           <Route path="/"             element={<Home />} />
@@ -81,8 +79,7 @@ function AnimatedRoutes() {
             <AdminRoute><Admin /></AdminRoute>
           } />
         </Routes>
-      </motion.div>
-    </AnimatePresence>
+    </motion.div>
   )
 }
 

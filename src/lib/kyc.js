@@ -18,14 +18,16 @@ export function isKycVerified(profile) {
 export function needsKyc(profile) {
   if (!profile) return false
   if (isAdminProfile(profile)) return false
-  return !isKycVerified(profile)
+  // Only require KYC if Admin explicitly set kyc_status to 'required'
+  return profile?.kyc_status === 'required'
 }
 
 export function kycActionLabel(status) {
+  if (status === 'required') return 'Complete Requested KYC'
   if (status === 'submitted') return 'KYC is with admin'
   if (status === 'rejected') return 'Fix KYC and resubmit'
   if (status === 'verified') return 'Verified'
-  return 'Complete KYC'
+  return 'KYC Not Required'
 }
 
 export function last4Valid(idType, value) {

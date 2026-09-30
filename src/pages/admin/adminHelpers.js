@@ -1,10 +1,12 @@
-export const KYC_OPTIONS = ['pending', 'submitted', 'verified', 'rejected']
+export const KYC_OPTIONS = ['not_required', 'required', 'submitted', 'verified', 'rejected']
 export const BOOKING_STATUSES = ['pending', 'confirmed', 'active', 'completed', 'cancelled', 'disputed']
 export const ADMIN_ROLES = ['none', 'admin', 'super_admin']
 export const LOW_STOCK_THRESHOLD = 1
 
 export const KYC_LABEL = {
-  pending: 'Pending',
+  not_required: 'Not Required',
+  required: 'KYC Requested',
+  pending: 'Not Required',
   submitted: 'Submitted',
   verified: 'Verified',
   rejected: 'Rejected',

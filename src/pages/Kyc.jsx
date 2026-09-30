@@ -27,7 +27,8 @@ export default function Kyc() {
   const { user, profile, updateProfile, refreshProfile } = useAuth()
   const { showToast } = useToast()
   const location = useLocation()
-  const back = location.state?.from?.pathname || '/dashboard'
+  const rawBack = location.state?.from?.pathname
+  const back = (rawBack && rawBack !== '/kyc') ? rawBack : '/dashboard'
 
   const [latest, setLatest] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -174,6 +175,18 @@ export default function Kyc() {
 
           {loading ? <p>Loading…</p> : null}
 
+          {!loading && (status !== 'required' && status !== 'submitted' && status !== 'verified' && status !== 'rejected') ? (
+            <div className="kyc-ok">
+              <Shield size={36} style={{ color: '#00e5ff' }} />
+              <h2>KYC Not Required</h2>
+              <p>Your account is active! Admin has not requested KYC for your account. You can freely list and rent gear across Bangalore.</p>
+              <div className="flex gap-3 mt-4">
+                <Link to="/browse" className="btn-primary">Browse Gear</Link>
+                <Link to="/dashboard" className="btn-outline">Dashboard</Link>
+              </div>
+            </div>
+          ) : null}
+
           {!loading && status === 'verified' ? (
             <div className="kyc-ok">
               <CheckCircle size={36} />
@@ -192,7 +205,7 @@ export default function Kyc() {
             </div>
           ) : null}
 
-          {!loading && canForm && status !== 'verified' && status !== 'submitted' ? (
+          {!loading && (status === 'required' || status === 'rejected') ? (
             <form className="kyc-form" onSubmit={submit}>
               {status === 'rejected' && (latest?.reviewer_note || profile?.kyc_note) ? (
                 <div className="kyc-note" role="status">

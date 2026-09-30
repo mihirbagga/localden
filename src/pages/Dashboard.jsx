@@ -482,13 +482,19 @@ export default function Dashboard() {
 
   const checks = [
     {
-      done: profile?.kyc_status === 'verified',
-      title: 'KYC verified',
+      done: profile?.kyc_status === 'verified' || profile?.kyc_status !== 'required',
+      title: profile?.kyc_status === 'verified'
+        ? 'KYC verified'
+        : profile?.kyc_status === 'required'
+          ? 'KYC requested by Admin'
+          : 'KYC not required',
       sub: profile?.kyc_status === 'verified'
-        ? 'You look legit'
+        ? 'Verified by Admin'
         : profile?.kyc_status === 'submitted'
           ? 'Admin is reviewing your docs'
-          : 'Aadhaar or PAN last 4 + selfie. About 2 minutes.',
+          : profile?.kyc_status === 'required'
+            ? 'Aadhaar or PAN last 4 + selfie required by Admin.'
+            : 'No KYC required — list and rent freely!',
       go: () => navigate('/kyc'),
     },
     {

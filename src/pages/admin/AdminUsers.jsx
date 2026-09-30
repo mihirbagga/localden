@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { Ban, ShieldCheck } from 'lucide-react'
+import { Ban, ShieldCheck, ShieldAlert } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import { useToast } from '../../contexts/ToastContext'
 import { AdminAction, AdminBadge, AdminConfirm, AdminEmpty, AdminSearch, matchesQuery } from './AdminShared'
@@ -49,7 +49,17 @@ export default function AdminUsers({ users, patchUser, isSuperAdmin, currentUser
         }
       }
     }
-    updateUser(user.id, { kyc_status: kycStatus }, `KYC set to ${KYC_LABEL[kycStatus]}`)
+    await updateUser(user.id, { kyc_status: kycStatus }, `KYC set to ${KYC_LABEL[kycStatus] || kycStatus}`)
+    if (kycStatus === 'required') {
+      await supabase.rpc('push_notification', {
+        p_user_id: user.id,
+        p_booking_id: null,
+        p_kind: 'kyc_requested',
+        p_title: 'KYC Verification Required',
+        p_body: 'Admin has requested KYC verification for your account.',
+        p_link: '/kyc',
+      }).catch(() => {})
+    }
   }
 
   const handleRole = (user, adminRole) => {
@@ -148,6 +158,15 @@ export default function AdminUsers({ users, patchUser, isSuperAdmin, currentUser
                     </td>
                     <td>
                       <div className="admin-actions">
+                        {user.kyc_status !== 'verified' && user.kyc_status !== 'required' && user.kyc_status !== 'submitted' ? (
+                          <AdminAction
+                            tip="Request KYC"
+                            ariaLabel={`Request KYC from ${displayName(user)}`}
+                            onClick={() => handleKyc(user, 'required')}
+                          >
+                            <ShieldAlert size={14} style={{ color: '#ff8c00' }} />
+                          </AdminAction>
+                        ) : null}
                         {user.kyc_status !== 'verified' ? (
                           <AdminAction
                             tip="Verify KYC"

@@ -11,7 +11,8 @@ export default function Login() {
   const location  = useLocation()
   const { signIn, signInWithGoogle, isAuthenticated } = useAuth()
 
-  const from = location.state?.from?.pathname || '/'
+  const rawFrom = location.state?.from?.pathname
+  const from = (rawFrom && rawFrom !== '/login' && rawFrom !== '/signup') ? rawFrom : '/'
 
   const [form, setForm]     = useState({ email: '', password: '' })
   const [showPw, setShowPw] = useState(false)
