@@ -8,6 +8,8 @@ import { supabase } from '../lib/supabase'
 import { usePlatformFee } from '../hooks/usePlatformFee'
 import { needsKyc } from '../lib/kyc'
 import KycGate from '../components/KycGate'
+import ListingGamesSelector from '../components/ListingGamesSelector'
+import { fetchListingGames, saveListingGames } from '../lib/gamesService'
 import { computePlatformFee, platformFeeCopy } from '../lib/platformFee'
 import { calculateSuggestedPricing } from '../lib/dynamicPricing'
 import './couponApply.css'
@@ -62,6 +64,7 @@ export default function ListItem() {
   const [dragOver, setDragOver] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [games, setGames] = useState([])
   const [form, setForm] = useState({
     ...EMPTY_FORM,
     phone: profile?.phone || '',
@@ -90,7 +93,7 @@ export default function ListItem() {
         setStep(1)
         setForm({
           title:        data.title         || '',
-          description:  data.description   || '',
+          description:  (data.description || '').replace(/\s*\[GAMES:.*?\]/gi, '').trim(),
           itemType:     data.subcategory   || '',
           brand:        data.brand         || '',
           model:        data.model         || '',
@@ -105,6 +108,11 @@ export default function ListItem() {
           fulfillmentType: data.fulfillment_type || 'direct',
         })
         if (data.photos?.length) setExistingPhotos(data.photos)
+        fetchListingGames(editId, data).then((loadedGames) => {
+          if (Array.isArray(loadedGames) && loadedGames.length > 0) {
+            setGames(loadedGames)
+          }
+        })
       })
   }, [editId, user])
 
@@ -191,6 +199,14 @@ export default function ListItem() {
         console.warn('Profile upsert skipped:', profileErr.message)
       }
 
+      // Build description with games metadata if category is gaming
+      let finalDescription = form.description.trim()
+      if (category === 'gaming' && games.length > 0) {
+        finalDescription = finalDescription.replace(/\s*\[GAMES:.*?\]/gi, '').trim()
+        const gamesTag = `[GAMES: ${games.map((g) => `${g.title} (${g.format || 'Digital'})`).join(' | ')}]`
+        finalDescription = finalDescription ? `${finalDescription}\n\n${gamesTag}` : gamesTag
+      }
+
       if (isEdit) {
         let photoUrls = existingPhotos
         if (photos.length > 0) {
@@ -199,7 +215,7 @@ export default function ListItem() {
         }
         const { error: updErr } = await supabase.from('listings').update({
           title:          form.title.trim(),
-          description:    form.description.trim(),
+          description:    finalDescription,
           subcategory:    form.itemType,
           condition:      form.condition,
           brand:          form.brand.trim() || null,
@@ -216,6 +232,11 @@ export default function ListItem() {
           updated_at:     new Date().toISOString(),
         }).eq('id', editId).eq('user_id', user.id)
         if (updErr) throw updErr
+
+        if (category === 'gaming') {
+          await saveListingGames(editId, games)
+        }
+
         showToast('Listing updated!', 'success')
         navigate('/dashboard')
       } else {
@@ -228,7 +249,7 @@ export default function ListItem() {
           id: listingId,
           user_id: user.id,
           title: form.title.trim(),
-          description: form.description.trim(),
+          description: finalDescription,
           category,
           subcategory: form.itemType,
           condition: form.condition,
@@ -249,6 +270,11 @@ export default function ListItem() {
           fulfillment_type: form.fulfillmentType || 'direct',
         })
         if (insErr) throw insErr
+
+        if (category === 'gaming') {
+          await saveListingGames(listingId, games)
+        }
+
         showToast('Listing live', 'success')
         setStep(3)
       }
@@ -265,6 +291,7 @@ export default function ListItem() {
     setStep(1)
     setCategory('')
     setPhotos([])
+    setGames([])
     setForm({ ...EMPTY_FORM, phone: profile?.phone || '' })
     setError('')
   }
@@ -469,6 +496,11 @@ export default function ListItem() {
                     aria-label="Description"
                   />
                 </div>
+
+                {/* Available Games Section for PS5 / Gaming listings */}
+                {category === 'gaming' && (
+                  <ListingGamesSelector games={games} onChange={setGames} />
+                )}
 
                 <div className="list-field">
                   <p className="field-label">Area in Bangalore *</p>

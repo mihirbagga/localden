@@ -308,7 +308,7 @@ export default function Home() {
             <p>Verified listers</p>
           </div>
           <div className="stat-card home-stat is-gold">
-            <div className="font-bungee text-4xl mb-1"><Counter end={187} /></div>
+            <div className="font-bungee text-4xl mb-1"><Counter end={37} /></div>
             <p>Weekends hosted</p>
           </div>
           <div className="stat-card home-stat is-green">

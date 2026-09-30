@@ -11,7 +11,7 @@ import {
   getBookingTracking,
   updateBookingTracking,
 } from '../lib/trackingService'
-import { fetchDeliveryPartners } from '../lib/driverService'
+import { useDeliveryPartners } from '../hooks/useDeliveryPartners'
 
 export default function LiveTrackingModal({ booking, onClose, isAdmin = false }) {
   const { user } = useAuth()
@@ -21,10 +21,10 @@ export default function LiveTrackingModal({ booking, onClose, isAdmin = false })
   const isLister = user?.id === (booking?.lister_id || booking?.listings?.user_id)
   const isHubStored = booking?.listings?.fulfillment_type === 'warehouse'
 
+  const { drivers: availableDrivers } = useDeliveryPartners()
   const [tracking, setTracking] = useState(null)
   const [loading, setLoading] = useState(true)
   const [copiedOtp, setCopiedOtp] = useState(false)
-  const [availableDrivers, setAvailableDrivers] = useState([])
   const [savingDriver, setSavingDriver] = useState(false)
   const [editingEta, setEditingEta] = useState(false)
   const [etaInput, setEtaInput] = useState('')
@@ -42,18 +42,11 @@ export default function LiveTrackingModal({ booking, onClose, isAdmin = false })
         setTracking(trk)
         setEtaInput(trk?.eta || '25-35 mins')
       }
-
-      if (isUserAdmin) {
-        const driversList = await fetchDeliveryPartners()
-        if (isMounted) {
-          setAvailableDrivers(driversList)
-        }
-      }
       if (isMounted) setLoading(false)
     }
     init()
     return () => { isMounted = false }
-  }, [bookingId, isUserAdmin, booking])
+  }, [bookingId, booking])
 
   const currentStatusKey = tracking?.tracking_status || 'awaiting_confirmation'
   const currentConfig = TRACKING_STATUS_CONFIG[currentStatusKey] || TRACKING_STATUS_CONFIG.awaiting_confirmation

@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react'
 import { Truck, Plus, Phone, Star, CheckCircle, XCircle, Trash2, Edit2, Shield, MapPin, X } from 'lucide-react'
 import { useToast } from '../../contexts/ToastContext'
+import { useDeliveryPartners } from '../../hooks/useDeliveryPartners'
 import {
-  fetchDeliveryPartners,
   addDeliveryPartner,
   updateDeliveryPartner,
   deleteDeliveryPartner,
@@ -10,8 +10,7 @@ import {
 
 export default function AdminDrivers() {
   const { showToast } = useToast()
-  const [drivers, setDrivers] = useState([])
-  const [loading, setLoading] = useState(true)
+  const { drivers, loading, reload: loadDrivers } = useDeliveryPartners()
   const [showAddModal, setShowAddModal] = useState(false)
   const [saving, setSaving] = useState(false)
 
@@ -23,17 +22,6 @@ export default function AdminDrivers() {
     area: 'Central Bangalore',
     avatar: '',
   })
-
-  const loadDrivers = async () => {
-    setLoading(true)
-    const list = await fetchDeliveryPartners()
-    setDrivers(list)
-    setLoading(false)
-  }
-
-  useEffect(() => {
-    loadDrivers()
-  }, [])
 
   const handleAddDriver = async (e) => {
     e.preventDefault()

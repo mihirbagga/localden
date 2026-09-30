@@ -35,6 +35,8 @@ import AvailabilityCalendar from '../components/AvailabilityCalendar'
 import SEOHead from '../components/SEOHead'
 import { useReviews } from '../hooks/useReviews'
 import DeliveryAddressForm from '../components/DeliveryAddressForm'
+import ListingGamesDisplay from '../components/ListingGamesDisplay'
+import { fetchListingGames } from '../lib/gamesService'
 import { adjustListingStock } from '../lib/stockService'
 import { updateBookingTracking } from '../lib/trackingService'
 import './terms.css'
@@ -203,7 +205,10 @@ function BookingWidget({ listing, mobile = false, forceOpen = false }) {
   const { busy } = useBusyDates(listing.id, units)
   const busyRef = useRef(busy)
   busyRef.current = busy
-  const outOfStock = listing.is_available === false
+  const rawAvailable = listing.is_available ?? listing.available ?? true
+  const stockQty = listing.stock_qty !== undefined && listing.stock_qty !== null ? Number(listing.stock_qty) : null
+  const isBookedOut = !rawAvailable || (stockQty !== null && stockQty <= 0)
+  const outOfStock = isBookedOut
 
   const [startDate, setStartDate] = useState('')
   const [endDate, setEndDate] = useState('')
@@ -255,6 +260,10 @@ function BookingWidget({ listing, mobile = false, forceOpen = false }) {
     : (payMethods.find((m) => m.id === payMethodId) || payMethods[0] || (canWallet ? walletMethod : null))
 
   const applyRange = (from, to, chip) => {
+    if (isBookedOut) {
+      showToast('This item is currently booked out and unavailable for rent.', 'error')
+      return
+    }
     if (from && to && rangeHasBusy(from, to, busyRef.current)) {
       showToast('Those dates are already booked.', 'error')
       setStartDate(from)
@@ -587,14 +596,56 @@ function BookingWidget({ listing, mobile = false, forceOpen = false }) {
         </div>
       )}
 
-      {outOfStock ? <p className="ld-hint">Out of stock right now. Check similar gear below.</p> : null}
+      {isBookedOut ? (
+        <div className="p-4 rounded-2xl bg-red-500/10 border border-red-500/30 mb-4 space-y-1.5 text-xs animate-fade-in">
+          <div className="flex items-center gap-2 text-red-400 font-bold uppercase tracking-wider text-[11px]">
+            <span className="w-2 h-2 rounded-full bg-red-400 animate-ping" />
+            <span>🚫 Booked Out / Zero Stock Available</span>
+          </div>
+          <p className="text-white/70 font-display leading-relaxed">
+            All units for this hardware are currently in active rentals. Date selection and booking checkout are disabled until units are returned.
+          </p>
+        </div>
+      ) : null}
 
       <h4 className="text-xs font-semibold tracking-wider text-white/40 uppercase mt-5 mb-2">DATES</h4>
       <div className="ld-chips flex gap-2 flex-wrap" role="group" aria-label="Quick rental dates">
-        <button type="button" className={`ld-chip transition-all duration-300${quick === 'tonight' ? ' is-on !border-cyan-400 !bg-cyan-500/20 !shadow-[0_0_12px_rgba(34,211,238,0.4)]' : ' hover:border-cyan-400/50 hover:bg-cyan-500/5'}`} onClick={() => applyRange(today, shiftIso(today, 1), 'tonight')} aria-label="Rent tonight">⚡ Tonight (1d)</button>
-        <button type="button" className={`ld-chip transition-all duration-300${quick === 'weekend' ? ' is-on !border-magenta !bg-magenta/20 !shadow-[0_0_12px_rgba(255,42,133,0.4)]' : ' hover:border-magenta/50 hover:bg-magenta/5'}`} onClick={() => { const w = weekendRange(); applyRange(w.from, w.to, 'weekend') }} aria-label="Rent this weekend">🎉 Weekend (Sat–Mon)</button>
-        <button type="button" className={`ld-chip transition-all duration-300${quick === '3' ? ' is-on !border-orange-400 !bg-orange-500/20 !shadow-[0_0_12px_rgba(249,115,22,0.4)]' : ' hover:border-orange-400/50 hover:bg-orange-500/5'}`} onClick={() => applyRange(today, shiftIso(today, 3), '3')} aria-label="Rent three days">🔥 3 Days (5% OFF)</button>
-        <button type="button" className={`ld-chip transition-all duration-300${quick === 'week' ? ' is-on !border-purple-400 !bg-purple-500/20 !shadow-[0_0_12px_rgba(168,85,247,0.4)]' : ' hover:border-purple-400/50 hover:bg-purple-500/5'}`} onClick={() => applyRange(today, shiftIso(today, 7), 'week')} aria-label="Rent one week">💎 1 Week (10% OFF)</button>
+        <button
+          type="button"
+          disabled={isBookedOut}
+          className={`ld-chip transition-all duration-300 ${isBookedOut ? 'opacity-30 cursor-not-allowed pointer-events-none' : ''} ${quick === 'tonight' ? ' is-on !border-cyan-400 !bg-cyan-500/20 !shadow-[0_0_12px_rgba(34,211,238,0.4)]' : ' hover:border-cyan-400/50 hover:bg-cyan-500/5'}`}
+          onClick={() => applyRange(today, shiftIso(today, 1), 'tonight')}
+          aria-label="Rent tonight"
+        >
+          ⚡ Tonight (1d)
+        </button>
+        <button
+          type="button"
+          disabled={isBookedOut}
+          className={`ld-chip transition-all duration-300 ${isBookedOut ? 'opacity-30 cursor-not-allowed pointer-events-none' : ''} ${quick === 'weekend' ? ' is-on !border-magenta !bg-magenta/20 !shadow-[0_0_12px_rgba(255,42,133,0.4)]' : ' hover:border-magenta/50 hover:bg-magenta/5'}`}
+          onClick={() => { const w = weekendRange(); applyRange(w.from, w.to, 'weekend') }}
+          aria-label="Rent this weekend"
+        >
+          🎉 Weekend (Sat–Mon)
+        </button>
+        <button
+          type="button"
+          disabled={isBookedOut}
+          className={`ld-chip transition-all duration-300 ${isBookedOut ? 'opacity-30 cursor-not-allowed pointer-events-none' : ''} ${quick === '3' ? ' is-on !border-orange-400 !bg-orange-500/20 !shadow-[0_0_12px_rgba(249,115,22,0.4)]' : ' hover:border-orange-400/50 hover:bg-orange-500/5'}`}
+          onClick={() => applyRange(today, shiftIso(today, 3), '3')}
+          aria-label="Rent three days"
+        >
+          🔥 3 Days (5% OFF)
+        </button>
+        <button
+          type="button"
+          disabled={isBookedOut}
+          className={`ld-chip transition-all duration-300 ${isBookedOut ? 'opacity-30 cursor-not-allowed pointer-events-none' : ''} ${quick === 'week' ? ' is-on !border-purple-400 !bg-purple-500/20 !shadow-[0_0_12px_rgba(168,85,247,0.4)]' : ' hover:border-purple-400/50 hover:bg-purple-500/5'}`}
+          onClick={() => applyRange(today, shiftIso(today, 7), 'week')}
+          aria-label="Rent one week"
+        >
+          💎 1 Week (10% OFF)
+        </button>
       </div>
 
       <AvailabilityCalendar
@@ -602,7 +653,7 @@ function BookingWidget({ listing, mobile = false, forceOpen = false }) {
         startDate={startDate}
         endDate={endDate}
         onPick={(from, to) => applyRange(from, to, '')}
-        disabled={outOfStock}
+        disabled={isBookedOut}
       />
 
       <div className="ld-dates">
@@ -613,6 +664,7 @@ function BookingWidget({ listing, mobile = false, forceOpen = false }) {
             type="date"
             value={startDate}
             min={today}
+            disabled={isBookedOut}
             onChange={(e) => {
               const next = e.target.value
               setQuick('')
@@ -622,7 +674,7 @@ function BookingWidget({ listing, mobile = false, forceOpen = false }) {
               }
               applyRange(next, endDate)
             }}
-            className="input-dark"
+            className={`input-dark ${isBookedOut ? 'opacity-30 cursor-not-allowed' : ''}`}
             aria-label="Rental start date"
           />
         </div>
@@ -633,8 +685,9 @@ function BookingWidget({ listing, mobile = false, forceOpen = false }) {
             type="date"
             value={endDate}
             min={startDate || today}
+            disabled={isBookedOut}
             onChange={(e) => applyRange(startDate, e.target.value)}
-            className="input-dark"
+            className={`input-dark ${isBookedOut ? 'opacity-30 cursor-not-allowed' : ''}`}
             aria-label="Rental end date"
           />
         </div>
@@ -822,19 +875,16 @@ function BookingWidget({ listing, mobile = false, forceOpen = false }) {
       <button
         type="button"
         onClick={handleBook}
-        disabled={isProcessing || outOfStock || (isAuthenticated && days > 0 && !acceptTerms)}
-        className="btn-primary w-full"
-        aria-label="Rent this item now"
+        disabled={isProcessing || isBookedOut || (isAuthenticated && days > 0 && !acceptTerms)}
+        className="btn-primary w-full disabled:opacity-40 disabled:cursor-not-allowed"
+        aria-label={isBookedOut ? 'Item is booked out' : 'Rent this item now'}
       >
         {isProcessing ? (saving ? 'Confirming…' : 'Opening payment…') : null}
-        {!isProcessing && !isAuthenticated ? <><CreditCard size={16} /> Sign in to rent</> : null}
-        {!isProcessing && isAuthenticated && needsKyc(profile) ? <><Shield size={16} /> Complete KYC to rent</> : null}
-        {!isProcessing && isAuthenticated && !needsKyc(profile) && outOfStock ? 'Out of stock' : null}
-        {!isProcessing && isAuthenticated && !needsKyc(profile) && !outOfStock && days < 1 ? <><Calendar size={16} /> Pick dates to rent</> : null}
-        {!isProcessing && isAuthenticated && !needsKyc(profile) && !outOfStock && days > 0 ? <><CreditCard size={16} /> Rent now · {payButtonLabel(selectedPay, total)}</> : null}
-        {!isProcessing && isAuthenticated && outOfStock ? 'Out of stock' : null}
-        {!isProcessing && isAuthenticated && !outOfStock && days < 1 ? <><Calendar size={16} /> Pick dates to rent</> : null}
-        {!isProcessing && isAuthenticated && !outOfStock && days > 0 ? <><CreditCard size={16} /> Rent now · {payButtonLabel(selectedPay, total)}</> : null}
+        {!isProcessing && isBookedOut ? '🚫 Currently Booked Out' : null}
+        {!isProcessing && !isBookedOut && !isAuthenticated ? <><CreditCard size={16} /> Sign in to rent</> : null}
+        {!isProcessing && !isBookedOut && isAuthenticated && needsKyc(profile) ? <><Shield size={16} /> Complete KYC to rent</> : null}
+        {!isProcessing && !isBookedOut && isAuthenticated && !needsKyc(profile) && days < 1 ? <><Calendar size={16} /> Pick dates to rent</> : null}
+        {!isProcessing && !isBookedOut && isAuthenticated && !needsKyc(profile) && days > 0 ? <><CreditCard size={16} /> Rent now · {payButtonLabel(selectedPay, total)}</> : null}
       </button>
 
       <div className="ld-trust">
@@ -850,12 +900,16 @@ function BookingWidget({ listing, mobile = false, forceOpen = false }) {
         <div className="flex items-center gap-3">
           <div className="ld-bar-price flex-1 min-w-0">
             <strong>{days > 0 ? `₹${total}` : `₹${listing.price_day}`}</strong>
-            <span>{days > 0 ? `${days} day${days === 1 ? '' : 's'} incl. deposit` : '/day · tap to rent'}</span>
+            <span>{isBookedOut ? 'Out of stock' : days > 0 ? `${days} day${days === 1 ? '' : 's'} incl. deposit` : '/day · tap to rent'}</span>
           </div>
           <button
             type="button"
-            className="btn-primary"
+            className="btn-primary disabled:opacity-40 disabled:cursor-not-allowed"
             onClick={() => {
+              if (isBookedOut) {
+                showToast('This item is currently booked out.', 'error')
+                return
+              }
               if (!isAuthenticated) {
                 navigate('/login', { state: { from: { pathname: `/listing/${listing.id}?rent=1` } } })
                 return
@@ -866,10 +920,10 @@ function BookingWidget({ listing, mobile = false, forceOpen = false }) {
               }
               setSheetOpen(true)
             }}
-            aria-label={isAuthenticated ? 'Open rent form' : 'Sign in to rent'}
-            disabled={outOfStock}
+            aria-label={isBookedOut ? 'Item is booked out' : isAuthenticated ? 'Open rent form' : 'Sign in to rent'}
+            disabled={isBookedOut}
           >
-            {outOfStock ? 'Out of stock' : 'Rent now'}
+            {isBookedOut ? 'Booked Out' : 'Rent now'}
           </button>
         </div>
         {sheetOpen ? createPortal(
@@ -908,6 +962,7 @@ export default function ListingDetail() {
   const [howStep, setHowStep] = useState(0)
   const [maintLogs, setMaintLogs] = useState([])
   const [maintModalOpen, setMaintModalOpen] = useState(false)
+  const [listingGames, setListingGames] = useState([])
   const wantRent = params.get('rent') === '1'
 
   const loadMaint = async (listingId) => {
@@ -917,7 +972,12 @@ export default function ListingDetail() {
   }
 
   useEffect(() => {
-    if (listing?.id) loadMaint(listing.id)
+    if (listing?.id) {
+      loadMaint(listing.id)
+      fetchListingGames(listing.id, listing).then((loaded) => {
+        if (Array.isArray(loaded)) setListingGames(loaded)
+      })
+    }
   }, [listing?.id])
 
   useEffect(() => {
@@ -1094,6 +1154,11 @@ export default function ListingDetail() {
               ))}
             </div>
 
+            {/* Available PS5 / Gaming Bundle Games */}
+            {listingGames.length > 0 && (
+              <ListingGamesDisplay games={listingGames} />
+            )}
+
             <div className="ld-tabs" role="tablist" aria-label="Listing sections">
               {[
                 { id: 'about', label: 'About' },
@@ -1118,7 +1183,9 @@ export default function ListingDetail() {
             {panel === 'about' ? (
               <div className="ld-card">
                 <h3>ABOUT THIS ITEM</h3>
-                <p>{listing.description || 'No write-up yet. Ask the lister on handover.'}</p>
+                <p>
+                  {(listing.description || '').replace(/\s*\[GAMES:.*?\]/gi, '').trim() || 'No write-up yet. Ask the lister on handover.'}
+                </p>
               </div>
             ) : null}
 

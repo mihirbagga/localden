@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { Star, MapPin, Shield, Heart } from 'lucide-react'
+import { Star, MapPin, Shield } from 'lucide-react'
 import './listingCard.css'
 
 /**
@@ -11,7 +11,6 @@ import './listingCard.css'
 export default function ListingCard({ listing, listView = false }) {
   const navigate = useNavigate()
   const [hovered, setHovered] = useState(false)
-  const [saved,   setSaved]   = useState(false)
   const isGaming = listing.category === 'gaming'
 
   const accent   = isGaming ? '#ff2e6d' : '#00e5ff'
@@ -170,16 +169,6 @@ export default function ListingCard({ listing, listView = false }) {
           </div>
 
           <div className="flex items-center gap-1.5 pointer-events-auto flex-shrink-0">
-            {/* Save button */}
-            <button
-              onClick={e => { e.preventDefault(); e.stopPropagation(); setSaved(s => !s) }}
-              className="w-7 h-7 rounded-full flex items-center justify-center transition-all duration-200"
-              style={{
-                background: saved ? 'rgba(255,46,109,0.8)' : 'rgba(0,0,0,0.5)',
-                backdropFilter: 'blur(8px)',
-              }}>
-              <Heart size={13} style={{ color: 'white' }} fill={saved ? 'white' : 'none'} />
-            </button>
             {/* Availability dot */}
             <div className="flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-display font-semibold"
               style={{
