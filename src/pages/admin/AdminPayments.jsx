@@ -7,6 +7,7 @@ import { AdminBadge } from './AdminShared'
 import { explainAdminError } from './adminHelpers'
 import AdminPlatformFee from './AdminPlatformFee'
 import AdminProtectionPlans from './AdminProtectionPlans'
+import AdminSignupCoupon from './AdminSignupCoupon'
 import '../paymentMethods.css'
 
 function nextConfig(method, patch) {
@@ -119,6 +120,7 @@ export default function AdminPayments({ methods, patchMethod }) {
       </p>
       <AdminPlatformFee />
       <AdminProtectionPlans />
+      <AdminSignupCoupon />
       {methods.map((method) => {
         const draft = getDraft(method)
         const type = method.method_type

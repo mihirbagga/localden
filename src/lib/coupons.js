@@ -4,12 +4,13 @@ export function normalizeCouponCode(code) {
   return String(code || '').trim().toUpperCase()
 }
 
-export function welcomeCouponCode(fullName) {
+export function welcomeCouponCode(fullName, percent = 50) {
   const first = String(fullName || '').trim().split(/\s+/)[0] || ''
   let slug = first.replace(/[^A-Za-z0-9]/g, '').toUpperCase()
   if (!slug) slug = 'USER'
   if (slug.length > 12) slug = slug.slice(0, 12)
-  return `WELCOME${slug}50`
+  const val = Number.isFinite(Number(percent)) ? Number(percent) : 50
+  return `WELCOME${slug}${val}`
 }
 
 export function computeDiscount(coupon, subtotal) {

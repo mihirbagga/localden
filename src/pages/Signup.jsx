@@ -4,6 +4,7 @@ import { Eye, EyeOff, Mail, Lock, User, Phone, AlertCircle, CheckCircle } from '
 import { useAuth } from '../contexts/AuthContext'
 import { useToast } from '../contexts/ToastContext'
 import { welcomeCouponCode } from '../lib/coupons'
+import { useSignupCouponSetting } from '../hooks/useSignupCouponSetting'
 import { captureReferralFromSearch, normalizeReferralCode, readStoredReferral } from '../lib/referrals'
 import LogoMark from '../components/LogoMark'
 import GameBackground from '../components/GameBackground'
@@ -12,6 +13,7 @@ import './auth.css'
 export default function Signup() {
   const { signUp, signInWithGoogle, isAuthenticated, loading: authLoading } = useAuth()
   const { showToast } = useToast()
+  const { setting: couponSetting } = useSignupCouponSetting()
 
   const [params] = useSearchParams()
   const [form, setForm] = useState({
@@ -41,7 +43,10 @@ export default function Signup() {
   const [loading, setLoading] = useState(false)
   const [error, setError]     = useState('')
   const [success, setSuccess] = useState(false)
-  const welcomeCode = welcomeCouponCode(form.fullName)
+
+  const activePercent = couponSetting?.discount_percent ?? 50
+  const isCouponEnabled = couponSetting?.enabled !== false
+  const welcomeCode = welcomeCouponCode(form.fullName, activePercent)
 
   const set = (k) => (e) => setForm(f => ({ ...f, [k]: e.target.value }))
 
@@ -64,7 +69,9 @@ export default function Signup() {
         referralCode: form.referral,
       })
       setSuccess(true)
-      showToast(`Welcome coupon ${welcomeCouponCode(form.fullName)} — 50% off`, 'success')
+      if (isCouponEnabled) {
+        showToast(`Welcome coupon ${welcomeCode} — ${activePercent}% off`, 'success')
+      }
     } catch (err) {
       setError(err.message || 'Sign up failed. Please try again.')
     } finally {
@@ -84,11 +91,13 @@ export default function Signup() {
             We sent a confirmation link to <strong>{form.email}</strong>.
             Click it to activate your account.
           </p>
-          <div className="auth-coupon">
-            <span>Your welcome coupon</span>
-            <strong>{welcomeCode}</strong>
-            <em>50% off first rental · one use</em>
-          </div>
+          {isCouponEnabled && (
+            <div className="auth-coupon">
+              <span>Your welcome coupon</span>
+              <strong>{welcomeCode}</strong>
+              <em>{activePercent}% off first rental · one use</em>
+            </div>
+          )}
           <Link to="/login" className="btn-primary inline-flex">Go to Login</Link>
         </div>
       </div>

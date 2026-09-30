@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { applyStoredReferral, captureReferralFromSearch, storeReferralCode } from '../lib/referrals'
+import { issueWelcomeCouponForUser } from '../lib/signupCouponSetting'
 
 const AuthContext = createContext(null)
 
@@ -9,12 +10,13 @@ export function AuthProvider({ children }) {
   const [profile, setProfile] = useState(null)
   const [loading, setLoading] = useState(true)
 
-  const ensureWelcomeCoupon = async (fullName) => {
-    const { error } = await supabase.rpc('issue_welcome_coupon', {
-      p_full_name: fullName || null,
-    })
-    if (error && !/schema cache|does not exist|Could not find/i.test(error.message || '')) {
-      console.warn('Welcome coupon:', error.message)
+  const ensureWelcomeCoupon = async (fullName, userId) => {
+    const targetId = userId || user?.id
+    if (!targetId) return
+    try {
+      await issueWelcomeCouponForUser(supabase, targetId, fullName)
+    } catch (err) {
+      console.warn('Welcome coupon error:', err?.message)
     }
   }
 
@@ -103,7 +105,8 @@ export function AuthProvider({ children }) {
             await fetchProfile(currentUser.id, currentUser)
             if (event === 'SIGNED_IN' || event === 'USER_UPDATED') {
               await ensureWelcomeCoupon(
-                currentUser.user_metadata?.full_name || currentUser.user_metadata?.name || ''
+                currentUser.user_metadata?.full_name || currentUser.user_metadata?.name || '',
+                currentUser.id
               )
               await applyStoredReferral(supabase)
               await ensureReferralCode()
@@ -144,7 +147,7 @@ export function AuthProvider({ children }) {
       })
       if (referralCode) storeReferralCode(referralCode)
       if (data.session) {
-        await ensureWelcomeCoupon(fullName)
+        await ensureWelcomeCoupon(fullName, data.user.id)
         await applyStoredReferral(supabase)
         await ensureReferralCode()
         await ensureWelcomeWalletBonus()
