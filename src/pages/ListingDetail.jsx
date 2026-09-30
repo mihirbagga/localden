@@ -36,6 +36,7 @@ import SEOHead from '../components/SEOHead'
 import { useReviews } from '../hooks/useReviews'
 import DeliveryAddressForm from '../components/DeliveryAddressForm'
 import { adjustListingStock } from '../lib/stockService'
+import { updateBookingTracking } from '../lib/trackingService'
 import './terms.css'
 import './couponApply.css'
 import './listingDetail.css'
@@ -316,7 +317,7 @@ function BookingWidget({ listing, mobile = false, forceOpen = false }) {
       coupon_id: appliedCoupon?.id || null,
       coupon_code: appliedCoupon?.code || null,
       total_amount: total,
-      status: isPaid ? 'confirmed' : 'pending',
+      status: 'pending',
       payment_status: isPaid ? 'paid' : 'pending',
       payment_method: method?.id || null,
       payment_ref: paymentRef.trim() || null,
@@ -342,7 +343,7 @@ function BookingWidget({ listing, mobile = false, forceOpen = false }) {
         return
       }
       await supabase.from('bookings').update({
-        status: 'confirmed',
+        status: 'pending',
         payment_status: 'paid',
         payment_method: 'wallet',
         updated_at: new Date().toISOString(),
@@ -350,6 +351,10 @@ function BookingWidget({ listing, mobile = false, forceOpen = false }) {
       isPaid = true
       refreshWallet?.()
     }
+    // Initialize tracking in awaiting_confirmation state
+    await updateBookingTracking(bookingId, {
+      tracking_status: 'awaiting_confirmation',
+    })
     setSaving(false)
     await supabase.from('listings').update({
       total_bookings: (listing.total_bookings || 0) + 1,

@@ -18,6 +18,7 @@ import LiveTrackingModal from '../components/LiveTrackingModal'
 import DashboardWallet from './DashboardWallet'
 import { useWallet } from '../hooks/useWallet'
 import { adjustListingStock } from '../lib/stockService'
+import { updateBookingTracking } from '../lib/trackingService'
 
 import './dashboard.css'
 
@@ -701,6 +702,19 @@ export default function Dashboard() {
     if (['cancelled', 'declined', 'completed', 'returned'].includes(status) && listingId) {
       await adjustListingStock(listingId, 1)
       loadListings?.()
+    }
+
+    // Synchronize live tracking state
+    try {
+      if (status === 'confirmed') {
+        await updateBookingTracking(booking.id, { tracking_status: 'confirmed' })
+      } else if (status === 'active') {
+        await updateBookingTracking(booking.id, { tracking_status: 'delivered', verified: true })
+      } else if (status === 'completed') {
+        await updateBookingTracking(booking.id, { tracking_status: 'completed' })
+      }
+    } catch (err) {
+      console.warn('Sync tracking error:', err?.message)
     }
 
     const apply = (prev) => prev.map((row) => (row.id === booking.id ? { ...row, status } : row))

@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Users, Package, Calendar, Star, Boxes, LayoutDashboard, Shield, Ticket, CreditCard, ShieldCheck } from 'lucide-react'
+import { Users, Package, Calendar, Star, Boxes, LayoutDashboard, Shield, Ticket, CreditCard, ShieldCheck, Truck } from 'lucide-react'
 import GameBackground from '../components/GameBackground'
 import { useAuth } from '../contexts/AuthContext'
 import { useAdminData } from '../hooks/useAdminData'
@@ -13,6 +13,7 @@ import AdminReviews from './admin/AdminReviews'
 import AdminCoupons from './admin/AdminCoupons'
 import AdminPayments from './admin/AdminPayments'
 import AdminKyc from './admin/AdminKyc'
+import AdminDrivers from './admin/AdminDrivers'
 import './admin/admin.css'
 
 const TABS = [
@@ -20,6 +21,7 @@ const TABS = [
   { id: 'users', label: 'Users', icon: Users },
   { id: 'listings', label: 'Listings', icon: Package },
   { id: 'bookings', label: 'Bookings', icon: Calendar },
+  { id: 'drivers', label: 'Drivers', icon: Truck },
   { id: 'stock', label: 'Stock', icon: Boxes },
   { id: 'reviews', label: 'Reviews', icon: Star },
   { id: 'coupons', label: 'Coupons', icon: Ticket },
@@ -37,6 +39,7 @@ export default function Admin() {
     users: data.users.length,
     listings: data.listings.length,
     bookings: data.bookings.length,
+    drivers: 0,
     stock: data.listings.length,
     reviews: data.reviews.length,
     coupons: data.coupons.length,
@@ -119,6 +122,10 @@ export default function Admin() {
             bookings={data.bookings}
             patchBooking={data.patchBooking}
           />
+        ) : null}
+
+        {!data.loading && tab === 'drivers' ? (
+          <AdminDrivers />
         ) : null}
 
         {!data.loading && tab === 'stock' ? (

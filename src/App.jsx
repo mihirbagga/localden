@@ -31,6 +31,7 @@ const Review = lazy(() => import('./pages/Review'))
 const Dispute = lazy(() => import('./pages/Dispute'))
 const BlogIndex = lazy(() => import('./pages/blog/BlogIndex'))
 const BlogPost = lazy(() => import('./pages/blog/BlogPost'))
+const VerifyDelivery = lazy(() => import('./pages/VerifyDelivery'))
 
 /* ── Page transition wrapper ─────────────────────── */
 const pageVariants = {
@@ -58,6 +59,8 @@ function AnimatedRoutes() {
           <Route path="/lister/:id"   element={<ListerProfile />} />
           <Route path="/blog"          element={<BlogIndex />} />
           <Route path="/blog/:slug"    element={<BlogPost />} />
+          <Route path="/verify-delivery" element={<VerifyDelivery />} />
+          <Route path="/verify-otp"    element={<VerifyDelivery />} />
 
           {/* Protected routes — require login */}
           <Route path="/list-item" element={

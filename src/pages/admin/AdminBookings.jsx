@@ -5,6 +5,7 @@ import { useToast } from '../../contexts/ToastContext'
 import { AdminEmpty, AdminSearch, matchesQuery } from './AdminShared'
 import { BOOKING_LABEL, BOOKING_STATUSES, displayName, explainAdminError, formatDate, shortId } from './adminHelpers'
 import { adjustListingStock } from '../../lib/stockService'
+import { updateBookingTracking } from '../../lib/trackingService'
 
 import LiveTrackingModal from '../../components/LiveTrackingModal'
 
@@ -38,6 +39,19 @@ export default function AdminBookings({ bookings, patchBooking }) {
     if (['cancelled', 'declined', 'completed', 'returned'].includes(status) && listingId) {
       await adjustListingStock(listingId, 1)
     }
+
+    try {
+      if (status === 'confirmed') {
+        await updateBookingTracking(booking.id, { tracking_status: 'confirmed' })
+      } else if (status === 'active') {
+        await updateBookingTracking(booking.id, { tracking_status: 'delivered', verified: true })
+      } else if (status === 'completed') {
+        await updateBookingTracking(booking.id, { tracking_status: 'completed' })
+      }
+    } catch (err) {
+      console.warn('Sync tracking error:', err?.message)
+    }
+
     patchBooking(booking.id, { status })
     showToast(`Booking ${BOOKING_LABEL[status] || status}`, 'success')
   }
