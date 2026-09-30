@@ -3,7 +3,12 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState } 
 const ThemeContext = createContext(null)
 export const THEME_KEY = 'ld-theme'
 
+// Set FORCE_DARK_MODE = true to force dark mode platform-wide.
+// Set FORCE_DARK_MODE = false to re-enable light/dark theme switching.
+export const FORCE_DARK_MODE = true
+
 export function readStoredTheme() {
+  if (FORCE_DARK_MODE) return 'dark'
   try {
     const stored = localStorage.getItem(THEME_KEY)
     if (stored === 'light' || stored === 'dark') return stored
@@ -16,26 +21,31 @@ export function readStoredTheme() {
 
 export function ThemeProvider({ children }) {
   const [theme, setThemeState] = useState(() => (
-    typeof document !== 'undefined'
-      ? (document.documentElement.getAttribute('data-theme') || readStoredTheme())
-      : 'dark'
+    FORCE_DARK_MODE ? 'dark' : (typeof document !== 'undefined' ? (document.documentElement.getAttribute('data-theme') || readStoredTheme()) : 'dark')
   ))
 
   const apply = useCallback((next) => {
-    document.documentElement.setAttribute('data-theme', next)
-    try { localStorage.setItem(THEME_KEY, next) } catch { /* ignore */ }
-    setThemeState(next)
+    const targetTheme = FORCE_DARK_MODE ? 'dark' : next
+    document.documentElement.setAttribute('data-theme', targetTheme)
+    try { localStorage.setItem(THEME_KEY, targetTheme) } catch { /* ignore */ }
+    setThemeState(targetTheme)
   }, [])
 
   useEffect(() => {
-    apply(theme === 'light' ? 'light' : 'dark')
+    apply(FORCE_DARK_MODE ? 'dark' : (theme === 'light' ? 'light' : 'dark'))
   }, [theme, apply])
 
   const toggle = useCallback(() => {
+    if (FORCE_DARK_MODE) return
     apply(theme === 'light' ? 'dark' : 'light')
   }, [apply, theme])
 
-  const value = useMemo(() => ({ theme, setTheme: apply, toggle }), [theme, apply, toggle])
+  const value = useMemo(() => ({
+    theme: FORCE_DARK_MODE ? 'dark' : theme,
+    setTheme: apply,
+    toggle,
+    isForceDark: FORCE_DARK_MODE,
+  }), [theme, apply, toggle])
 
   return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>
 }

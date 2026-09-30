@@ -2,8 +2,11 @@ import { Moon, Sun } from 'lucide-react'
 import { useTheme } from '../contexts/ThemeContext'
 
 export default function ThemeToggle() {
-  const { theme, toggle } = useTheme()
+  const { theme, toggle, isForceDark } = useTheme()
   const isLight = theme === 'light'
+
+  // If dark mode is forcibly enabled platform-wide, do not render the toggle button
+  if (isForceDark) return null
 
   return (
     <button
