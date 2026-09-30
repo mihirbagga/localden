@@ -132,7 +132,14 @@ export default function ListingCard({ listing, listView = false }) {
 
         {/* ── Top badges ──────────────────── */}
         <div className="absolute top-3 left-3 right-3 flex items-start justify-between z-10">
-          <span className={tagClass}>{subcat}</span>
+          <div className="flex items-center gap-1.5">
+            <span className={tagClass}>{subcat}</span>
+            {listing.fulfillment_type === 'warehouse' && (
+              <span className="px-2 py-0.5 rounded-full text-[10px] font-display font-bold text-cyan-300 bg-cyan-500/20 border border-cyan-500/40 backdrop-blur-md">
+                🏬 Hub Stored
+              </span>
+            )}
+          </div>
 
           <div className="flex items-center gap-1.5">
             {/* Save button */}

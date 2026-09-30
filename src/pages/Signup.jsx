@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Link, useSearchParams } from 'react-router-dom'
+import { Link, useSearchParams, Navigate } from 'react-router-dom'
 import { Eye, EyeOff, Mail, Lock, User, Phone, AlertCircle, CheckCircle } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import { useToast } from '../contexts/ToastContext'
@@ -10,7 +10,7 @@ import GameBackground from '../components/GameBackground'
 import './auth.css'
 
 export default function Signup() {
-  const { signUp, signInWithGoogle } = useAuth()
+  const { signUp, signInWithGoogle, isAuthenticated, loading: authLoading } = useAuth()
   const { showToast } = useToast()
 
   const [params] = useSearchParams()
@@ -23,6 +23,20 @@ export default function Signup() {
     const code = captureReferralFromSearch() || readStoredReferral()
     if (code) setForm((f) => (f.referral ? f : { ...f, referral: code }))
   }, [])
+
+  if (authLoading) {
+    return (
+      <div className="relative min-h-screen flex items-center justify-center px-4">
+        <div className="grid-floor" />
+        <GameBackground />
+        <div className="w-10 h-10 border-2 border-white/20 border-t-[#ff2e6d] rounded-full animate-spin" />
+      </div>
+    )
+  }
+
+  if (isAuthenticated) {
+    return <Navigate to="/" replace />
+  }
   const [showPw, setShowPw]   = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError]     = useState('')

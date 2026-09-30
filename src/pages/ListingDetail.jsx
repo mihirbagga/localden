@@ -567,6 +567,25 @@ function BookingWidget({ listing, mobile = false, forceOpen = false }) {
         ))}
       </div>
 
+      {/* Fulfillment / Storage badge */}
+      {listing.fulfillment_type === 'warehouse' ? (
+        <div className="flex items-center gap-3 p-3 rounded-2xl bg-cyan-500/10 border border-cyan-500/30 mb-4">
+          <span className="text-xl">🏬</span>
+          <div>
+            <p className="text-xs font-display font-bold text-cyan-300">Stored at लोकल Den Hub (Koramangala)</p>
+            <p className="text-[11px] font-display text-white/50 leading-tight">Pre-inspected, verified & dispatched directly from our central warehouse.</p>
+          </div>
+        </div>
+      ) : (
+        <div className="flex items-center gap-3 p-3 rounded-2xl bg-white/5 border border-white/10 mb-4">
+          <span className="text-xl">🏠</span>
+          <div>
+            <p className="text-xs font-display font-bold text-white/80">Direct Handover (From Owner)</p>
+            <p className="text-[11px] font-display text-white/40 leading-tight">Kept at owner's studio/home in {listing.location || 'Bangalore'}.</p>
+          </div>
+        </div>
+      )}
+
       {outOfStock ? <p className="ld-hint">Out of stock right now. Check similar gear below.</p> : null}
 
       <p className="field-label">Quick dates</p>

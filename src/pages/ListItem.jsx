@@ -38,6 +38,7 @@ const EMPTY_FORM = {
   priceDay: '', priceWeekend: '', priceWeek: '',
   deposit: '5000', phone: '',
   stockQty: '1',
+  fulfillmentType: 'direct',
 }
 
 function keepAfterFee(amount, fee) {
@@ -100,6 +101,7 @@ export default function ListItem() {
           deposit:      String(data.deposit_amount || '5000'),
           phone:        data.contact_phone || profile?.phone || '',
           stockQty:     String(data.stock_qty || '1'),
+          fulfillmentType: data.fulfillment_type || 'direct',
         })
         if (data.photos?.length) setExistingPhotos(data.photos)
       })
@@ -213,6 +215,7 @@ export default function ListItem() {
           contact_phone:  form.phone || profile?.phone || null,
           photos:         photoUrls,
           stock_qty:      parseInt(form.stockQty, 10) || 1,
+          fulfillment_type: form.fulfillmentType || 'direct',
           updated_at:     new Date().toISOString(),
         }).eq('id', editId).eq('user_id', user.id)
         if (updErr) throw updErr
@@ -246,6 +249,7 @@ export default function ListItem() {
           is_published: true,
           stock_qty: parseInt(form.stockQty, 10) || 1,
           stock_total: parseInt(form.stockQty, 10) || 1,
+          fulfillment_type: form.fulfillmentType || 'direct',
         })
         if (insErr) throw insErr
         showToast('Listing live', 'success')
@@ -506,6 +510,45 @@ export default function ListItem() {
                         {loc}
                       </button>
                     ))}
+                  </div>
+                </div>
+
+                <div className="list-field">
+                  <p className="field-label">Fulfillment & Storage Option *</p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-1">
+                    <button
+                      type="button"
+                      onClick={() => setForm((f) => ({ ...f, fulfillmentType: 'direct' }))}
+                      className={`p-4 rounded-2xl text-left transition-all duration-200 border ${
+                        form.fulfillmentType === 'direct'
+                          ? 'bg-pink-500/15 border-pink-500 text-white shadow-lg'
+                          : 'bg-white/5 border-white/10 text-white/60 hover:bg-white/10'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2 font-display font-bold text-sm text-white mb-1">
+                        <span>🏠</span> Deliver From My Place
+                      </div>
+                      <div className="text-xs font-display text-white/50 leading-relaxed">
+                        Keep gear at your home/studio. Fulfill pickup or doorstep delivery directly with renters.
+                      </div>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setForm((f) => ({ ...f, fulfillmentType: 'warehouse' }))}
+                      className={`p-4 rounded-2xl text-left transition-all duration-200 border ${
+                        form.fulfillmentType === 'warehouse'
+                          ? 'bg-cyan-500/15 border-cyan-500 text-white shadow-lg'
+                          : 'bg-white/5 border-white/10 text-white/60 hover:bg-white/10'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2 font-display font-bold text-sm text-white mb-1">
+                        <span>🏬</span> Store at लोकल Den Hub
+                      </div>
+                      <div className="text-xs font-display text-white/50 leading-relaxed">
+                        Store gear at our Koramangala Warehouse. We manage inspection, storage, and dispatch.
+                      </div>
+                    </button>
                   </div>
                 </div>
 
