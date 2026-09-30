@@ -73,41 +73,54 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     let isMounted = true
 
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (!isMounted) return
-      const currentUser = session?.user ?? null
-      setUser(currentUser)
-      if (currentUser) {
-        fetchProfile(currentUser.id, currentUser).finally(() => {
-          if (isMounted) setLoading(false)
-        })
-      } else {
-        setLoading(false)
-      }
-    })
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (!isMounted) return
-      const currentUser = session?.user ?? null
-      setUser(currentUser)
-      if (currentUser) {
-        await fetchProfile(currentUser.id, currentUser)
-        if (event === 'SIGNED_IN' || event === 'USER_UPDATED') {
-          await ensureWelcomeCoupon(
-            currentUser.user_metadata?.full_name || currentUser.user_metadata?.name || ''
-          )
-          await applyStoredReferral(supabase)
-          await ensureReferralCode()
-          await ensureWelcomeWalletBonus()
-        }
-      } else {
-        setProfile(null)
-      }
+    // Safety net: never leave the app stuck on a loading state (slow mobile networks)
+    const loadingTimeout = setTimeout(() => {
       if (isMounted) setLoading(false)
+    }, 4000)
+
+    supabase.auth.getSession()
+      .then(({ data: { session } }) => {
+        if (!isMounted) return
+        const currentUser = session?.user ?? null
+        setUser(currentUser)
+        // Session is known — don't block the UI on the profile fetch
+        setLoading(false)
+        if (currentUser) fetchProfile(currentUser.id, currentUser).catch(() => {})
+      })
+      .catch(() => { if (isMounted) setLoading(false) })
+
+    // NOTE: don't await supabase calls inside this callback — it can deadlock
+    // the auth client (getSession / INITIAL_SESSION never resolve). Defer the work.
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (!isMounted) return
+      const currentUser = session?.user ?? null
+      setUser(currentUser)
+      setLoading(false)
+      setTimeout(async () => {
+        if (!isMounted) return
+        try {
+          if (currentUser) {
+            await fetchProfile(currentUser.id, currentUser)
+            if (event === 'SIGNED_IN' || event === 'USER_UPDATED') {
+              await ensureWelcomeCoupon(
+                currentUser.user_metadata?.full_name || currentUser.user_metadata?.name || ''
+              )
+              await applyStoredReferral(supabase)
+              await ensureReferralCode()
+              await ensureWelcomeWalletBonus()
+            }
+          } else {
+            setProfile(null)
+          }
+        } catch (err) {
+          console.warn('Auth post-sign-in tasks failed:', err?.message)
+        }
+      }, 0)
     })
 
     return () => {
       isMounted = false
+      clearTimeout(loadingTimeout)
       subscription.unsubscribe()
     }
   }, [])

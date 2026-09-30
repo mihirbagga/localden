@@ -9,7 +9,7 @@ import './auth.css'
 export default function Login() {
   const navigate  = useNavigate()
   const location  = useLocation()
-  const { signIn, signInWithGoogle, isAuthenticated, loading: authLoading } = useAuth()
+  const { signIn, signInWithGoogle, isAuthenticated } = useAuth()
 
   const from = location.state?.from?.pathname || '/'
 
@@ -17,16 +17,6 @@ export default function Login() {
   const [showPw, setShowPw] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError]   = useState('')
-
-  if (authLoading) {
-    return (
-      <div className="relative min-h-screen flex items-center justify-center px-4">
-        <div className="grid-floor" />
-        <GameBackground />
-        <div className="w-10 h-10 border-2 border-white/20 border-t-[#ff2e6d] rounded-full animate-spin" />
-      </div>
-    )
-  }
 
   if (isAuthenticated) {
     return <Navigate to={from} replace />
