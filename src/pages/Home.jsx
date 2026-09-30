@@ -229,7 +229,6 @@ export default function Home() {
           <p className="home-lead">
             Peer-to-peer <strong className="magenta">consoles</strong> and{' '}
             <strong className="cyan">instruments</strong> across Bangalore.
-            KYC, calendar, photos at handover.
           </p>
 
           <Planner />
