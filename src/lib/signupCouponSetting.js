@@ -36,17 +36,63 @@ export async function issueWelcomeCouponForUser(supabaseClient, userId, fullName
   if (!userId) return null
 
   try {
+    const setting = await fetchSignupCouponSetting(supabaseClient)
+
     // Check if user already has a welcome coupon
     const { data: existing } = await supabaseClient
       .from('coupons')
-      .select('id, code, discount_value')
+      .select('id, code, discount_value, used_count, is_active')
       .eq('owner_id', userId)
       .ilike('code', 'WELCOME%')
+      .order('created_at', { ascending: false })
+      .limit(1)
       .maybeSingle()
 
-    if (existing) return existing
+    if (existing) {
+      const isUnused = (existing.used_count || 0) === 0
 
-    const setting = await fetchSignupCouponSetting(supabaseClient)
+      // If disabled by admin, deactivate unused coupon
+      if (!setting.enabled && isUnused && existing.is_active) {
+        try {
+          await supabaseClient
+            .from('coupons')
+            .update({ is_active: false })
+            .eq('id', existing.id)
+        } catch (_) {}
+        return null
+      }
+
+      // If unused and discount percent does not match admin setting, sync it!
+      if (
+        setting.enabled &&
+        isUnused &&
+        (Number(existing.discount_value) !== Number(setting.discount_percent) || !existing.is_active)
+      ) {
+        try {
+          const newCode = welcomeCouponCode(fullName, setting.discount_percent)
+          const { data: updated } = await supabaseClient
+            .from('coupons')
+            .update({
+              code: newCode,
+              description: `Welcome signup bonus (${setting.discount_percent}% off)`,
+              discount_value: setting.discount_percent,
+              max_discount: setting.max_discount > 0 ? setting.max_discount : null,
+              min_subtotal: setting.min_subtotal > 0 ? setting.min_subtotal : 0,
+              is_active: true,
+            })
+            .eq('id', existing.id)
+            .select()
+            .maybeSingle()
+
+          if (updated) return updated
+        } catch (updErr) {
+          console.warn('Could not sync welcome coupon discount:', updErr?.message)
+        }
+      }
+
+      return existing
+    }
+
     if (!setting.enabled) return null
 
     const code = welcomeCouponCode(fullName, setting.discount_percent)

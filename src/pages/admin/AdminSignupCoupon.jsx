@@ -54,15 +54,51 @@ export default function AdminSignupCoupon() {
       updated_at: new Date().toISOString(),
     })
 
-    setSaving(false)
-
     if (error) {
+      setSaving(false)
       showToast(explainAdminError(error), 'error')
       return
     }
 
+    // Also update existing UNUSED welcome coupons so changes take effect immediately
+    let updatedCount = 0
+    try {
+      const { data: unusedCoupons } = await supabase
+        .from('coupons')
+        .select('id, code, discount_value, used_count')
+        .ilike('code', 'WELCOME%')
+        .eq('used_count', 0)
+
+      if (unusedCoupons && unusedCoupons.length > 0) {
+        for (const c of unusedCoupons) {
+          const newCode = c.code.replace(/\d+$/, String(pVal))
+          const { error: updErr } = await supabase
+            .from('coupons')
+            .update({
+              discount_value: pVal,
+              code: newCode,
+              description: `Welcome signup bonus (${pVal}% off)`,
+              max_discount: mVal > 0 ? mVal : null,
+              min_subtotal: sVal > 0 ? sVal : 0,
+              is_active: enabled,
+            })
+            .eq('id', c.id)
+
+          if (!updErr) updatedCount++
+        }
+      }
+    } catch (batchErr) {
+      console.warn('Batch update unused welcome coupons failed:', batchErr)
+    }
+
+    setSaving(false)
     setSetting(next)
-    showToast('Welcome signup coupon settings saved', 'success')
+    showToast(
+      updatedCount > 0
+        ? `Settings saved! Updated ${updatedCount} unused welcome coupon(s) to ${pVal}%.`
+        : 'Welcome signup coupon settings saved',
+      'success'
+    )
   }
 
   if (loading) return null

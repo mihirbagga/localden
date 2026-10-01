@@ -10,6 +10,7 @@ import {
   TRACKING_STATUS_CONFIG,
   getBookingTracking,
   updateBookingTracking,
+  calculateRemainingEta,
 } from '../lib/trackingService'
 import { useDeliveryPartners } from '../hooks/useDeliveryPartners'
 
@@ -20,6 +21,7 @@ export default function LiveTrackingModal({ booking, onClose, isAdmin = false })
   const isUserAdmin = isAdmin || Boolean(user?.is_admin) || user?.user_metadata?.role === 'admin'
   const isLister = user?.id === (booking?.lister_id || booking?.listings?.user_id)
   const isHubStored = booking?.listings?.fulfillment_type === 'warehouse'
+  const canManageEta = isUserAdmin || (isLister && !isHubStored)
 
   const { drivers: availableDrivers } = useDeliveryPartners()
   const [tracking, setTracking] = useState(null)
@@ -28,6 +30,7 @@ export default function LiveTrackingModal({ booking, onClose, isAdmin = false })
   const [savingDriver, setSavingDriver] = useState(false)
   const [editingEta, setEditingEta] = useState(false)
   const [etaInput, setEtaInput] = useState('')
+  const [liveEta, setLiveEta] = useState('')
 
   const bookingId = booking?.id
   const listingTitle = booking?.listings?.title || 'Gaming Hardware'
@@ -40,13 +43,24 @@ export default function LiveTrackingModal({ booking, onClose, isAdmin = false })
       const trk = await getBookingTracking(bookingId, booking)
       if (isMounted) {
         setTracking(trk)
-        setEtaInput(trk?.eta || '25-35 mins')
+        setEtaInput(String(trk?.eta_minutes || 30))
       }
       if (isMounted) setLoading(false)
     }
     init()
     return () => { isMounted = false }
   }, [bookingId, booking])
+
+  // Live countdown timer: recalculates ETA every 5 seconds
+  useEffect(() => {
+    if (!tracking) return
+    const update = () => {
+      setLiveEta(calculateRemainingEta(tracking))
+    }
+    update()
+    const timer = setInterval(update, 5000)
+    return () => clearInterval(timer)
+  }, [tracking])
 
   const currentStatusKey = tracking?.tracking_status || 'awaiting_confirmation'
   const currentConfig = TRACKING_STATUS_CONFIG[currentStatusKey] || TRACKING_STATUS_CONFIG.awaiting_confirmation
@@ -91,15 +105,19 @@ export default function LiveTrackingModal({ booking, onClose, isAdmin = false })
     }
   }
 
-  const handleSaveEta = async () => {
-    if (!etaInput.trim()) return
+  const handleSaveEtaMinutes = async (minutesVal) => {
+    const rawNum = parseInt(String(minutesVal).replace(/[^\d]/g, ''), 10)
+    const mins = isNaN(rawNum) || rawNum <= 0 ? 30 : rawNum
     try {
+      const targetTime = new Date(Date.now() + mins * 60000).toISOString()
       const updated = await updateBookingTracking(bookingId, {
-        eta: etaInput.trim(),
+        eta: `${mins} mins`,
+        eta_minutes: mins,
+        eta_target_time: targetTime,
       })
       setTracking(updated)
       setEditingEta(false)
-      showToast(`ETA set to ${etaInput.trim()}`, 'success')
+      showToast(`ETA set to ${mins} mins (live countdown started)`, 'success')
     } catch (err) {
       showToast(err.message || 'Failed to save ETA', 'error')
     }
@@ -172,39 +190,67 @@ export default function LiveTrackingModal({ booking, onClose, isAdmin = false })
               </h3>
             </div>
 
-            {/* Compact Dynamic ETA Pill */}
-            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-black/50 border border-white/10 text-xs">
-              <Clock size={12} className="text-cyan-400" />
-              <span className="text-white/50 text-[11px]">ETA:</span>
-              {isUserAdmin && editingEta ? (
-                <div className="flex items-center gap-1">
-                  <input
-                    type="text"
-                    value={etaInput}
-                    onChange={(e) => setEtaInput(e.target.value)}
-                    className="input-dark py-0 px-1.5 text-xs w-20 font-semibold"
-                    placeholder="25 mins"
-                  />
+            {/* Compact Dynamic ETA Pill with Countdown */}
+            <div className="flex flex-col sm:flex-row items-end sm:items-center gap-1.5 px-3 py-1.5 rounded-2xl bg-black/60 border border-white/10 text-xs shadow-inner">
+              <div className="flex items-center gap-1.5">
+                <Clock size={13} className="text-cyan-400 animate-pulse" />
+                <span className="text-white/50 text-[11px] font-medium">ETA:</span>
+                <strong className={`font-bold text-xs ${
+                  liveEta.includes('moment') ? 'text-amber-300 animate-bounce' : 'text-emerald-400'
+                }`}>
+                  {liveEta || calculateRemainingEta(tracking)}
+                </strong>
+                {canManageEta && !editingEta && (
                   <button
                     type="button"
-                    onClick={handleSaveEta}
-                    className="px-1.5 py-0.5 rounded bg-cyan-500/20 text-cyan-300 text-[10px] font-bold"
+                    onClick={() => setEditingEta(true)}
+                    className="text-[10px] text-cyan-400 font-semibold underline hover:text-cyan-300 ml-1"
                   >
-                    Save
+                    Adjust
                   </button>
-                </div>
-              ) : (
-                <div className="flex items-center gap-1.5">
-                  <strong className="text-emerald-400 font-bold text-xs">{tracking?.eta || '25-35 mins'}</strong>
-                  {isUserAdmin && (
+                )}
+              </div>
+
+              {canManageEta && editingEta && (
+                <div className="flex items-center gap-1.5 pt-1 sm:pt-0 sm:pl-2 sm:border-l sm:border-white/10 flex-wrap">
+                  <div className="flex items-center gap-1">
+                    {[15, 25, 35, 45, 60].map((preset) => (
+                      <button
+                        key={preset}
+                        type="button"
+                        onClick={() => handleSaveEtaMinutes(preset)}
+                        className="px-1.5 py-0.5 rounded bg-white/10 hover:bg-cyan-500/30 text-white/80 hover:text-cyan-200 text-[10px] font-mono font-bold transition-colors"
+                      >
+                        {preset}m
+                      </button>
+                    ))}
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <input
+                      type="number"
+                      min="1"
+                      max="300"
+                      value={etaInput}
+                      onChange={(e) => setEtaInput(e.target.value)}
+                      className="input-dark py-0 px-1 text-xs w-14 font-semibold text-center"
+                      placeholder="Mins"
+                    />
+                    <span className="text-[10px] text-white/40">m</span>
                     <button
                       type="button"
-                      onClick={() => setEditingEta(true)}
-                      className="text-[10px] text-cyan-400 underline hover:text-cyan-300"
+                      onClick={() => handleSaveEtaMinutes(etaInput)}
+                      className="px-2 py-0.5 rounded bg-cyan-500 text-black text-[10px] font-bold hover:bg-cyan-400 transition-colors"
                     >
-                      Edit
+                      Set
                     </button>
-                  )}
+                    <button
+                      type="button"
+                      onClick={() => setEditingEta(false)}
+                      className="text-white/40 hover:text-white text-[10px] px-1"
+                    >
+                      ✕
+                    </button>
+                  </div>
                 </div>
               )}
             </div>

@@ -51,39 +51,113 @@ as $$
 declare
   ccode text;
   uname text;
+  v_setting jsonb;
+  v_enabled boolean := true;
+  v_percent numeric := 50;
+  v_max numeric := 500;
+  v_min numeric := 0;
+  slug text;
+  base text;
+  suffix text;
+  existing_id uuid;
+  existing_used integer := 0;
 begin
   if p_user_id is null then
     return null;
   end if;
 
-  select c.code into ccode
-  from public.coupons c
-  where c.owner_id = p_user_id
-    and upper(c.code) like 'WELCOME%50%'
-  order by c.created_at asc
+  -- 1. Read admin settings from site_settings (id = 'signup_coupon')
+  select value into v_setting
+  from public.site_settings
+  where id = 'signup_coupon'
   limit 1;
 
-  if ccode is not null then
-    return ccode;
+  if v_setting is not null then
+    if (v_setting->>'enabled') is not null then
+      v_enabled := (v_setting->>'enabled')::boolean;
+    end if;
+    if (v_setting->>'discount_percent') is not null then
+      v_percent := (v_setting->>'discount_percent')::numeric;
+    end if;
+    if (v_setting->>'max_discount') is not null then
+      v_max := (v_setting->>'max_discount')::numeric;
+    end if;
+    if (v_setting->>'min_subtotal') is not null then
+      v_min := (v_setting->>'min_subtotal')::numeric;
+    end if;
   end if;
 
   uname := coalesce(p_name, '');
-  ccode := public.welcome_coupon_code(uname, p_user_id);
+  slug := upper(regexp_replace(split_part(trim(coalesce(uname, '')), ' ', 1), '[^A-Za-z0-9]', '', 'g'));
+  if coalesce(slug, '') = '' then
+    slug := 'USER';
+  end if;
+  if char_length(slug) > 12 then
+    slug := left(slug, 12);
+  end if;
+
+  -- Check if user already has a welcome coupon
+  select c.id, c.code, coalesce(c.used_count, 0)
+  into existing_id, ccode, existing_used
+  from public.coupons c
+  where c.owner_id = p_user_id
+    and upper(c.code) like 'WELCOME%'
+  order by c.created_at desc
+  limit 1;
+
+  if existing_id is not null then
+    if existing_used = 0 then
+      if not v_enabled then
+        update public.coupons
+        set is_active = false
+        where id = existing_id;
+        return null;
+      end if;
+
+      base := 'WELCOME' || slug || round(v_percent)::text;
+      update public.coupons
+      set
+        discount_value = round(v_percent),
+        code = regexp_replace(code, '\d+$', round(v_percent)::text),
+        description = 'Welcome ' || round(v_percent)::text || '% off for ' || coalesce(nullif(uname, ''), 'member'),
+        max_discount = nullif(v_max, 0),
+        min_subtotal = coalesce(v_min, 0),
+        is_active = true
+      where id = existing_id;
+    end if;
+    return ccode;
+  end if;
+
+  -- If disabled by admin, do not issue any coupon
+  if not v_enabled or v_percent <= 0 then
+    return null;
+  end if;
+
+  base := 'WELCOME' || slug || round(v_percent)::text;
+  ccode := base;
+  suffix := upper(left(replace(p_user_id::text, '-', ''), 4));
+  if exists (select 1 from public.coupons c where upper(c.code) = upper(ccode)) then
+    ccode := base || suffix;
+  end if;
 
   insert into public.coupons (
     code,
     description,
     discount_type,
     discount_value,
+    max_discount,
+    min_subtotal,
     usage_limit,
     used_count,
     is_active,
     owner_id
   ) values (
     ccode,
-    'Welcome 50% off for ' || coalesce(nullif(uname, ''), 'new member'),
+    'Welcome ' || round(v_percent)::text || '% off for ' || coalesce(nullif(uname, ''), 'new member'),
     'percent',
-    50,
+    round(v_percent),
+    nullif(v_max, 0),
+    coalesce(v_min, 0),
     1,
     0,
     true,
