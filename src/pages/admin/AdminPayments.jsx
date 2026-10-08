@@ -1,8 +1,9 @@
 import { useState } from 'react'
-import { ImagePlus, Save } from 'lucide-react'
+import { ImagePlus, Save, QrCode, X, Sparkles } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import { useToast } from '../../contexts/ToastContext'
 import { METHOD_LABEL, methodConfig } from '../../lib/payments'
+import { generateQrDataUri, buildUpiPayload } from '../../lib/qrCodeService'
 import { AdminBadge } from './AdminShared'
 import { explainAdminError } from './adminHelpers'
 import AdminPlatformFee from './AdminPlatformFee'
@@ -188,22 +189,85 @@ export default function AdminPayments({ methods, patchMethod }) {
               ) : null}
 
               {type === 'qr' ? (
-                <div className="admin-form-wide">
-                  <label className="field-label admin-file-label" htmlFor={`pay-qr-${method.id}`}>
-                    <ImagePlus size={14} />
-                    {uploadingId === method.id ? 'Uploading…' : 'Upload QR image'}
-                  </label>
-                  <input
-                    id={`pay-qr-${method.id}`}
-                    type="file"
-                    accept="image/*"
-                    className="sr-only"
-                    onChange={(e) => uploadQr(method, e.target.files?.[0])}
-                    aria-label="Upload QR code image"
-                  />
-                  {draft.qr_image_url ? (
-                    <img src={draft.qr_image_url} alt="Payment QR preview" className="admin-qr-preview" />
-                  ) : null}
+                <div className="admin-form-wide space-y-3">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div>
+                      <label className="field-label" htmlFor={`pay-qr-url-${method.id}`}>QR Image URL (Optional)</label>
+                      <input
+                        id={`pay-qr-url-${method.id}`}
+                        className="input-dark w-full"
+                        value={draft.qr_image_url}
+                        onChange={(e) => setDraftField(method, 'qr_image_url', e.target.value)}
+                        placeholder="https://... or upload below"
+                        aria-label="QR code image URL"
+                      />
+                    </div>
+                    <div>
+                      <span className="field-label block mb-1.5">Or Upload New Image</span>
+                      <div className="flex items-center gap-2">
+                        <label className="field-label admin-file-label !mb-0 px-3 py-2 rounded-lg bg-white/5 border border-white/10 hover:bg-white/10 cursor-pointer flex items-center gap-2 text-xs" htmlFor={`pay-qr-${method.id}`}>
+                          <ImagePlus size={14} />
+                          {uploadingId === method.id ? 'Uploading…' : 'Choose QR Image'}
+                        </label>
+                        {draft.qr_image_url ? (
+                          <button
+                            type="button"
+                            onClick={() => setDraftField(method, 'qr_image_url', '')}
+                            className="px-2.5 py-1.5 rounded-lg bg-red-500/10 text-red-400 hover:bg-red-500/20 text-xs flex items-center gap-1 border border-red-500/20"
+                            title="Remove custom image"
+                          >
+                            <X size={12} /> Clear
+                          </button>
+                        ) : null}
+                      </div>
+                      <input
+                        id={`pay-qr-${method.id}`}
+                        type="file"
+                        accept="image/*"
+                        className="sr-only"
+                        onChange={(e) => uploadQr(method, e.target.files?.[0])}
+                        aria-label="Upload QR code image"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Live QR Preview */}
+                  <div className="p-3 rounded-xl bg-black/40 border border-white/10 flex flex-col sm:flex-row items-center gap-4">
+                    {draft.qr_image_url ? (
+                      <div className="flex items-center gap-3">
+                        <img
+                          src={draft.qr_image_url}
+                          alt="Payment QR preview"
+                          className="w-24 h-24 object-contain rounded-lg bg-white p-1"
+                        />
+                        <div className="text-xs space-y-1">
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-medium bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                            Custom Uploaded QR
+                          </span>
+                          <p className="text-white/60">Renters will see this uploaded QR image.</p>
+                        </div>
+                      </div>
+                    ) : draft.upi_id ? (
+                      <div className="flex items-center gap-3">
+                        <img
+                          src={generateQrDataUri(buildUpiPayload({ upiId: draft.upi_id, amount: 100 })) || ''}
+                          alt="Auto-generated UPI QR preview"
+                          className="w-24 h-24 object-contain rounded-lg bg-white p-1"
+                        />
+                        <div className="text-xs space-y-1">
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-medium bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">
+                            <Sparkles size={11} /> Auto-Generated UPI QR Active
+                          </span>
+                          <p className="text-white/60">Zero hosting required. Encodes UPI ID directly into vector QR code for GPay/PhonePe.</p>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="text-xs text-amber-400/80 flex items-center gap-2">
+                        <QrCode size={16} />
+                        <span>Enter a UPI ID above to auto-generate a vector QR code, or upload an image.</span>
+                      </div>
+                    )}
+                  </div>
                 </div>
               ) : null}
 

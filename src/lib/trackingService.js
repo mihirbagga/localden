@@ -190,3 +190,16 @@ export async function verifyDualOtp({ bookingId, inputRenterOtp, inputDriverOtp 
     tracking: updated,
   }
 }
+
+/**
+ * Calculate remaining ETA in minutes based on estimated time and creation timestamp.
+ */
+export function calculateRemainingEta(estimatedMinutes = 40, createdAt = null) {
+  if (!createdAt) return `${estimatedMinutes || 45} mins`
+  const createdMs = new Date(createdAt).getTime()
+  if (isNaN(createdMs)) return `${estimatedMinutes || 45} mins`
+
+  const elapsedMins = Math.floor((Date.now() - createdMs) / 60000)
+  const remaining = Math.max(5, (Number(estimatedMinutes) || 45) - elapsedMins)
+  return `${remaining} mins`
+}

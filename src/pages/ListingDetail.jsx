@@ -830,6 +830,7 @@ function BookingWidget({ listing, mobile = false, forceOpen = false }) {
               onSelect={setPayMethodId}
               paymentRef={paymentRef}
               onPaymentRef={setPaymentRef}
+              total={total}
             />
           ) : null}
           <div className="book-damage">
