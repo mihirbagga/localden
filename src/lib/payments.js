@@ -1,9 +1,62 @@
 export const METHOD_LABEL = {
-  razorpay: 'Razorpay',
-  qr: 'QR / UPI scan',
-  upi: 'UPI ID',
+  razorpay: 'Razorpay (UPI / Card / Netbanking)',
+  qr: 'UPI QR scan',
+  upi: 'UPI transfer',
   bank: 'Bank transfer',
   cash: 'Cash on pickup',
+  wallet: 'LocalDen Wallet',
+}
+
+export function getPaymentMethodLabel(method) {
+  if (!method) return 'Not selected'
+  const key = String(method).toLowerCase().trim()
+  return METHOD_LABEL[key] || (key.charAt(0).toUpperCase() + key.slice(1))
+}
+
+export function getPaymentStatusInfo(status, method) {
+  const s = String(status || 'pending').toLowerCase()
+  const isCash = String(method || '').toLowerCase() === 'cash'
+
+  if (s === 'paid') {
+    return {
+      label: '✓ Paid',
+      tone: 'emerald',
+      badgeClass: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40',
+    }
+  }
+  if (s === 'submitted') {
+    return {
+      label: '⏳ Verifying',
+      tone: 'amber',
+      badgeClass: 'bg-amber-500/20 text-amber-300 border-amber-500/40 animate-pulse',
+    }
+  }
+  if (s === 'refunded') {
+    return {
+      label: '↩ Refunded',
+      tone: 'cyan',
+      badgeClass: 'bg-cyan-500/20 text-cyan-300 border-cyan-500/40',
+    }
+  }
+  if (s === 'failed') {
+    return {
+      label: '✕ Failed',
+      tone: 'red',
+      badgeClass: 'bg-red-500/20 text-red-300 border-red-500/40',
+    }
+  }
+  if (isCash) {
+    return {
+      label: '💵 Pay on Pickup',
+      tone: 'amber',
+      badgeClass: 'bg-amber-500/20 text-amber-300 border-amber-500/40',
+    }
+  }
+  return {
+    label: '⏳ Pending Payment',
+    tone: 'muted',
+    badgeClass: 'bg-white/10 text-white/60 border-white/20',
+  }
 }
 
 export function methodConfig(method) {

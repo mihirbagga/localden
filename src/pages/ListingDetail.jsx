@@ -308,6 +308,71 @@ function BookingWidget({ listing, mobile = false, forceOpen = false }) {
 
   const saveBooking = async ({ paymentId, method, paid }) => {
     setSaving(true)
+    setPayError('')
+
+    // 1. Try atomic database transaction RPC (server calculates money and checks stock/dates atomically)
+    try {
+      const { data: rpcBooking, error: rpcError } = await supabase.rpc('create_booking', {
+        p_listing_id: listing.id,
+        p_start_date: startDate,
+        p_end_date: endDate,
+        p_payment_method: method?.id || 'cash',
+        p_payment_ref: paymentRef.trim() || null,
+        p_razorpay_payment_id: paymentId || null,
+        p_coupon_code: appliedCoupon?.code || null,
+        p_protection_plan: protectionPlan || 'none',
+        p_delivery_type: handover,
+        p_delivery_address: handover === 'delivery' ? address.trim() || null : null,
+        p_expected_total: total,
+      })
+
+      if (!rpcError && rpcBooking?.booking_id) {
+        const createdId = rpcBooking.booking_id
+        await updateBookingTracking(createdId, {
+          tracking_status: 'awaiting_confirmation',
+        })
+        if (method?.id === 'wallet') {
+          refreshWallet?.()
+        }
+        setSaving(false)
+        const isPaid = rpcBooking.payment_status === 'paid'
+        const isSubmitted = rpcBooking.payment_status === 'submitted'
+        setBooking({
+          id: createdId,
+          startDate,
+          endDate,
+          days: rpcBooking.days || days,
+          total: rpcBooking.total || total,
+          paymentId,
+          couponCode: rpcBooking.coupon_code || appliedCoupon?.code,
+          discount: rpcBooking.discount_total || totalDiscount,
+          paid: isPaid,
+          paymentStatus: rpcBooking.payment_status,
+          methodName: method?.name,
+        })
+        if (isPaid) {
+          showToast('Booking confirmed & paid!', 'success')
+        } else if (isSubmitted) {
+          showToast('Payment reference submitted! Verification in progress.', 'success')
+        } else {
+          showToast('Booking placed! Awaiting confirmation.', 'success')
+        }
+        return
+      }
+
+      // If rpcError is a specific validation or business error from create_booking
+      if (rpcError && !/does not exist|function public\.create_booking/i.test(rpcError.message || '')) {
+        setSaving(false)
+        const msg = rpcError.message || 'Booking failed.'
+        setPayError(msg)
+        showToast(msg, 'error')
+        return
+      }
+    } catch (err) {
+      console.warn('create_booking RPC error, checking fallback:', err?.message)
+    }
+
+    // 2. Fallback path if migration has not been applied yet:
     let isPaid = Boolean(paid)
     const bookingId = crypto.randomUUID()
     const { error } = await supabase.from('bookings').insert({
@@ -327,19 +392,19 @@ function BookingWidget({ listing, mobile = false, forceOpen = false }) {
       coupon_code: appliedCoupon?.code || null,
       total_amount: total,
       status: 'pending',
-      payment_status: isPaid ? 'paid' : 'pending',
+      payment_status: isPaid ? 'paid' : (['qr', 'upi', 'bank'].includes(method?.id) ? 'submitted' : 'pending'),
       payment_method: method?.id || null,
       payment_ref: paymentRef.trim() || null,
       razorpay_payment_id: paymentId || null,
       delivery_type: handover,
       delivery_address: handover === 'delivery' ? address.trim() || null : null,
-      insurance_opted: insuranceOpted,
-      insurance_amount: insuranceOpted ? INSURANCE_FEE : 0,
+      insurance_opted: protectionPlan !== 'none',
+      insurance_amount: protectionCost || 0,
     })
     if (error) {
       setSaving(false)
       const taken = /already booked/i.test(error.message || '')
-      setPayError(taken ? 'Those dates were just booked. Pick another range.' : 'Payment ok, booking save failed. Contact support.')
+      setPayError(taken ? 'Those dates were just booked. Pick another range.' : (error.message || 'Booking save failed.'))
       showToast(taken ? 'Those dates are already booked.' : 'Booking save failed. Contact support.', 'error')
       return
     }
@@ -382,7 +447,7 @@ function BookingWidget({ listing, mobile = false, forceOpen = false }) {
       paid: isPaid,
       methodName: method?.name,
     })
-    showToast(paid ? 'Booking confirmed' : 'Booking placed. Await payment confirm.', 'success')
+    showToast(isPaid ? 'Booking confirmed' : 'Booking placed. Awaiting payment confirm.', 'success')
   }
 
   const tryApplyCoupon = (coupon) => {
@@ -487,6 +552,12 @@ function BookingWidget({ listing, mobile = false, forceOpen = false }) {
     }
 
     if (!isOnlineMethod(selectedPay)) {
+      const isManualPay = ['qr', 'upi', 'bank'].includes(selectedPay?.method_type || selectedPay?.id)
+      if (isManualPay && !paymentRef.trim()) {
+        showToast('Please enter your transaction UTR / Reference ID.', 'error')
+        setPayError('Please enter your 8–30 digit transaction reference (UTR) from your payment app so we can verify.')
+        return
+      }
       await saveBooking({ method: selectedPay, paid: false, paymentId: null })
       return
     }

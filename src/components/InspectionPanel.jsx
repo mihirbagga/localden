@@ -12,6 +12,7 @@ import {
   uploadInspectionPhotos,
 } from '../lib/inspections'
 import { analyzeInspectionPhotos } from '../lib/aiInspection'
+import { supabase } from '../lib/supabase'
 import SignatureModal from './SignatureModal'
 import './InspectionPanel.css'
 
@@ -206,7 +207,13 @@ export default function InspectionPanel({
   const [aiAnalyzing, setAiAnalyzing] = useState(false)
   const [aiResult, setAiResult] = useState(null)
   const [signatureModalOpen, setSignatureModalOpen] = useState(false)
-  const [signatureData, setSignatureData] = useState(booking?.signatureData || null)
+  const [signatureData, setSignatureData] = useState(
+    (role === 'renter' ? booking?.renter_signature : booking?.lister_signature) || booking?.signatureData || null
+  )
+
+  const mySig = (role === 'renter' ? booking.renter_signature : booking.lister_signature) || signatureData?.signatureUrl || null
+  const otherSig = (role === 'renter' ? booking.lister_signature : booking.renter_signature) || null
+  const bothSigned = Boolean((booking.renter_signature || (role === 'renter' && mySig)) && (booking.lister_signature || (role === 'lister' && mySig)))
 
   const load = async () => {
     try {
@@ -265,10 +272,21 @@ export default function InspectionPanel({
         <button
           type="button"
           onClick={() => setSignatureModalOpen(true)}
-          className="text-xs font-display flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/20 transition-all"
+          className={`text-xs font-display flex items-center gap-1.5 px-3 py-1.5 rounded-xl border transition-all ${
+            bothSigned
+              ? 'bg-emerald-500/20 border-emerald-500/50 text-emerald-300 font-bold'
+              : mySig
+                ? 'bg-cyan-500/10 border-cyan-500/30 text-cyan-300'
+                : 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/20'
+          }`}
+          aria-label="Digital agreement signature status"
         >
           <FileSignature size={14} />
-          {signatureData ? '✍️ Agreement E-Signed' : '✍️ E-Sign Agreement'}
+          {bothSigned
+            ? '✓ Pact Signed by Both'
+            : mySig
+              ? `✓ You Signed (${otherSig ? 'Both signed' : 'Waiting for ' + (role === 'renter' ? 'Host' : 'Borrower')})`
+              : `✍️ E-Sign Pact (${role === 'renter' ? 'Borrower' : 'Host'})`}
         </button>
       </div>
 
@@ -355,11 +373,51 @@ export default function InspectionPanel({
           signerName={user?.user_metadata?.full_name || user?.email}
           signerRole={role}
           onClose={() => setSignatureModalOpen(false)}
-          onSaveSignature={(payload) => {
+          onSaveSignature={async (payload) => {
             setSignatureData(payload)
-            booking.renter_signature = payload.signatureUrl
-            booking.signedAt = payload.signedAt
-            booking.signerRole = payload.signerRole
+            const isRenter = role === 'renter'
+            const sigField = isRenter ? 'renter_signature' : 'lister_signature'
+            const dateField = isRenter ? 'renter_signed_at' : 'lister_signed_at'
+            booking[sigField] = payload.signatureUrl
+            booking[dateField] = payload.signedAt
+
+            try {
+              const { error: rpcErr } = await supabase.rpc('sign_booking_agreement', {
+                p_booking_id: booking.id,
+                p_signature: payload.signatureUrl,
+              })
+              if (rpcErr) {
+                if (/does not exist/i.test(rpcErr.message || '')) {
+                  await supabase
+                    .from('bookings')
+                    .update({
+                      [sigField]: payload.signatureUrl,
+                      [dateField]: payload.signedAt,
+                      updated_at: new Date().toISOString(),
+                    })
+                    .eq('id', booking.id)
+                } else {
+                  throw rpcErr
+                }
+              }
+
+              if (booking.renter_signature && booking.lister_signature) {
+                const { uploadSignedAgreementPDF } = await import('../lib/rentalAgreement')
+                const renterName = booking.renter?.full_name || (isRenter ? payload.signerName : 'Borrower')
+                const listerName = booking.lister?.full_name || (!isRenter ? payload.signerName : 'Host')
+                const agreementUrl = await uploadSignedAgreementPDF(booking, booking.listings, renterName, listerName)
+                if (agreementUrl) {
+                  booking.agreement_url = agreementUrl
+                  showToast('✓ Pact sealed and uploaded with both digital signatures!', 'success')
+                }
+              } else {
+                showToast('✓ Your digital signature was recorded!', 'success')
+              }
+              onAfterSave?.('signature')
+            } catch (err) {
+              console.error('Save signature error:', err)
+              showToast(err.message || 'Could not save signature to database', 'error')
+            }
           }}
         />
       )}

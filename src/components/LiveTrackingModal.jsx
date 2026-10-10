@@ -13,6 +13,7 @@ import {
   calculateRemainingEta,
 } from '../lib/trackingService'
 import { useDeliveryPartners } from '../hooks/useDeliveryPartners'
+import { parseDeliveryAddress } from '../lib/deliveryAddress'
 
 export default function LiveTrackingModal({ booking, onClose, isAdmin = false }) {
   const { user } = useAuth()
@@ -460,22 +461,34 @@ export default function LiveTrackingModal({ booking, onClose, isAdmin = false })
         </div>
 
         {/* Compact Delivery Address Row */}
-        <div className="p-3 rounded-xl bg-white/[0.03] border border-white/10 flex items-center justify-between gap-3 text-xs">
-          <div className="flex items-center gap-2 min-w-0">
-            <MapPin size={14} className="text-pink-400 flex-shrink-0" />
-            <span className="text-[11px] text-white/50 truncate">
-              Destination: <strong className="text-white/80">{deliveryAddress}</strong>
-            </span>
-          </div>
-          <a
-            href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(deliveryAddress)}`}
-            target="_blank"
-            rel="noreferrer"
-            className="px-2 py-1 rounded bg-white/5 hover:bg-white/10 text-cyan-300 text-[11px] font-display flex items-center gap-1 border border-white/10 flex-shrink-0"
-          >
-            <Navigation size={10} /> Maps
-          </a>
-        </div>
+        {(() => {
+          const parsed = parseDeliveryAddress(deliveryAddress)
+          const targetMapLink = parsed.mapsUrl || `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(parsed.cleanAddress)}`
+          return (
+            <div className="p-3 rounded-xl bg-white/[0.03] border border-white/10 flex items-center justify-between gap-3 text-xs">
+              <div className="flex items-center gap-2 min-w-0">
+                <MapPin size={14} className="text-pink-400 flex-shrink-0" />
+                <span className="text-[11px] text-white/50 truncate">
+                  Destination: <strong className="text-white/80">{parsed.cleanAddress}</strong>
+                  {parsed.coordsLabel && (
+                    <span className="text-[10px] text-white/40 font-mono ml-1.5">
+                      ({parsed.coordsLabel})
+                    </span>
+                  )}
+                </span>
+              </div>
+              <a
+                href={targetMapLink}
+                target="_blank"
+                rel="noreferrer"
+                className="px-2 py-1 rounded bg-cyan-500/15 hover:bg-cyan-500/25 text-cyan-300 text-[11px] font-display flex items-center gap-1 border border-cyan-500/30 flex-shrink-0"
+                title="Open location in Google Maps"
+              >
+                <Navigation size={10} /> Maps
+              </a>
+            </div>
+          )
+        })()}
 
         {/* Role-Specific Controls */}
         {/* 1. Lister Confirm Button (if awaiting) */}

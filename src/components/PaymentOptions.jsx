@@ -3,6 +3,7 @@ import { Smartphone, Check, Copy, Share2, ArrowUpRight, QrCode } from 'lucide-re
 import { methodConfig } from '../lib/payments'
 import { useToast } from '../contexts/ToastContext'
 import { buildUpiPayload, generateQrDataUri, getOnlineQrUrl } from '../lib/qrCodeService'
+import { toPublicStorageUrl } from '../lib/storageUrl'
 import '../pages/paymentMethods.css'
 
 async function copyText(text) {
@@ -23,7 +24,7 @@ export default function PaymentOptions({
   const [customQrFailed, setCustomQrFailed] = useState(false)
   const [copiedUpi, setCopiedUpi] = useState(false)
 
-  const effectiveUpiId = cfg.upi_id?.trim() || 'localden@okhdfcbank'
+  const effectiveUpiId = cfg.upi_id?.trim() || '9034695091@ybl'
 
   // Standard UPI URI format accepted by GPay, PhonePe, Paytm, Cred, BHIM
   const upiPayload = useMemo(() => {
@@ -53,8 +54,9 @@ export default function PaymentOptions({
   // Determine which QR image to display
   // 1. If admin uploaded an image and it hasn't failed, use that.
   // 2. If no image or if custom image fails to load, use generated QR code data URI.
-  const activeQrSrc = (!customQrFailed && cfg.qr_image_url)
-    ? cfg.qr_image_url
+  const customQrUrl = toPublicStorageUrl(cfg.qr_image_url)
+  const activeQrSrc = (!customQrFailed && customQrUrl)
+    ? customQrUrl
     : (generatedQrDataUri || onlineQrUrl)
 
   const copy = async (label, value) => {
@@ -70,7 +72,7 @@ export default function PaymentOptions({
   }
 
   const shareQr = async () => {
-    const url = cfg.qr_image_url || onlineQrUrl
+    const url = customQrUrl || onlineQrUrl
     try {
       if (navigator.share) {
         await navigator.share({
@@ -210,18 +212,23 @@ export default function PaymentOptions({
 
           {/* Payment Reference (UTR) */}
           {selected.method_type !== 'cash' && selected.method_type !== 'razorpay' ? (
-            <div className="pt-1">
-              <label className="field-label text-xs" htmlFor="pay-ref">
-                Payment reference (optional)
+            <div className="pt-1 text-left">
+              <label className="field-label text-xs flex items-center justify-between" htmlFor="pay-ref">
+                <span>Payment Reference / UTR <strong className="text-cyan-400">*</strong></span>
+                <span className="text-[10px] text-white/50">From GPay / PhonePe / Paytm</span>
               </label>
               <input
                 id="pay-ref"
-                className="input-dark text-xs"
+                className="input-dark text-xs font-mono uppercase"
                 value={paymentRef}
-                onChange={(e) => onPaymentRef(e.target.value)}
-                placeholder="UTR / UPI Ref (e.g. 427819284719)"
+                onChange={(e) => onPaymentRef(e.target.value.replace(/\s+/g, ''))}
+                placeholder="e.g. 427819284719"
                 aria-label="Payment reference"
+                maxLength={32}
               />
+              <p className="text-[10px] text-white/40 mt-1 leading-tight">
+                Enter your 8–30 digit transaction reference (UTR) from your banking or UPI app so localDen can verify your payment.
+              </p>
             </div>
           ) : null}
         </div>

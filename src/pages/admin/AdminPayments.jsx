@@ -4,6 +4,7 @@ import { supabase } from '../../lib/supabase'
 import { useToast } from '../../contexts/ToastContext'
 import { METHOD_LABEL, methodConfig } from '../../lib/payments'
 import { generateQrDataUri, buildUpiPayload } from '../../lib/qrCodeService'
+import { toPublicStorageUrl } from '../../lib/storageUrl'
 import { AdminBadge } from './AdminShared'
 import { explainAdminError } from './adminHelpers'
 import AdminPlatformFee from './AdminPlatformFee'
@@ -28,7 +29,7 @@ export default function AdminPayments({ methods, patchMethod }) {
       is_enabled: method.is_enabled,
       sort_order: String(method.sort_order ?? 0),
       key_id: base.key_id || '',
-      qr_image_url: base.qr_image_url || '',
+      qr_image_url: toPublicStorageUrl(base.qr_image_url) || '',
       upi_id: base.upi_id || '',
       account_name: base.account_name || '',
       account_number: base.account_number || '',
@@ -50,7 +51,7 @@ export default function AdminPayments({ methods, patchMethod }) {
     const draft = getDraft(method)
     const config = nextConfig(method, {
       key_id: draft.key_id.trim(),
-      qr_image_url: draft.qr_image_url.trim(),
+      qr_image_url: toPublicStorageUrl(draft.qr_image_url.trim()),
       upi_id: draft.upi_id.trim(),
       account_name: draft.account_name.trim(),
       account_number: draft.account_number.trim(),
@@ -99,7 +100,7 @@ export default function AdminPayments({ methods, patchMethod }) {
       return
     }
     const { data } = supabase.storage.from('listing-photos').getPublicUrl(path)
-    setDraftField(method, 'qr_image_url', data.publicUrl)
+    setDraftField(method, 'qr_image_url', toPublicStorageUrl(data.publicUrl))
     setUploadingId(null)
     showToast('QR uploaded. Save to publish.', 'success')
   }

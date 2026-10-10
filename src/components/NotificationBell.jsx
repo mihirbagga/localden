@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Bell } from 'lucide-react'
 import { useNotifications } from '../contexts/NotificationContext'
+import { useToast } from '../contexts/ToastContext'
 import './NotificationBell.css'
 
 function timeAgo(iso) {
@@ -16,6 +17,7 @@ function timeAgo(iso) {
 }
 
 export default function NotificationBell() {
+  const { showToast } = useToast()
   const { items, unread, markRead, markAll, enableBrowserAlerts } = useNotifications()
   const [open, setOpen] = useState(false)
   const wrap = useRef(null)
@@ -67,10 +69,14 @@ export default function NotificationBell() {
           <button
             type="button"
             className="nbell__enable"
-            onClick={enableBrowserAlerts}
+            onClick={async () => {
+              const ok = await enableBrowserAlerts()
+              if (ok) showToast('Browser push notifications enabled!', 'success')
+              else showToast('Browser notifications blocked or not supported.', 'info')
+            }}
             aria-label="Enable browser booking alerts"
           >
-            Enable browser alerts
+            🔔 Enable browser alerts
           </button>
         </div>
       ) : null}

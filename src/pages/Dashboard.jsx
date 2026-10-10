@@ -10,11 +10,23 @@ import ListingCard from '../components/ListingCard'
 import { useAuth } from '../contexts/AuthContext'
 import { useToast } from '../contexts/ToastContext'
 import { supabase } from '../lib/supabase'
-import { bookingThreadText, mailtoHref, otherPartyContact, whatsappHref } from '../lib/alerts'
+import { getPaymentMethodLabel, getPaymentStatusInfo } from '../lib/payments'
+import {
+  bookingThreadText,
+  mailtoHref,
+  otherPartyContact,
+  whatsappHref,
+  bookingWhatsAppLink,
+  bookingMailtoLink,
+} from '../lib/alerts'
 import { fetchInspections } from '../lib/inspections'
 import InspectionPanel from '../components/InspectionPanel'
 import BookingThread from '../components/BookingThread'
 import LiveTrackingModal from '../components/LiveTrackingModal'
+import BookingStepper from '../components/BookingStepper'
+import DepositRefundModal from '../components/DepositRefundModal'
+import DeliveryAddressDisplay from '../components/DeliveryAddressDisplay'
+import SignatureModal from '../components/SignatureModal'
 import DashboardWallet from './DashboardWallet'
 import { useWallet } from '../hooks/useWallet'
 import { adjustListingStock } from '../lib/stockService'
@@ -169,7 +181,7 @@ function StatCard({ icon, label, value, tone, sub, active, onClick, prefix = '' 
 }
 
 function BookingCard({ booking, role, open, onToggle, onStatus }) {
-  const { user } = useAuth()
+  const { user, profile } = useAuth()
   const listing = booking.listings
   const listingId = listing?.id
   const status = booking.status || 'pending'
@@ -187,6 +199,48 @@ function BookingCard({ booking, role, open, onToggle, onStatus }) {
   const [forcePhase, setForcePhase] = useState('')
   const [pendingStatus, setPendingStatus] = useState('')
   const [trackingOpen, setTrackingOpen] = useState(false)
+  const [refundModalOpen, setRefundModalOpen] = useState(false)
+  const [signatureOpen, setSignatureOpen] = useState(false)
+
+  const handleSaveDirectSignature = async (payload) => {
+    const isRenter = role === 'renter'
+    const sigField = isRenter ? 'renter_signature' : 'lister_signature'
+    const dateField = isRenter ? 'renter_signed_at' : 'lister_signed_at'
+
+    booking[sigField] = payload.signatureUrl
+    booking[dateField] = payload.signedAt
+
+    try {
+      const { error: rpcErr } = await supabase.rpc('sign_booking_agreement', {
+        p_booking_id: booking.id,
+        p_signature: payload.signatureUrl,
+      })
+      if (rpcErr) {
+        await supabase
+          .from('bookings')
+          .update({
+            [sigField]: payload.signatureUrl,
+            [dateField]: payload.signedAt,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', booking.id)
+      }
+
+      if (booking.renter_signature && booking.lister_signature) {
+        const { uploadSignedAgreementPDF } = await import('../lib/rentalAgreement')
+        const renterName = booking.renter?.full_name || (isRenter ? payload.signerName : 'Borrower')
+        const listerName = booking.lister?.full_name || (!isRenter ? payload.signerName : 'Host')
+        const agreementUrl = await uploadSignedAgreementPDF(booking, booking.listings, renterName, listerName)
+        if (agreementUrl) booking.agreement_url = agreementUrl
+        showToast('✓ Pact sealed with both signatures and saved to cloud!', 'success')
+      } else {
+        showToast('✓ Your digital signature was recorded!', 'success')
+      }
+      onStatus(booking, booking.status)
+    } catch (err) {
+      showToast(err.message || 'Could not save signature', 'error')
+    }
+  }
 
   useEffect(() => {
     if (!open) return undefined
@@ -238,6 +292,27 @@ function BookingCard({ booking, role, open, onToggle, onStatus }) {
     onStatus(booking, next)
   }
 
+  const handleConfirmCash = async () => {
+    if (!window.confirm(`Confirm that you received ₹${booking.total_amount} in cash from ${partyName}?`)) return
+    try {
+      const { error } = await supabase.rpc('confirm_booking_payment', {
+        p_booking_id: booking.id,
+        p_note: 'Cash verified by lister',
+      })
+      if (error) {
+        if (/does not exist/i.test(error.message || '')) {
+          await supabase.from('bookings').update({ payment_status: 'paid', updated_at: new Date().toISOString() }).eq('id', booking.id)
+        } else {
+          throw error
+        }
+      }
+      booking.payment_status = 'paid'
+      onStatus(booking, booking.status)
+    } catch (err) {
+      console.error('Confirm cash error:', err?.message)
+    }
+  }
+
   return (
     <div className={`dash-book${open ? ' is-open' : ''}`}>
       <button
@@ -287,25 +362,88 @@ function BookingCard({ booking, role, open, onToggle, onStatus }) {
               )}
             </div>
             {booking.delivery_type === 'delivery' && booking.delivery_address && (
-              <div className="text-[11px] text-white/80 bg-black/40 p-2 rounded border border-white/10 mt-1">
-                <strong className="text-cyan-400 block mb-0.5">📍 Delivery Address:</strong>
-                <span className="font-mono">{booking.delivery_address}</span>
-              </div>
+              <DeliveryAddressDisplay address={booking.delivery_address} className="mt-2" />
             )}
           </div>
 
+          {/* Real Booking Progress Stepper with Clear Next Action */}
+          <BookingStepper
+            booking={booking}
+            role={role}
+            onAction={(next) => askThenStatus(next)}
+            onOpenInspection={(phase) => setForcePhase(phase)}
+            onOpenRefund={() => setRefundModalOpen(true)}
+            onOpenSignature={() => setSignatureOpen(true)}
+          />
+
           <div className="dash-book__facts">
             <div>
-              <span>Pay</span>
-              <b>{booking.payment_method || '—'} · {booking.payment_status || 'pending'}</b>
+              <span>Payment</span>
+              <b className="flex items-center gap-1.5 flex-wrap">
+                <span>{getPaymentMethodLabel(booking.payment_method)}</span>
+                {(() => {
+                  const payStatus = getPaymentStatusInfo(booking.payment_status, booking.payment_method)
+                  return (
+                    <span className={`px-1.5 py-0.5 rounded text-[10px] font-semibold border ${payStatus.badgeClass}`}>
+                      {payStatus.label}
+                    </span>
+                  )
+                })()}
+              </b>
+              {booking.payment_ref && (
+                <span className="text-[10px] text-white/50 font-mono block mt-0.5">
+                  Ref: {booking.payment_ref}
+                </span>
+              )}
             </div>
             <div>
               <span>Deposit</span>
-              <b>{rupee(booking.deposit)}</b>
+              <div className="flex flex-col">
+                <b>{rupee(booking.deposit)}</b>
+                {booking.deposit_status === 'refunded' ? (
+                  <span className="text-[10px] text-emerald-400 font-semibold block mt-0.5">
+                    ✓ Refunded ({rupee(booking.deposit_refunded_amount || booking.deposit)})
+                  </span>
+                ) : booking.deposit_status === 'partially_refunded' ? (
+                  <span className="text-[10px] text-amber-400 font-semibold block mt-0.5" title={booking.deposit_deduction_reason || ''}>
+                    ⚠️ Settled ({rupee(booking.deposit_refunded_amount)} back · {rupee(booking.deposit_deduction_amount)} held)
+                  </span>
+                ) : booking.deposit_status === 'forfeited' ? (
+                  <span className="text-[10px] text-red-400 font-semibold block mt-0.5" title={booking.deposit_deduction_reason || ''}>
+                    ✕ Forfeited ({rupee(booking.deposit_deduction_amount)})
+                  </span>
+                ) : Number(booking.deposit || 0) > 0 && status === 'completed' ? (
+                  <span className="text-[10px] text-cyan-400 font-semibold block mt-0.5">
+                    ⏳ Settlement pending
+                  </span>
+                ) : (
+                  <span className="text-[10px] text-white/40 block mt-0.5">Held in escrow</span>
+                )}
+              </div>
             </div>
             <div>
-              <span>Rent</span>
-              <b>{rupee(bookingEarn(booking))}</b>
+              <span>Rental Pact</span>
+              <div className="flex flex-col">
+                <b>
+                  {Boolean(booking.renter_signature && booking.lister_signature) ? (
+                    <span className="px-1.5 py-0.5 rounded text-[10px] bg-emerald-500/20 text-emerald-300 font-semibold border border-emerald-500/30">
+                      ✓ Signed by both
+                    </span>
+                  ) : booking.renter_signature ? (
+                    <span className="px-1.5 py-0.5 rounded text-[10px] bg-purple-500/20 text-purple-300 font-semibold border border-purple-500/30">
+                      ✍️ Borrower signed
+                    </span>
+                  ) : booking.lister_signature ? (
+                    <span className="px-1.5 py-0.5 rounded text-[10px] bg-purple-500/20 text-purple-300 font-semibold border border-purple-500/30">
+                      ✍️ Host signed
+                    </span>
+                  ) : (
+                    <span className="px-1.5 py-0.5 rounded text-[10px] bg-white/10 text-white/50 border border-white/20">
+                      ✍️ Unsigned pact
+                    </span>
+                  )}
+                </b>
+              </div>
             </div>
             <div>
               <span>Handover</span>
@@ -338,6 +476,31 @@ function BookingCard({ booking, role, open, onToggle, onStatus }) {
             {listingId ? (
               <Link to={`/listing/${listingId}`} className="is-cyan">Open listing</Link>
             ) : null}
+
+            {/* Contextual WhatsApp Alerts */}
+            {status === 'confirmed' && partyPhone ? (
+              <a
+                href={bookingWhatsAppLink('pickup_reminder', booking, partyPhone)}
+                target="_blank"
+                rel="noreferrer"
+                className="is-ok text-xs font-semibold"
+                title="Send pickup reminder via WhatsApp"
+              >
+                📲 Pickup Reminder
+              </a>
+            ) : null}
+            {status === 'active' && partyPhone ? (
+              <a
+                href={bookingWhatsAppLink('return_reminder', booking, partyPhone)}
+                target="_blank"
+                rel="noreferrer"
+                className="is-ok text-xs font-semibold"
+                title="Send return reminder via WhatsApp"
+              >
+                📲 Return Reminder
+              </a>
+            ) : null}
+
             {wa ? (
               <a href={wa} target="_blank" rel="noreferrer" className="is-ok" aria-label={`WhatsApp ${partyName}`}>
                 WhatsApp {partyName.split(' ')[0]}
@@ -347,37 +510,27 @@ function BookingCard({ booking, role, open, onToggle, onStatus }) {
               <a href={mail} className="is-cyan" aria-label={`Email ${partyName}`}>Email</a>
             ) : null}
 
-            {listerActs && status === 'pending' ? (
-              <>
-                <button type="button" className="is-ok font-bold" onClick={() => onStatus(booking, 'confirmed')} aria-label="Confirm booking">✓ Confirm</button>
-                <button type="button" className="is-danger font-bold" onClick={() => onStatus(booking, 'cancelled')} aria-label="Decline booking">✕ Decline</button>
-              </>
-            ) : null}
-            {listerActs && status === 'confirmed' ? (
-              <>
-                <button type="button" className="is-ok font-bold" onClick={() => askThenStatus('active')} aria-label="Mark booking active">🚚 Handed Over</button>
-                <button type="button" className="is-danger" onClick={() => onStatus(booking, 'cancelled')} aria-label="Cancel booking">Cancel Booking</button>
-              </>
-            ) : null}
-            {listerActs && status === 'active' ? (
-              <>
-                <button type="button" className="is-ok font-bold" onClick={() => askThenStatus('completed')} aria-label="Mark booking complete">✓ Mark Returned</button>
-                <button type="button" className="is-danger" onClick={() => onStatus(booking, 'cancelled')} aria-label="Cancel booking">Cancel Booking</button>
-              </>
+            {/* Host Deposit Refund Button */}
+            {listerActs && status === 'completed' && Number(booking.deposit || 0) > 0 && !['refunded', 'partially_refunded', 'forfeited'].includes(booking.deposit_status) ? (
+              <button
+                type="button"
+                className="is-ok font-bold"
+                onClick={() => setRefundModalOpen(true)}
+              >
+                💰 Process Deposit Refund
+              </button>
             ) : null}
 
-            {renterActs && status === 'confirmed' ? (
-              <button type="button" className="is-ok" onClick={() => setForcePhase('checkin')} aria-label="Add check-in photos">
-                Check in
+            {/* Lister Cash Payment Confirmation */}
+            {listerActs && booking.payment_method === 'cash' && booking.payment_status !== 'paid' && status !== 'cancelled' ? (
+              <button
+                type="button"
+                className="is-ok font-bold"
+                onClick={handleConfirmCash}
+                aria-label="Confirm cash payment received"
+              >
+                💵 Confirm Cash Received
               </button>
-            ) : null}
-            {renterActs && status === 'active' ? (
-              <button type="button" className="is-ok" onClick={() => setForcePhase('checkout')} aria-label="Add check-out photos">
-                Check out
-              </button>
-            ) : null}
-            {renterActs && status === 'pending' ? (
-              <button type="button" className="is-danger" onClick={() => onStatus(booking, 'cancelled')} aria-label="Cancel booking">Cancel request</button>
             ) : null}
 
             {/* Lister Status Override Selector */}
@@ -406,17 +559,34 @@ function BookingCard({ booking, role, open, onToggle, onStatus }) {
             {['active', 'completed'].includes(status) ? (
               <Link to={`/dispute/${booking.id}`} className="is-danger" aria-label="Raise dispute">⚖️ Dispute</Link>
             ) : null}
-            {/* Download Agreement PDF */}
+            {/* View / Download Agreement PDF */}
             {['confirmed', 'active', 'completed'].includes(status) ? (
-              <button type="button" className="is-cyan"
+              <button
+                type="button"
+                className="is-cyan font-bold"
                 onClick={async () => {
                   try {
-                    const { generateAgreementPDF } = await import('../lib/rentalAgreement')
-                    await generateAgreementPDF(booking, booking.listings, role === 'renter' ? 'You' : partyName, role === 'lister' ? 'You' : partyName)
-                  } catch (err) { console.error(err) }
+                    const { generateAgreementPDF, uploadSignedAgreementPDF } = await import('../lib/rentalAgreement')
+                    const myName = profile?.full_name || user?.email?.split('@')[0] || ''
+                    const renterName = role === 'renter' ? (booking.renter?.full_name || myName || 'Borrower') : partyName
+                    const listerName = role === 'lister' ? (booking.lister?.full_name || myName || 'Host') : partyName
+                    await generateAgreementPDF(booking, booking.listings, renterName, listerName, {
+                      renterPhone: role === 'renter' ? (booking.renter?.phone || profile?.phone) : partyPhone,
+                      listerPhone: role === 'lister' ? (booking.lister?.phone || profile?.phone) : partyPhone,
+                      download: true,
+                    })
+                    if (booking.renter_signature && booking.lister_signature) {
+                      const url = await uploadSignedAgreementPDF(booking, booking.listings, renterName, listerName)
+                      if (url) booking.agreement_url = url
+                    }
+                  } catch (err) {
+                    console.error('Agreement generation error:', err)
+                    showToast('Failed to generate agreement PDF', 'error')
+                  }
                 }}
-                aria-label="Download rental agreement PDF">
-                📄 Agreement
+                aria-label="Download or view rental agreement PDF"
+              >
+                📄 {Boolean(booking.renter_signature && booking.lister_signature) ? 'Signed Pact PDF' : 'Rental Pact PDF'}
               </button>
             ) : null}
           </div>
@@ -425,6 +595,25 @@ function BookingCard({ booking, role, open, onToggle, onStatus }) {
       ) : null}
       {trackingOpen && (
         <LiveTrackingModal booking={booking} onClose={() => setTrackingOpen(false)} />
+      )}
+      {refundModalOpen && (
+        <DepositRefundModal
+          booking={booking}
+          onClose={() => setRefundModalOpen(false)}
+          onRefundSuccess={(res) => {
+            Object.assign(booking, res)
+            onStatus(booking, booking.status)
+          }}
+        />
+      )}
+      {signatureOpen && (
+        <SignatureModal
+          booking={booking}
+          signerName={user?.user_metadata?.full_name || user?.email}
+          signerRole={role}
+          onClose={() => setSignatureOpen(false)}
+          onSaveSignature={handleSaveDirectSignature}
+        />
       )}
     </div>
   )

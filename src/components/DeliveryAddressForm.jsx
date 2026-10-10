@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react'
-import { Home, ExternalLink, MapPin, Navigation } from 'lucide-react'
+import { Home, ExternalLink, MapPin, Navigation, Sparkles } from 'lucide-react'
+import DeliveryAddressDisplay from './DeliveryAddressDisplay'
+import { reverseGeocode, formatDeliveryAddress } from '../lib/deliveryAddress'
 
 const BANGALORE_LOCALITIES = [
   'Koramangala',
@@ -39,15 +41,14 @@ export default function DeliveryAddressForm({ value = '', onChange }) {
 
   // Auto-update combined string whenever fields change
   const updateCombinedAddress = (newFlat, newStreet, newLocality, newLandmark, newPin, newMaps) => {
-    const parts = [
-      newFlat.trim(),
-      newStreet.trim(),
-      newLocality.trim(),
-      newLandmark.trim() ? `Landmark: ${newLandmark.trim()}` : '',
-      newPin.trim() ? `Bangalore - ${newPin.trim()}` : 'Bangalore',
-      newMaps.trim() ? `[Map: ${newMaps.trim()}]` : '',
-    ].filter(Boolean)
-    const combined = parts.join(', ')
+    const combined = formatDeliveryAddress({
+      flat: newFlat,
+      street: newStreet,
+      locality: newLocality,
+      landmark: newLandmark,
+      pincode: newPin,
+      mapsUrl: newMaps,
+    })
     onChange(combined)
     try {
       localStorage.setItem('rent_saved_delivery_address', combined)
@@ -90,22 +91,51 @@ export default function DeliveryAddressForm({ value = '', onChange }) {
       return
     }
     setLocating(true)
-    setGpsStatus('Locating...')
+    setGpsStatus('Acquiring precise GPS satellite fix...')
     navigator.geolocation.getCurrentPosition(
-      (position) => {
+      async (position) => {
         const { latitude, longitude } = position.coords
         const url = `https://www.google.com/maps?q=${latitude},${longitude}`
         setMapsUrl(url)
-        updateCombinedAddress(flat, street, locality, landmark, pincode, url)
-        setGpsStatus('📍 GPS Location Attached!')
+        setGpsStatus('Resolving road & locality from GPS...')
+
+        let nextStreet = street
+        let nextLoc = locality
+        let nextPin = pincode
+
+        try {
+          const geo = await reverseGeocode(latitude, longitude)
+          if (geo) {
+            if (!street && geo.road) {
+              nextStreet = geo.road
+              setStreet(geo.road)
+            }
+            if (!locality && (geo.locality || geo.road)) {
+              nextLoc = geo.locality || geo.road
+              setLocality(nextLoc)
+            }
+            if (!pincode && geo.pincode) {
+              nextPin = geo.pincode
+              setPincode(geo.pincode)
+            }
+            const foundArea = geo.locality || geo.road || 'Bangalore'
+            setGpsStatus(`📍 GPS Pin & Area (${foundArea}) Attached!`)
+          } else {
+            setGpsStatus('📍 GPS Coordinates Attached!')
+          }
+        } catch {
+          setGpsStatus('📍 GPS Coordinates Attached!')
+        }
+
+        updateCombinedAddress(flat, nextStreet, nextLoc, landmark, nextPin, url)
         setLocating(false)
       },
       (error) => {
         console.error(error)
-        setGpsStatus('Location access denied. Paste a Google Maps link below.')
+        setGpsStatus('Location access denied. Please type your address or paste a Google Maps link below.')
         setLocating(false)
       },
-      { timeout: 10000 }
+      { enableHighAccuracy: true, timeout: 10000 }
     )
   }
 
@@ -271,22 +301,11 @@ export default function DeliveryAddressForm({ value = '', onChange }) {
 
       {/* Address Preview Summary */}
       {value && (
-        <div className="p-2 rounded bg-black/40 border border-white/10 text-xs">
-          <span className="text-[10px] uppercase tracking-wider text-white/40 block mb-0.5 font-bold flex items-center justify-between">
-            <span>📍 Delivery Address Preview:</span>
-            {mapsUrl && (
-              <a
-                href={mapsUrl}
-                target="_blank"
-                rel="noreferrer"
-                className="text-cyan-400 hover:underline text-[10px] flex items-center gap-1 font-sans"
-              >
-                <span>Maps Link</span>
-                <ExternalLink size={10} />
-              </a>
-            )}
+        <div className="space-y-1 pt-1 border-t border-white/10">
+          <span className="text-[10px] uppercase tracking-wider text-white/50 block font-bold">
+            Live Address & Maps Navigation Preview:
           </span>
-          <p className="text-white/80 font-mono text-[11px] leading-relaxed break-words">{value}</p>
+          <DeliveryAddressDisplay address={value} />
         </div>
       )}
     </div>

@@ -5,6 +5,7 @@ import { supabase } from '../lib/supabase'
 import { useToast } from '../contexts/ToastContext'
 import { getBookingTracking, verifyDualOtp } from '../lib/trackingService'
 import GameBackground from '../components/GameBackground'
+import DeliveryAddressDisplay from '../components/DeliveryAddressDisplay'
 
 export default function VerifyDelivery() {
   const [params] = useSearchParams()
@@ -158,10 +159,7 @@ export default function VerifyDelivery() {
               </div>
 
               {booking.delivery_address && (
-                <div className="p-2.5 rounded-xl bg-black/40 border border-white/5 flex items-start gap-2 text-xs text-white/70">
-                  <MapPin size={14} className="text-pink-400 flex-shrink-0 mt-0.5" />
-                  <span className="leading-snug">{booking.delivery_address}</span>
-                </div>
+                <DeliveryAddressDisplay address={booking.delivery_address} />
               )}
             </div>
           )}
