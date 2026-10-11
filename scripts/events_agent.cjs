@@ -46,7 +46,7 @@ Only include real, verifiable events. Skip anything uncertain.`
   if (!match) return []
   const items = JSON.parse(match[0])
   return items
-    .filter((e) => e.title && e.event_date && !Number.isNaN(Date.parse(e.event_date)))
+    .filter((e) => e.title && e.event_date && !Number.isNaN(Date.parse(e.event_date)) && new Date(e.event_date).getTime() >= Date.now())
     .map((e) => ({
       title: String(e.title).slice(0, 200),
       category: ['music', 'gaming', 'dj', 'other'].includes(e.category) ? e.category : 'other',

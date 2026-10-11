@@ -93,12 +93,38 @@ export default function AdminLive() {
   const uploadPhoto = async (e) => {
     const file = e.target.files?.[0]
     if (!file) return
-    const path = `${Date.now()}-${file.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`
-    const { error } = await supabase.storage.from('artist-photos').upload(path, file)
+    let fileToUpload = file
+    let uploadName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_')
+    let contentType = file.type || 'image/jpeg'
+
+    const isHeic = file.name.toLowerCase().endsWith('.heic') ||
+      file.name.toLowerCase().endsWith('.heif') ||
+      file.type === 'image/heic' ||
+      file.type === 'image/heif'
+
+    if (isHeic) {
+      try {
+        showToast('Converting photo for universal browser compatibility…', 'info')
+        const heic2any = (await import('heic2any')).default
+        const converted = await heic2any({ blob: file, toType: 'image/jpeg', quality: 0.88 })
+        const convertedBlob = Array.isArray(converted) ? converted[0] : converted
+        uploadName = uploadName.replace(/\.hei[cf]$/i, '') + '.jpg'
+        fileToUpload = new File([convertedBlob], uploadName, { type: 'image/jpeg' })
+        contentType = 'image/jpeg'
+      } catch (err) {
+        console.warn('HEIC conversion failed, uploading original:', err)
+      }
+    }
+
+    const path = `${Date.now()}-${uploadName}`
+    const { error } = await supabase.storage.from('artist-photos').upload(path, fileToUpload, {
+      contentType,
+      upsert: true,
+    })
     if (error && fail(error)) return
     const { data } = supabase.storage.from('artist-photos').getPublicUrl(path)
     setAForm((p) => ({ ...p, image_url: data.publicUrl }))
-    showToast('Photo uploaded', 'success')
+    showToast('Photo uploaded successfully', 'success')
   }
 
   const editArtist = (a) => { setEditing(a.id); setAForm({ ...EMPTY_ARTIST, name: a.name, type: a.type, is_featured: a.is_featured, is_active: a.is_active, available_dates: (a.available_dates || []).slice(), genres: (a.genres || []).join(', '), price_from: a.price_from ?? '', image_url: a.image_url || '', instagram_url: a.instagram_url || '', bio: a.bio || '', city: a.city || '' }) }
@@ -190,8 +216,15 @@ export default function AdminLive() {
             </div>
           </form>
           <Rows empty="No events yet" items={events} title={(e) => e.title}
-            sub={(e) => `${e.category} · ${e.city} · ${e.event_date ? new Date(e.event_date).toLocaleDateString() : 'TBA'} · ${e.source}`}
-            badge={(e) => (e.is_active ? 'Active' : 'Hidden')}
+            sub={(e) => {
+              const isPast = e.event_date && new Date(e.event_date).getTime() < Date.now()
+              return `${e.category} · ${e.city} · ${e.event_date ? new Date(e.event_date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : 'TBA'} · ${e.source}${isPast ? ' · ⚠️ Date passed' : ''}`
+            }}
+            badge={(e) => {
+              if (!e.is_active) return 'Hidden'
+              if (e.event_date && new Date(e.event_date).getTime() < Date.now()) return 'Ended'
+              return 'Active'
+            }}
             onEdit={editEvent} onToggle={(e) => toggle('live_events', e)} onDelete={(e) => setDel({ table: 'live_events', id: e.id })} />
         </>
       )}

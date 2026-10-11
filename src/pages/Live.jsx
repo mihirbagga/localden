@@ -1,6 +1,9 @@
 import { useEffect, useMemo, useState, useRef, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { CalendarDays, MapPin, Music2, Gamepad2, Disc3, Ticket, Sparkles, X, Search, Mic2, Bot, Star, Bell, Loader2 } from 'lucide-react'
+import {
+  CalendarDays, MapPin, Music2, Gamepad2, Disc3, Ticket, Sparkles, X, Search,
+  Mic2, Bot, Star, Bell, Loader2, ShieldCheck, Check, Clock, Phone, User
+} from 'lucide-react'
 import GameBackground from '../components/GameBackground'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
@@ -28,6 +31,7 @@ const fmtDate = (d) => d
   : 'TBA'
 
 function EventCard({ ev, i }) {
+  const [imgErr, setImgErr] = useState(false)
   const color = CAT_COLOR[ev.category] || CAT_COLOR.other
   const d = ev.event_date ? new Date(ev.event_date) : null
   const isLocalDen = ev.source === 'localden' || ev.source === 'manual'
@@ -43,12 +47,13 @@ function EventCard({ ev, i }) {
       style={{ border: `1px solid ${isLocalDen ? 'var(--magenta)' : color + '33'}`, contentVisibility: 'auto', containIntrinsicSize: '360px' }}
     >
       <div className="relative h-40 overflow-hidden flex items-end p-4 bg-[#0a0a14]">
-        {ev.image_url ? (
+        {ev.image_url && !imgErr ? (
           <img
             src={ev.image_url}
             alt={ev.title}
             loading="lazy"
             decoding="async"
+            onError={() => setImgErr(true)}
             className="absolute inset-0 w-full h-full object-cover transition-transform duration-300 hover:scale-105"
           />
         ) : (
@@ -101,18 +106,20 @@ function EventCard({ ev, i }) {
 }
 
 function ArtistCard({ a, i, onHire }) {
+  const [imgErr, setImgErr] = useState(false)
   return (
     <article
       className="glass rounded-2xl overflow-hidden flex flex-col hover:-translate-y-1 transition-transform duration-200 neon-border-card"
       style={{ contentVisibility: 'auto', containIntrinsicSize: '360px' }}
     >
       <div className="relative h-52 overflow-hidden bg-[#0a0a14]">
-        {a.image_url ? (
+        {a.image_url && !imgErr ? (
           <img
             src={a.image_url}
             alt={a.name}
             loading="lazy"
             decoding="async"
+            onError={() => setImgErr(true)}
             className="absolute inset-0 w-full h-full object-cover transition-transform duration-300 hover:scale-105"
           />
         ) : (
@@ -273,17 +280,27 @@ function SubscribeBox() {
 }
 
 function HireModal({ artist, onClose }) {
-  const { user } = useAuth()
+  const { user, profile } = useAuth()
   const { showToast } = useToast()
-  const [form, setForm] = useState({ name: '', phone: '', event_type: '', event_date: '', city: '', budget: '', message: '' })
+  const [form, setForm] = useState({
+    name: profile?.full_name || user?.user_metadata?.full_name || '',
+    phone: profile?.phone || '',
+    event_type: 'Club / Party',
+    event_date: '',
+    city: artist.city || '',
+    budget: artist.price_from ? String(artist.price_from) : '',
+    message: '',
+  })
   const [saving, setSaving] = useState(false)
   const [booked, setBooked] = useState([])
   const [reviews, setReviews] = useState([])
+  const [imgErr, setImgErr] = useState(false)
+
   const set = (k) => (e) => setForm((p) => ({ ...p, [k]: e.target.value }))
 
   useEffect(() => {
     supabase.rpc('artist_booked_dates', { p_artist: artist.id }).then(({ data }) => setBooked(data || []))
-    supabase.from('artist_reviews').select('*').eq('artist_id', artist.id).order('created_at', { ascending: false }).limit(5)
+    supabase.from('artist_reviews').select('*').eq('artist_id', artist.id).order('created_at', { ascending: false }).limit(3)
       .then(({ data }) => setReviews(data || []))
   }, [artist.id])
 
@@ -292,7 +309,10 @@ function HireModal({ artist, onClose }) {
 
   const submit = async (e) => {
     e.preventDefault()
-    if (!form.event_date) return showToast('Please select an available date.', 'error')
+    if (!form.name.trim()) return showToast('Please enter your name.', 'error')
+    if (!form.phone.trim()) return showToast('Please enter your phone or WhatsApp number.', 'error')
+    if (!form.event_date && freeDates.length > 0) return showToast('Please pick an available date.', 'error')
+
     setSaving(true)
     const { error } = await supabase.from('artist_hire_requests').insert({
       artist_id: artist.id,
@@ -301,67 +321,258 @@ function HireModal({ artist, onClose }) {
       phone: form.phone.trim(),
       event_type: form.event_type || null,
       event_date: form.event_date || null,
-      city: form.city || null,
+      city: artist.city || form.city || null,
       budget: form.budget ? parseInt(form.budget, 10) : null,
-      message: form.message || null,
+      message: form.message?.trim() || null,
     })
     setSaving(false)
-    if (error) return showToast(error.message?.includes('date') ? error.message : 'Could not send request. Try again.', 'error')
-    showToast(`Request sent! We'll contact you about ${artist.name}.`, 'success')
+    if (error) return showToast(error.message?.includes('date') ? error.message : 'Could not send request. Please try again.', 'error')
+    showToast(`🎉 Request sent! We'll coordinate with ${artist.name} shortly.`, 'success')
     onClose()
   }
 
   return (
-    <motion.div className="fixed inset-0 z-[100] bg-black/70 backdrop-blur-sm flex items-center justify-center p-4"
-      initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onClose}>
-      <motion.form onSubmit={submit} onClick={(e) => e.stopPropagation()}
-        initial={{ scale: 0.95, y: 20 }} animate={{ scale: 1, y: 0 }}
-        className="glass rounded-2xl p-6 w-full max-w-md max-h-[90vh] overflow-y-auto neon-border-card">
-        <div className="flex justify-between items-start mb-4">
-          <div>
-            <p className="text-xs opacity-60">Hire</p>
-            <h2 className="font-bungee text-xl text-[var(--magenta)]">{artist.name}</h2>
-          </div>
-          <button type="button" onClick={onClose} aria-label="Close"><X size={20} /></button>
-        </div>
-        {reviews.length > 0 && (
-          <div className="mb-4 space-y-2 max-h-32 overflow-y-auto">
-            {reviews.map((r) => (
-              <div key={r.id} className="text-xs rounded-lg bg-white/5 p-2">
-                <span className="text-[#ffc53d]">{'★'.repeat(r.rating)}</span> <b>{r.reviewer_name}</b>
-                {r.comment && <p className="opacity-70">{r.comment}</p>}
+    <motion.div
+      className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-md flex items-center justify-center p-3 sm:p-5 overflow-y-auto"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      onClick={onClose}
+    >
+      <motion.form
+        onSubmit={submit}
+        onClick={(e) => e.stopPropagation()}
+        initial={{ scale: 0.96, y: 16 }}
+        animate={{ scale: 1, y: 0 }}
+        className="glass rounded-2xl p-5 sm:p-7 w-full max-w-xl max-h-[92vh] overflow-y-auto neon-border-card border border-white/10 shadow-2xl flex flex-col gap-5 my-auto"
+      >
+        {/* Top Artist Profile Header */}
+        <div className="flex items-start justify-between gap-4 pb-4 border-b border-white/10">
+          <div className="flex items-center gap-3.5 min-w-0">
+            <div className="relative w-16 h-16 sm:w-20 sm:h-20 rounded-2xl overflow-hidden shrink-0 border border-white/15 bg-[#0a0a14] shadow-lg">
+              {artist.image_url && !imgErr ? (
+                <img
+                  src={artist.image_url}
+                  alt={artist.name}
+                  onError={() => setImgErr(true)}
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-[#ff2e6d33] to-[#00e5ff22]">
+                  <Mic2 size={30} className="text-[var(--magenta)] opacity-80" />
+                </div>
+              )}
+            </div>
+            <div className="min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-[10px] font-extrabold uppercase tracking-widest px-2.5 py-0.5 rounded-full bg-[var(--magenta)] text-white shadow-sm">
+                  {TYPE_LABEL[artist.type] || 'Artist'}
+                </span>
+                <span className="inline-flex items-center gap-1 text-[#ffc53d] text-xs font-semibold">
+                  <Star size={13} fill="currentColor" />
+                  {Number(artist.rating) > 0 ? Number(artist.rating).toFixed(1) : 'New'}
+                  {artist.review_count > 0 && <span className="opacity-60 text-white font-normal">({artist.review_count})</span>}
+                </span>
               </div>
-            ))}
+              <h2 className="font-bungee text-xl sm:text-2xl text-white mt-1 leading-tight truncate">
+                {artist.name}
+              </h2>
+              {artist.genres?.length > 0 && (
+                <p className="text-xs text-white/60 truncate mt-0.5">
+                  {artist.genres.slice(0, 3).join(' • ')}
+                </p>
+              )}
+            </div>
+          </div>
+
+          <div className="flex flex-col items-end gap-2 shrink-0">
+            <button
+              type="button"
+              onClick={onClose}
+              className="p-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-white/70 hover:text-white transition"
+              aria-label="Close"
+            >
+              <X size={20} />
+            </button>
+            <div className="text-right hidden sm:block">
+              <span className="text-[10px] uppercase tracking-wider text-white/50 block">Pricing</span>
+              <span className="text-sm font-bold text-[var(--cyan)]">
+                {artist.price_from ? `From ₹${Number(artist.price_from).toLocaleString('en-IN')}` : 'On Request'}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* City Availability Card — Strictly shows the artist's operating city */}
+        {artist.city ? (
+          <div className="p-3.5 rounded-xl bg-gradient-to-r from-[var(--cyan)]/10 via-white/5 to-transparent border border-[var(--cyan)]/30 flex items-center justify-between">
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-lg bg-[var(--cyan)]/20 text-[var(--cyan)] flex items-center justify-center shrink-0">
+                <MapPin size={16} />
+              </div>
+              <div>
+                <span className="text-[10px] uppercase font-bold tracking-wider text-[var(--cyan)] block">Service City</span>
+                <span className="text-sm font-bold text-white">{artist.city}</span>
+              </div>
+            </div>
+            <span className="text-[11px] font-semibold text-white/80 bg-black/50 border border-white/10 px-2.5 py-1 rounded-full">
+              ✓ Available in {artist.city} only
+            </span>
+          </div>
+        ) : (
+          <div>
+            <label className="text-xs text-white/70 font-semibold mb-1 block">City for this Event *</label>
+            <select className="select-dark w-full" value={form.city} onChange={set('city')} required>
+              <option value="">Select city</option>
+              {LIVE_CITIES.map((c) => <option key={c} value={c}>{c}</option>)}
+            </select>
           </div>
         )}
-        <div className="grid gap-3">
-          <input className="input-dark" placeholder="Your name" value={form.name} onChange={set('name')} required />
-          <input className="input-dark" placeholder="Phone / WhatsApp" value={form.phone} onChange={set('phone')} required />
-          <select className="select-dark" value={form.event_type} onChange={set('event_type')}>
-            <option value="">Event type</option>
-            {['Wedding', 'Birthday', 'Corporate', 'Club / Party', 'College Fest', 'Gaming Event', 'Other'].map((t) => <option key={t}>{t}</option>)}
-          </select>
-          <div>
-            <p className="text-xs opacity-70 mb-1.5">Select an available date *</p>
-            {freeDates.length === 0 ? <p className="text-xs text-amber-400">No upcoming availability. Check back soon.</p> : (
-              <div className="flex flex-wrap gap-1.5 max-h-28 overflow-y-auto">
-                {freeDates.map((d) => (
-                  <button type="button" key={d} onClick={() => setForm((p) => ({ ...p, event_date: d }))}
-                    className={`text-xs px-2.5 py-1.5 rounded-full border transition ${form.event_date === d ? 'bg-[var(--cyan)] text-black border-transparent font-bold' : 'border-white/20'}`}>
-                    {new Date(d + 'T00:00').toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
-                  </button>
-                ))}
-              </div>
-            )}
+
+        {/* Available Dates Section */}
+        <div>
+          <div className="flex items-center justify-between mb-2">
+            <label className="text-xs font-semibold text-white/90 flex items-center gap-1.5">
+              <CalendarDays size={14} className="text-[var(--cyan)]" />
+              <span>Select An Available Date *</span>
+            </label>
+            <span className="text-[11px] text-white/50">
+              {freeDates.length} open {freeDates.length === 1 ? 'date' : 'dates'}
+            </span>
           </div>
-          <select className="select-dark" value={form.city} onChange={set('city')}>
-            <option value="">Event city</option>
-            {LIVE_CITIES.map((c) => <option key={c}>{c}</option>)}
-          </select>
-          <input type="number" min="0" className="input-dark" placeholder="Budget (₹)" value={form.budget} onChange={set('budget')} />
-          <textarea className="input-dark" rows={3} placeholder="Tell us about your event" value={form.message} onChange={set('message')} />
-          <button className="btn-primary" disabled={saving}>{saving ? 'Sending…' : 'Send Hire Request'}</button>
+
+          {freeDates.length === 0 ? (
+            <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs flex items-center justify-between">
+              <span>No pre-scheduled dates open right now.</span>
+              <span className="opacity-80">You can propose a date in your notes below.</span>
+            </div>
+          ) : (
+            <div className="flex gap-2 overflow-x-auto pb-2 pt-1 scrollbar-thin">
+              {freeDates.map((d) => {
+                const dateObj = new Date(d + 'T00:00:00')
+                const isSelected = form.event_date === d
+                return (
+                  <button
+                    type="button"
+                    key={d}
+                    onClick={() => setForm((p) => ({ ...p, event_date: d }))}
+                    className={`px-3 py-2 rounded-xl text-center border transition-all duration-200 shrink-0 min-w-[72px] flex flex-col items-center ${
+                      isSelected
+                        ? 'bg-[var(--cyan)] text-black border-[var(--cyan)] font-extrabold shadow-lg shadow-[var(--cyan)]/30 scale-105'
+                        : 'border-white/15 bg-white/5 text-white/80 hover:border-white/30 hover:bg-white/10'
+                    }`}
+                  >
+                    <span className="text-[9px] uppercase tracking-wider opacity-75">
+                      {dateObj.toLocaleDateString('en-IN', { weekday: 'short' })}
+                    </span>
+                    <span className="text-base font-extrabold leading-tight my-0.5">
+                      {dateObj.getDate()}
+                    </span>
+                    <span className="text-[10px] opacity-75">
+                      {dateObj.toLocaleDateString('en-IN', { month: 'short' })}
+                    </span>
+                  </button>
+                )
+              })}
+            </div>
+          )}
         </div>
+
+        {/* Event Type & Budget Grid */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label className="text-xs text-white/70 font-semibold mb-1 block">Event Type</label>
+            <select className="select-dark w-full !text-xs !py-2.5" value={form.event_type} onChange={set('event_type')}>
+              {['Club / Party', 'Private Gig / House Party', 'Wedding / Sangeet', 'Corporate Event', 'College Fest', 'Gaming Tournament', 'Birthday Bash', 'Other'].map((t) => (
+                <option key={t} value={t}>{t}</option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="text-xs text-white/70 font-semibold mb-1 block">Estimated Budget (₹)</label>
+            <input
+              type="number"
+              min="0"
+              className="input-dark w-full !text-xs !py-2.5"
+              placeholder={artist.price_from ? `Min ₹${artist.price_from.toLocaleString('en-IN')}` : 'Budget (₹)'}
+              value={form.budget}
+              onChange={set('budget')}
+            />
+          </div>
+        </div>
+
+        {/* Contact Details Grid */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label className="text-xs text-white/70 font-semibold mb-1 block">Your Name *</label>
+            <input
+              className="input-dark w-full !text-xs !py-2.5"
+              placeholder="e.g. John Doe"
+              value={form.name}
+              onChange={set('name')}
+              required
+            />
+          </div>
+
+          <div>
+            <label className="text-xs text-white/70 font-semibold mb-1 block">Phone / WhatsApp *</label>
+            <input
+              className="input-dark w-full !text-xs !py-2.5"
+              placeholder="e.g. +91 98765 43210"
+              value={form.phone}
+              onChange={set('phone')}
+              required
+            />
+          </div>
+        </div>
+
+        {/* Notes & Requirements */}
+        <div>
+          <label className="text-xs text-white/70 font-semibold mb-1 block">Event Details & Sound Setup</label>
+          <textarea
+            className="input-dark w-full !text-xs !py-2.5"
+            rows={2}
+            placeholder="Venue details, set duration (e.g. 2-3 hrs), crowd size, sound gear needed, music genres..."
+            value={form.message}
+            onChange={set('message')}
+          />
+        </div>
+
+        {/* Reviews snippet if available */}
+        {reviews.length > 0 && (
+          <div className="p-3 rounded-xl bg-white/5 border border-white/10 space-y-2">
+            <span className="text-[10px] uppercase font-bold tracking-wider text-white/50 block">Recent Review</span>
+            <div className="text-xs">
+              <span className="text-[#ffc53d]">{'★'.repeat(reviews[0].rating)}</span>{' '}
+              <b className="text-white">{reviews[0].reviewer_name}</b>
+              {reviews[0].comment && <p className="text-white/70 mt-0.5 line-clamp-2">"{reviews[0].comment}"</p>}
+            </div>
+          </div>
+        )}
+
+        {/* Trust Indicators */}
+        <div className="flex items-center justify-around py-2 border-y border-white/10 text-[11px] text-white/60">
+          <span className="inline-flex items-center gap-1.5"><ShieldCheck size={14} className="text-[var(--cyan)]" /> Verified Artist</span>
+          <span className="inline-flex items-center gap-1.5"><Clock size={14} className="text-[var(--magenta)]" /> 2-Hour Response</span>
+          <span className="inline-flex items-center gap-1.5"><Check size={14} className="text-emerald-400" /> Free Coordination</span>
+        </div>
+
+        {/* Action Button */}
+        <button
+          type="submit"
+          disabled={saving}
+          className="btn-primary w-full !py-3 text-xs sm:text-sm font-extrabold tracking-wider uppercase shadow-xl shadow-[var(--magenta)]/30 inline-flex items-center justify-center gap-2"
+        >
+          {saving ? (
+            <>
+              <Loader2 size={16} className="animate-spin" />
+              <span>Sending Request…</span>
+            </>
+          ) : (
+            <span>Send Booking Request for {artist.name} →</span>
+          )}
+        </button>
       </motion.form>
     </motion.div>
   )
@@ -391,9 +602,10 @@ export default function Live() {
   useEffect(() => {
     let alive = true
     ;(async () => {
+      const nowIso = new Date().toISOString()
       const [ev, ar] = await Promise.all([
         supabase.from('live_events').select('*').eq('is_active', true)
-          .gte('event_date', new Date(Date.now() - 86400000).toISOString()).order('event_date'),
+          .gte('event_date', nowIso).order('event_date', { ascending: true }),
         supabase.from('live_artists').select('*').eq('is_active', true)
           .order('is_featured', { ascending: false }).order('created_at', { ascending: false }),
       ])
@@ -411,9 +623,13 @@ export default function Live() {
   )
   const match = (s) => s.toLowerCase().includes(q.trim().toLowerCase())
 
-  // Filter events and ensure LocalDen events are displayed first
+  // Filter events and ensure LocalDen events are displayed first, excluding passed events
   const allFilteredEvents = useMemo(() => {
+    const now = Date.now()
     const list = events.filter((e) => {
+      // Do not show events after the date has passed
+      if (e.event_date && new Date(e.event_date).getTime() < now) return false
+
       const isLocalDen = e.source === 'localden' || e.source === 'manual'
       const matchesCategory = filter === 'all' || e.category === filter
       const matchesSource =

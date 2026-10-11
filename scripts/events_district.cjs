@@ -77,7 +77,7 @@ function priceLabel(offers) {
 function toRow(ev, city, hint) {
   const category = pickCategory(ev, hint)
   const date = ev.startDate && new Date(ev.startDate)
-  if (!category || !date || Number.isNaN(+date) || date < new Date(Date.now() - 86400000)) return null
+  if (!category || !date || Number.isNaN(+date) || date < new Date()) return null
   const images = [].concat(ev.image || [])
   return {
     title: String(ev.name).slice(0, 200),
