@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import {
   Gamepad2, Music, ChevronRight, Shield, Star, Leaf, Wallet,
-  ArrowRight, MapPin, Search, CalendarDays, ChevronsDown,
+  ArrowRight, MapPin, Search, CalendarDays, ChevronsDown, Sparkles, Mic2,
 } from 'lucide-react'
 import GameBackground from '../components/GameBackground'
 import ListingCard from '../components/ListingCard'
@@ -11,10 +11,14 @@ import { usePlatformFee } from '../hooks/usePlatformFee'
 import { platformFeeCopy } from '../lib/platformFee'
 import { shiftIso, todayIso } from '../lib/bookingDates'
 import SEOHead from '../components/SEOHead'
+import {
+  BENGALURU_LOCALITIES,
+  GURUGRAM_LOCALITIES,
+} from '../lib/cities'
 import './home.css'
 
-const AREAS = ['Koramangala', 'Indiranagar', 'HSR Layout', 'Whitefield', 'BTM Layout']
-const ALL_AREAS = ['Bangalore', ...AREAS, 'Marathahalli', 'Electronic City', 'Jayanagar']
+const POPULAR_HUBS = ['Koramangala', 'Cyber City', 'Indiranagar', 'Golf Course Road', 'HSR Layout', 'DLF Phase 2', 'Whitefield']
+const ALL_AREAS = ['All Cities', 'Bengaluru', 'Gurugram', ...BENGALURU_LOCALITIES, ...GURUGRAM_LOCALITIES]
 
 const HERO_GEAR = [
   { src: '/hero/guitar.png', className: 'is-guitar' },
@@ -105,14 +109,14 @@ function Counter({ end, suffix = '', duration = 1600, decimals = 0 }) {
 function Planner() {
   const navigate = useNavigate()
   const today = todayIso()
-  const [area, setArea] = useState('Bangalore')
+  const [area, setArea] = useState('All Cities')
   const [from, setFrom] = useState(today)
   const [to, setTo] = useState(shiftIso(today, 2))
 
   const go = (e) => {
     e.preventDefault()
     const params = new URLSearchParams()
-    if (area && area !== 'Bangalore') params.set('loc', area)
+    if (area && area !== 'All Cities') params.set('loc', area)
     if (from) params.set('from', from)
     if (to) params.set('to', to)
     try {
@@ -125,13 +129,21 @@ function Planner() {
     <form className="home-plan" onSubmit={go} aria-label="Plan a rental">
       <label className="home-plan__cell">
         <MapPin size={14} aria-hidden="true" />
-        <span>Area</span>
+        <span>City / Area</span>
         <select
           value={area}
           onChange={(e) => setArea(e.target.value)}
-          aria-label="Bangalore area"
+          aria-label="Rental city or area"
         >
-          {ALL_AREAS.map((item) => <option key={item} value={item}>{item}</option>)}
+          <option value="All Cities">All Cities & Locations</option>
+          <optgroup label="🏙️ Bengaluru">
+            <option value="Bengaluru">Entire Bengaluru</option>
+            {BENGALURU_LOCALITIES.map((item) => <option key={item} value={item}>{item}</option>)}
+          </optgroup>
+          <optgroup label="🏢 Gurugram (NCR)">
+            <option value="Gurugram">Entire Gurugram</option>
+            {GURUGRAM_LOCALITIES.map((item) => <option key={item} value={item}>{item}</option>)}
+          </optgroup>
         </select>
       </label>
       <label className="home-plan__cell">
@@ -199,8 +211,8 @@ export default function Home() {
   return (
     <div className="home">
       <SEOHead
-        title="Rent Gaming & Music Gear in Bangalore"
-        description="P2P rental for PS5, guitars, DJ equipment & more in Bangalore. Rent by the day from real people near you."
+        title="Rent Gaming & Music Gear in Bengaluru & Gurugram"
+        description="P2P rental for PS5, guitars, DJ equipment & more in Bengaluru and Gurugram. Rent by the day from real people near you."
       />
       <div className="grid-floor" />
       <GameBackground />
@@ -224,11 +236,18 @@ export default function Home() {
           <div className="home-pills" aria-label="Why rent">
             <span><Leaf size={12} /> Kind on the planet</span>
             <span><Wallet size={12} /> Kinder on the pocket</span>
+            <Link
+              to="/live"
+              className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-gradient-to-r from-[var(--magenta)]/20 to-[var(--cyan)]/20 border border-[var(--magenta)]/40 text-white hover:border-[var(--cyan)] hover:scale-105 transition-all"
+            >
+              <Sparkles size={12} className="text-[var(--cyan)]" />
+              <span>Explore Events & Hire Artists →</span>
+            </Link>
           </div>
 
           <p className="home-lead">
             Peer-to-peer <strong className="magenta">consoles</strong> and{' '}
-            <strong className="cyan">instruments</strong> across Bangalore.
+            <strong className="cyan">instruments</strong> across Bengaluru & Gurugram.
           </p>
 
           <Planner />
@@ -284,8 +303,8 @@ export default function Home() {
           ))}
         </div>
 
-        <div className="home-areas" aria-label="Browse by area">
-          {AREAS.map((area) => (
+        <div className="home-areas" aria-label="Browse by popular hubs">
+          {POPULAR_HUBS.map((area) => (
             <Link key={area} to={`/browse?loc=${encodeURIComponent(area)}`} className="home-chip" aria-label={`Browse ${area}`}>
               <MapPin size={12} /> {area}
             </Link>
@@ -357,10 +376,75 @@ export default function Home() {
             <div className="home-empty">
               <div className="text-6xl" aria-hidden="true">🎮</div>
               <h3>Nothing live yet</h3>
-              <p>Be first in Bangalore. List a console or a guitar.</p>
+              <p>Be first in Bengaluru or Gurugram. List a console or a guitar.</p>
               <Link to="/list-item" className="btn-primary">+ List Your Gear</Link>
             </div>
           ) : null}
+        </div>
+      </section>
+
+      {/* ── Events & Hire Artists Spotlight Section ── */}
+      <section className="home-section">
+        <div className="glass neon-border-card rounded-3xl p-6 sm:p-10 relative overflow-hidden">
+          <div className="absolute -right-20 -bottom-20 w-80 h-80 bg-[var(--magenta)]/15 rounded-full blur-3xl pointer-events-none" />
+          <div className="absolute -left-20 -top-20 w-80 h-80 bg-[var(--cyan)]/15 rounded-full blur-3xl pointer-events-none" />
+
+          <div className="relative z-10 flex flex-col lg:flex-row items-center justify-between gap-8">
+            <div className="lg:max-w-xl text-center lg:text-left">
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[var(--magenta)]/20 border border-[var(--magenta)]/40 text-[var(--magenta)] text-xs font-bold uppercase tracking-wider mb-3">
+                <Sparkles size={13} />
+                <span>New on LocalDen</span>
+              </div>
+              <h2 className="font-bungee text-2xl sm:text-4xl text-white leading-tight">
+                Events &amp; <span className="gradient-text">Hire Artists</span>
+              </h2>
+              <p className="mt-3 text-sm sm:text-base text-white/70 leading-relaxed">
+                Planning a house party, college fest, gaming tournament, or wedding? Book verified DJs, musicians, and singers directly with calendar availability — plus discover live concerts and esports nights happening in Bengaluru &amp; Gurugram.
+              </p>
+
+              <div className="mt-6 flex flex-wrap gap-3 justify-center lg:justify-start">
+                <Link to="/live" className="btn-primary inline-flex items-center gap-2 text-sm font-bold py-3 px-6 shadow-lg shadow-[var(--magenta)]/25">
+                  <Mic2 size={16} />
+                  <span>Book Artists &amp; DJs</span>
+                </Link>
+                <Link to="/live" className="btn-outline inline-flex items-center gap-2 text-sm font-bold py-3 px-6">
+                  <span>Explore City Events</span>
+                  <ArrowRight size={15} />
+                </Link>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3.5 w-full lg:max-w-md">
+              <div className="glass rounded-2xl p-4.5 border border-white/10 hover:border-[var(--magenta)]/50 transition-all flex flex-col justify-between">
+                <span className="text-2xl mb-2">🎧</span>
+                <div>
+                  <h4 className="font-bungee text-sm text-white">Hire Top DJs</h4>
+                  <p className="text-xs text-white/60 mt-1">EDM, Bollywood, Techno &amp; House party sets.</p>
+                </div>
+              </div>
+              <div className="glass rounded-2xl p-4.5 border border-white/10 hover:border-[var(--cyan)]/50 transition-all flex flex-col justify-between">
+                <span className="text-2xl mb-2">🎸</span>
+                <div>
+                  <h4 className="font-bungee text-sm text-white">Live Bands &amp; Singers</h4>
+                  <p className="text-xs text-white/60 mt-1">Acoustic, rock &amp; sufi jam performers.</p>
+                </div>
+              </div>
+              <div className="glass rounded-2xl p-4.5 border border-white/10 hover:border-[var(--cyan)]/50 transition-all flex flex-col justify-between">
+                <span className="text-2xl mb-2">🎮</span>
+                <div>
+                  <h4 className="font-bungee text-sm text-white">Gaming Tourneys</h4>
+                  <p className="text-xs text-white/60 mt-1">LAN parties, FIFA, Tekken &amp; BGMI showdowns.</p>
+                </div>
+              </div>
+              <div className="glass rounded-2xl p-4.5 border border-white/10 hover:border-[var(--magenta)]/50 transition-all flex flex-col justify-between">
+                <span className="text-2xl mb-2">⭐</span>
+                <div>
+                  <h4 className="font-bungee text-sm text-white">LocalDen Passes</h4>
+                  <p className="text-xs text-white/60 mt-1">Official Den club nights &amp; exclusive tickets.</p>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </section>
 
@@ -391,7 +475,7 @@ export default function Home() {
           <h2>Your gear is <span className="gradient-text">sitting idle.</span></h2>
           <p>{platformFeeCopy(fee)} Deposit stays on the booking. Wallet pays out after return.</p>
           <div className="home-cta is-center">
-            <Link to="/list-item" className="btn-primary" aria-label="List my gear in Bangalore">
+            <Link to="/list-item" className="btn-primary" aria-label="List my gear in Bengaluru or Gurugram">
               <MapPin size={16} /> List My Gear
             </Link>
             <Link to="/dashboard?tab=wallet" className="btn-outline">See wallet</Link>
@@ -428,7 +512,7 @@ export default function Home() {
           </div>
           <div className="home-trust-card">
             <MapPin size={16} />
-            <div><strong>Bangalore local</strong><span>Pickup or drop</span></div>
+            <div><strong>Bengaluru & Gurugram</strong><span>Pickup or drop</span></div>
           </div>
         </div>
       </section>

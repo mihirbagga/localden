@@ -499,7 +499,7 @@ export default function WelcomeScreen({ onEnter }) {
             marginBottom: 32,
             letterSpacing: '0.05em',
           }}>
-            Bangalore's Gaming &amp; Music Rental Marketplace
+            Bengaluru &amp; Gurugram's Gaming &amp; Music Rental Marketplace
           </p>
         </div>
 

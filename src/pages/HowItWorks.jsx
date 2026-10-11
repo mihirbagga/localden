@@ -10,7 +10,7 @@ const RENTER_STEPS = [
   {
     emoji: '🔍',
     title: 'Browse & search',
-    desc: 'Filter Gaming or Music, Bangalore area, price, and dates. Find the exact console, guitar, or kit you need.',
+    desc: 'Filter Gaming or Music, city (Bengaluru or Gurugram), locality, price, and dates. Find the exact console, guitar, or kit you need.',
   },
   {
     emoji: '🪪',
@@ -106,7 +106,7 @@ export default function HowItWorks() {
     { q: 'How long does KYC take?', a: 'Upload takes about 2 minutes. Admin reviews Aadhaar/PAN last 4 and a selfie, usually within an hour.' },
     { q: 'Can I list more than one item?', a: 'Yes. Each listing has its own photos, price, and stock. No listing fee.' },
     { q: 'How is the platform fee calculated?', a: platformFeeFaq(fee) },
-    { q: 'What areas are covered?', a: 'Bangalore first: Koramangala, Indiranagar, HSR, Whitefield, BTM, Marathahalli, Electronic City, Jayanagar, Sadashivanagar, Malleshwaram, Hebbal. More soon.' },
+    { q: 'What areas are covered?', a: 'We operate across Bengaluru (Koramangala, Indiranagar, HSR, Whitefield, etc.) and Gurugram (Cyber City, DLF Phases 1-5, Golf Course Road, Sohna Road, etc.). More cities launching soon.' },
     { q: 'How do I contact support?', a: `Call or WhatsApp ${SUPPORT_PHONE}, or email ${SUPPORT_EMAIL}.` },
   ]), [fee])
 

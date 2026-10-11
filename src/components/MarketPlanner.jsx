@@ -4,7 +4,18 @@ import { CalendarDays, ChevronDown, MapPin } from 'lucide-react'
 import { shiftIso, todayIso } from '../lib/bookingDates'
 import './MarketPlanner.css'
 
-export const MARKET_AREAS = ['Bangalore', 'Koramangala', 'Indiranagar', 'HSR Layout', 'Whitefield', 'BTM Layout']
+export const MARKET_AREAS = [
+  'All Cities',
+  'Bengaluru',
+  'Gurugram',
+  'Koramangala',
+  'Indiranagar',
+  'HSR Layout',
+  'Whitefield',
+  'Cyber City',
+  'DLF Phase 2',
+  'Golf Course Road',
+]
 
 function prettyDate(iso) {
   if (!iso) return ''
@@ -18,13 +29,13 @@ function prettyDate(iso) {
 
 export default function MarketPlanner() {
   const navigate = useNavigate()
-  const [area, setArea] = useState('Bangalore')
+  const [area, setArea] = useState('All Cities')
   const [startDate, setStartDate] = useState(todayIso())
   const [endDate, setEndDate] = useState(shiftIso(todayIso(), 2))
 
   const goSearch = () => {
     const params = new URLSearchParams()
-    if (area && area !== 'Bangalore') params.set('loc', area)
+    if (area && area !== 'All Cities') params.set('loc', area)
     navigate(`/browse?${params.toString()}`)
   }
 

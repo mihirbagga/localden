@@ -14,6 +14,7 @@ import { getPaymentMethodLabel } from './payments'
 import { supabase } from './supabase'
 import { toPublicStorageUrl } from './storageUrl'
 import { parseDeliveryAddress } from './deliveryAddress'
+import { formatLocationDisplay } from './cities'
 
 function paymentLabel(booking) {
   if (booking.razorpay_payment_id) return getPaymentMethodLabel('razorpay')
@@ -229,7 +230,7 @@ export async function generateAgreementPDF(booking, listing, renterName, listerN
   if (listing?.condition) row('Condition', cap(listing.condition))
   if (listing?.brand) row('Brand', listing.brand)
   if (listing?.model) row('Model', listing.model)
-  if (listing?.location) row('Location', listing.location)
+  if (listing?.location) row('Location', formatLocationDisplay(listing.location))
   y += 3
 
   // ───────────────────────── 3. Time window
@@ -259,7 +260,8 @@ export async function generateAgreementPDF(booking, listing, renterName, listerN
   if (Number(booking.discount_amount) > 0) {
     row(`Discount${booking.coupon_code ? ` (${booking.coupon_code})` : ''}`, `- ${money(booking.discount_amount)}`, { color: C.green })
   }
-  row('Refundable security deposit', money(booking.deposit))
+  const depositNum = Number(booking.deposit || 0)
+  row('Refundable security deposit', depositNum > 0 ? money(depositNum) : 'None (Zero Deposit)')
   divider()
   ensure(16)
   doc.setFont('helvetica', 'bold')
@@ -273,7 +275,11 @@ export async function generateAgreementPDF(booking, listing, renterName, listerN
   doc.setFont('helvetica', 'normal')
   doc.setFontSize(7.5)
   doc.setTextColor(...C.muted)
-  doc.text('Deposit is included in the total and comes back to the Borrower after a clean return.', LABEL_X, y - 3)
+  if (depositNum > 0) {
+    doc.text('Deposit is included in the total and comes back to the Borrower after a clean return.', LABEL_X, y - 3)
+  } else {
+    doc.text('Zero security deposit rental. No deposit was collected.', LABEL_X, y - 3)
+  }
   y += 4
 
   // ───────────────────────── 5. Payment
@@ -296,7 +302,9 @@ export async function generateAgreementPDF(booking, listing, renterName, listerN
   const rules = [
     ['Treat it like your own', `${renter} promises to use the gear with care and return it in the same condition it arrived.`],
     ['Oops happens', 'Normal wear and tear is totally fine. Real damage or loss gets deducted from the security deposit.'],
-    ['The deposit comes home', `Your ${money(booking.deposit)} deposit is refunded within 48 hours of a confirmed, happy return.`],
+    ['The deposit comes home', depositNum > 0
+      ? `Your ${money(depositNum)} deposit is refunded within 48 hours of a confirmed, happy return.`
+      : 'Zero security deposit rental. No deposit was collected for this gear.'],
     ['Be on time', `Late returns are charged at the daily rate (${money(booking.price_per_day)}) for each extra day.`],
     ["The Owner's promise", `${lister} promises the gear works and matches the listing at handover.`],
     ['Photos are proof', 'Take check-in and check-out photos in the app. They settle any "it was like that before" debates.'],
@@ -385,7 +393,7 @@ export async function generateAgreementPDF(booking, listing, renterName, listerN
     doc.setFont('helvetica', 'normal')
     doc.setFontSize(7.5)
     doc.setTextColor(...C.muted)
-    doc.text('Made with love by LocalDen - Bangalore, Karnataka. Be nice. Return stuff. Be awesome.', W / 2, H - 9, { align: 'center' })
+    doc.text('Made with love by LocalDen - Bengaluru & Gurugram. Be nice. Return stuff. Be awesome.', W / 2, H - 9, { align: 'center' })
     doc.text(`Page ${p} of ${pages}`, W / 2, H - 5, { align: 'center' })
   }
 

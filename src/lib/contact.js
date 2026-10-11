@@ -5,3 +5,6 @@ export const SUPPORT_EMAIL = 'support.localden@gmail.com'
 export const SUPPORT_TEL_HREF = `tel:${SUPPORT_PHONE_TEL}`
 export const SUPPORT_MAIL_HREF = `mailto:${SUPPORT_EMAIL}`
 export const SUPPORT_WHATSAPP_HREF = `https://wa.me/${SUPPORT_PHONE_TEL}`
+
+export const INSTAGRAM_HANDLE = 'localden.online'
+export const INSTAGRAM_URL = 'https://www.instagram.com/localden.online/'

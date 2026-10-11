@@ -210,7 +210,7 @@ begin
     end if;
   end if;
 
-  v_deposit := coalesce(nullif(v_listing.deposit_amount, 0), 5000);
+  v_deposit := coalesce(v_listing.deposit_amount, 0);
 
   -- Damage protection (site_settings.protection_plans)
   select value into v_prot_cfg from public.site_settings where id = 'protection_plans';

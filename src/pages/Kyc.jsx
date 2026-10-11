@@ -179,7 +179,7 @@ export default function Kyc() {
             <div className="kyc-ok">
               <Shield size={36} style={{ color: '#00e5ff' }} />
               <h2>KYC Not Required</h2>
-              <p>Your account is active! Admin has not requested KYC for your account. You can freely list and rent gear across Bangalore.</p>
+              <p>Your account is active! Admin has not requested KYC for your account. You can freely list and rent gear across Bengaluru & Gurugram.</p>
               <div className="flex gap-3 mt-4">
                 <Link to="/browse" className="btn-primary">Browse Gear</Link>
                 <Link to="/dashboard" className="btn-outline">Dashboard</Link>
@@ -191,7 +191,7 @@ export default function Kyc() {
             <div className="kyc-ok">
               <CheckCircle size={36} />
               <h2>You are verified</h2>
-              <p>Rent and list across Bangalore.</p>
+              <p>Rent and list across Bengaluru & Gurugram.</p>
               <Link to={back} className="btn-primary">Continue</Link>
             </div>
           ) : null}

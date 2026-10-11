@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Users, Package, Calendar, Star, Boxes, LayoutDashboard, Shield, Ticket, CreditCard, ShieldCheck, Truck, Wallet } from 'lucide-react'
+import { Users, Package, Calendar, Star, Boxes, LayoutDashboard, Shield, Ticket, CreditCard, ShieldCheck, Truck, Wallet, Music } from 'lucide-react'
 import GameBackground from '../components/GameBackground'
 import { useAuth } from '../contexts/AuthContext'
 import { useAdminData } from '../hooks/useAdminData'
@@ -15,6 +15,7 @@ import AdminPayments from './admin/AdminPayments'
 import AdminKyc from './admin/AdminKyc'
 import AdminDrivers from './admin/AdminDrivers'
 import AdminPayouts from './admin/AdminPayouts'
+import AdminLive from './admin/AdminLive'
 import './admin/admin.css'
 
 const TABS = [
@@ -28,6 +29,7 @@ const TABS = [
   { id: 'reviews', label: 'Reviews', icon: Star },
   { id: 'coupons', label: 'Coupons', icon: Ticket },
   { id: 'payments', label: 'Payments', icon: CreditCard },
+  { id: 'live', label: 'Live', icon: Music },
   { id: 'kyc', label: 'KYC', icon: ShieldCheck },
 ]
 
@@ -157,6 +159,8 @@ export default function Admin() {
             removeCoupon={data.removeCoupon}
           />
         ) : null}
+
+        {!data.loading && tab === 'live' ? <AdminLive /> : null}
 
         {!data.loading && tab === 'payments' ? (
           <AdminPayments

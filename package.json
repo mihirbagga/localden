@@ -6,7 +6,14 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "instagram:preview": "node scripts/instagram_agent.cjs preview",
+    "instagram:publish": "node scripts/instagram_agent.cjs publish",
+    "events:fetch": "node scripts/events_district.cjs",
+    "events:fetch:dry": "node scripts/events_district.cjs --dry",
+    "events:fetch:ai": "node scripts/events_agent.cjs",
+    "events:digest": "node scripts/send_event_digest.cjs",
+    "events:digest:dry": "node scripts/send_event_digest.cjs --dry"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.109.0",

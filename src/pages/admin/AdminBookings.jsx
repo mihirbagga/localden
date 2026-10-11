@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import { useToast } from '../../contexts/ToastContext'
+import { useConfirm } from '../../contexts/ConfirmContext'
 import { AdminEmpty, AdminSearch, matchesQuery } from './AdminShared'
 import { BOOKING_LABEL, BOOKING_STATUSES, displayName, explainAdminError, formatDate, shortId } from './adminHelpers'
 import { adjustListingStock } from '../../lib/stockService'
@@ -14,6 +15,7 @@ import DeliveryAddressDisplay from '../../components/DeliveryAddressDisplay'
 
 export default function AdminBookings({ bookings, patchBooking }) {
   const { showToast } = useToast()
+  const { confirm, prompt } = useConfirm()
   const [query, setQuery] = useState('')
   const [activeTrackingBooking, setActiveTrackingBooking] = useState(null)
   const [activeRefundBooking, setActiveRefundBooking] = useState(null)
@@ -61,7 +63,13 @@ export default function AdminBookings({ bookings, patchBooking }) {
   }
 
   const handleConfirmPayment = async (booking) => {
-    if (!window.confirm(`Verify payment of ₹${booking.total_amount} (Ref: ${booking.payment_ref || booking.razorpay_payment_id || 'N/A'})?`)) return
+    const ok = await confirm({
+      title: 'Verify Payment',
+      message: `Verify payment of ₹${booking.total_amount} (Ref: ${booking.payment_ref || booking.razorpay_payment_id || 'N/A'})? This will mark the booking as paid.`,
+      confirmText: 'Verify Payment',
+      variant: 'success',
+    })
+    if (!ok) return
     try {
       const { error } = await supabase.rpc('confirm_booking_payment', {
         p_booking_id: booking.id,
@@ -87,7 +95,14 @@ export default function AdminBookings({ bookings, patchBooking }) {
   }
 
   const handleRejectPayment = async (booking) => {
-    const reason = window.prompt('Reason for rejecting payment (renter will see this):', 'Payment reference could not be verified on our bank account.')
+    const reason = await prompt({
+      title: 'Reject Payment',
+      message: 'Reason for rejecting payment (the renter will see this note):',
+      defaultValue: 'Payment reference could not be verified on our bank account.',
+      placeholder: 'Enter rejection reason...',
+      confirmText: 'Reject & Cancel',
+      variant: 'danger',
+    })
     if (reason === null) return
     try {
       const { error } = await supabase.rpc('reject_booking_payment', {

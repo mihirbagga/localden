@@ -14,17 +14,22 @@ import { computePlatformFee, platformFeeCopy } from '../lib/platformFee'
 import { calculateSuggestedPricing } from '../lib/dynamicPricing'
 import './couponApply.css'
 import './listItem.css'
+import {
+  CITIES,
+  BENGALURU_LOCALITIES,
+  GURUGRAM_LOCALITIES,
+  getCityForLocation,
+} from '../lib/cities'
 
 const GAMING_TYPES = ['Console','Controller','VR Headset','Gaming Mouse','Racing Wheel','Gaming Chair','Monitor','Headset','Other']
 const MUSIC_TYPES  = ['Guitar','Bass','Piano / Keyboard','Drums','DJ Controller','Microphone','Amplifier','Synthesizer','Violin','Saxophone','Other']
-const LOCATIONS    = ['Koramangala','Indiranagar','HSR Layout','Whitefield','BTM Layout','Marathahalli','Electronic City','Jayanagar','Sadashivanagar','Malleshwaram','Hebbal']
 const CONDITIONS   = [
   { value: 'like_new', label: '✨ Like New',  desc: 'Barely used, mint condition' },
   { value: 'good',     label: '👍 Good',      desc: 'Normal wear, works perfectly' },
   { value: 'fair',     label: '🔧 Fair',      desc: 'Visible wear, fully functional' },
 ]
 const PRICE_PRESETS = [199, 299, 499, 799, 999]
-const DEPOSIT_PRESETS = [2000, 5000, 10000]
+const DEPOSIT_PRESETS = [0, 2000, 5000, 10000]
 const STEP_LABELS = ['What & Where', 'Price & Publish']
 
 const CATEGORY_EMOJI = {
@@ -37,9 +42,13 @@ const CATEGORY_EMOJI = {
 
 const EMPTY_FORM = {
   title: '', description: '', itemType: '', brand: '', model: '',
-  condition: 'good', location: 'Koramangala',
+  condition: 'good',
+  city: 'Bengaluru',
+  location: 'Koramangala',
   priceDay: '', priceWeekend: '', priceWeek: '',
-  deposit: '5000', phone: '',
+  deposit: '0',
+  hasDeposit: false,
+  phone: '',
   stockQty: '1',
   fulfillmentType: 'direct',
 }
@@ -91,6 +100,8 @@ export default function ListItem() {
         if (err || !data) { showToast('Listing not found', 'error'); navigate('/dashboard'); return }
         setCategory(data.category)
         setStep(1)
+        const loadedDeposit = data.deposit_amount != null ? Number(data.deposit_amount) : 0
+        const detectedCity = getCityForLocation(data.location || '')
         setForm({
           title:        data.title         || '',
           description:  (data.description || '').replace(/\s*\[GAMES:.*?\]/gi, '').trim(),
@@ -98,11 +109,13 @@ export default function ListItem() {
           brand:        data.brand         || '',
           model:        data.model         || '',
           condition:    data.condition     || 'good',
-          location:     data.location      || 'Koramangala',
+          city:         detectedCity,
+          location:     data.location      || (detectedCity === 'Gurugram' ? 'Cyber City' : 'Koramangala'),
           priceDay:     String(data.price_day     || ''),
           priceWeekend: String(data.price_weekend || ''),
           priceWeek:    String(data.price_week    || ''),
-          deposit:      String(data.deposit_amount || '5000'),
+          deposit:      String(loadedDeposit),
+          hasDeposit:   loadedDeposit > 0,
           phone:        data.contact_phone || profile?.phone || '',
           stockQty:     String(data.stock_qty || '1'),
           fulfillmentType: data.fulfillment_type || 'direct',
@@ -213,6 +226,12 @@ export default function ListItem() {
           const newUrls = await uploadPhotos(editId)
           photoUrls = [...existingPhotos, ...newUrls].slice(0, 5)
         }
+        const parsedDeposit = parseInt(form.deposit, 10)
+        const computedDeposit = (form.hasDeposit && !isNaN(parsedDeposit)) ? Math.max(0, parsedDeposit) : 0
+        const savedLocation = form.city === 'Gurugram' && !form.location.toLowerCase().includes('gurugram')
+          ? `${form.location.trim()}, Gurugram`
+          : form.location.trim()
+
         const { error: updErr } = await supabase.from('listings').update({
           title:          form.title.trim(),
           description:    finalDescription,
@@ -223,8 +242,8 @@ export default function ListItem() {
           price_day:      parseInt(form.priceDay, 10),
           price_weekend:  form.priceWeekend ? parseInt(form.priceWeekend, 10) : null,
           price_week:     form.priceWeek ? parseInt(form.priceWeek, 10) : null,
-          deposit_amount: parseInt(form.deposit, 10) || 5000,
-          location:       form.location,
+          deposit_amount: computedDeposit,
+          location:       savedLocation,
           contact_phone:  form.phone || profile?.phone || null,
           photos:         photoUrls,
           stock_qty:      parseInt(form.stockQty, 10) || 1,
@@ -245,6 +264,12 @@ export default function ListItem() {
         if (photos.length > 0) {
           photoUrls = await uploadPhotos(listingId)
         }
+        const parsedDeposit = parseInt(form.deposit, 10)
+        const computedDeposit = (form.hasDeposit && !isNaN(parsedDeposit)) ? Math.max(0, parsedDeposit) : 0
+        const savedLocation = form.city === 'Gurugram' && !form.location.toLowerCase().includes('gurugram')
+          ? `${form.location.trim()}, Gurugram`
+          : form.location.trim()
+
         const { error: insErr } = await supabase.from('listings').insert({
           id: listingId,
           user_id: user.id,
@@ -258,8 +283,8 @@ export default function ListItem() {
           price_day: parseInt(form.priceDay, 10),
           price_weekend: form.priceWeekend ? parseInt(form.priceWeekend, 10) : null,
           price_week: form.priceWeek ? parseInt(form.priceWeek, 10) : null,
-          deposit_amount: parseInt(form.deposit, 10) || 5000,
-          location: form.location,
+          deposit_amount: computedDeposit,
+          location: savedLocation,
           contact_phone: form.phone || profile?.phone || null,
           emoji: CATEGORY_EMOJI[form.itemType] || (category === 'gaming' ? '🎮' : '🎵'),
           photos: photoUrls,
@@ -331,7 +356,7 @@ export default function ListItem() {
         <div className="list-success">
           <div className="text-6xl" aria-hidden="true">🎉</div>
           <h2>Listing Live!</h2>
-          <p>Your item is visible to renters across Bangalore.</p>
+          <p>Your item is visible to renters across Bengaluru and Gurugram.</p>
           <div className="list-success__actions">
             <button type="button" className="btn-primary" onClick={() => navigate('/browse')} aria-label="View all listings">
               View All Listings
@@ -502,14 +527,42 @@ export default function ListItem() {
                   <ListingGamesSelector games={games} onChange={setGames} />
                 )}
 
+                {/* Rental City */}
                 <div className="list-field">
-                  <p className="field-label">Area in Bangalore *</p>
-                  <div className="list-chips" role="group" aria-label="Area">
-                    {LOCATIONS.map((loc) => (
+                  <p className="field-label">City *</p>
+                  <div className="list-chips" role="group" aria-label="City">
+                    {CITIES.map((c) => (
+                      <button
+                        key={c.id}
+                        type="button"
+                        className={`list-chip${form.city === c.name ? ' is-on' : ''}`}
+                        onClick={() => {
+                          const defaultLoc = c.id === 'gurugram' ? 'Cyber City' : 'Koramangala'
+                          setForm((f) => ({ ...f, city: c.name, location: defaultLoc }))
+                        }}
+                        aria-pressed={form.city === c.name}
+                        aria-label={`City ${c.name}`}
+                      >
+                        {c.name === 'Gurugram' ? '🏢 Gurugram (NCR)' : '🏙️ Bengaluru'}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Area in selected City */}
+                <div className="list-field">
+                  <div className="flex items-center justify-between mb-1.5">
+                    <p className="field-label mb-0">Area / Locality in {form.city || 'City'} *</p>
+                    <span className="text-[11px] font-mono text-cyan-400">
+                      {form.city === 'Gurugram' ? 'Cyber City · DLF · Golf Course Rd' : 'Koramangala · Indiranagar · HSR'}
+                    </span>
+                  </div>
+                  <div className="list-chips" role="group" aria-label={`Area in ${form.city}`}>
+                    {(form.city === 'Gurugram' ? GURUGRAM_LOCALITIES : BENGALURU_LOCALITIES).map((loc) => (
                       <button
                         key={loc}
                         type="button"
-                        className={`list-chip${form.location === loc ? ' is-on' : ''}`}
+                        className={`list-chip${form.location === loc || form.location.startsWith(loc) ? ' is-on' : ''}`}
                         onClick={() => setForm((f) => ({ ...f, location: loc }))}
                         aria-pressed={form.location === loc}
                         aria-label={`Area ${loc}`}
@@ -517,6 +570,16 @@ export default function ListItem() {
                         {loc}
                       </button>
                     ))}
+                  </div>
+                  <div className="mt-2">
+                    <input
+                      type="text"
+                      value={form.location}
+                      onChange={set('location')}
+                      placeholder={`Or enter specific sector, society or landmark in ${form.city}...`}
+                      className="input-dark text-xs py-2"
+                      aria-label={`Custom area in ${form.city}`}
+                    />
                   </div>
                 </div>
 
@@ -707,26 +770,86 @@ export default function ListItem() {
                 ) : null}
 
                 <div className="list-field">
-                  <p className="field-label">Security deposit</p>
-                  <div className="list-chips" role="group" aria-label="Deposit presets">
-                    {DEPOSIT_PRESETS.map((n) => (
+                  <div className="flex items-center justify-between mb-2">
+                    <p className="field-label mb-0">Security deposit</p>
+                    <label className="flex items-center gap-2 cursor-pointer text-xs font-mono text-cyan-400 select-none">
+                      <input
+                        type="checkbox"
+                        checked={Boolean(form.hasDeposit)}
+                        onChange={(e) => {
+                          const checked = e.target.checked
+                          setForm((f) => ({
+                            ...f,
+                            hasDeposit: checked,
+                            deposit: checked ? (f.deposit && f.deposit !== '0' ? f.deposit : '2000') : '0',
+                          }))
+                        }}
+                        className="rounded border-white/20 text-cyan-400 focus:ring-0 focus:ring-offset-0 bg-black/40"
+                      />
+                      <span>Require security deposit</span>
+                    </label>
+                  </div>
+
+                  {!form.hasDeposit || String(form.deposit) === '0' ? (
+                    <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/25 flex items-center justify-between text-xs text-emerald-300 mb-2">
+                      <div className="flex items-center gap-2">
+                        <span className="text-base">🛡️</span>
+                        <span><strong>Zero Deposit Listing:</strong> Renters won&apos;t be charged a security deposit. Great for getting rentals faster!</span>
+                      </div>
                       <button
-                        key={n}
                         type="button"
-                        className={`list-chip${String(form.deposit) === String(n) ? ' is-on' : ''}`}
-                        onClick={() => setForm((f) => ({ ...f, deposit: String(n) }))}
-                        aria-label={`Set deposit ${n}`}
+                        onClick={() => setForm((f) => ({ ...f, hasDeposit: true, deposit: '2000' }))}
+                        className="underline text-emerald-200 hover:text-white font-medium ml-2 whitespace-nowrap"
                       >
-                        ₹{n}
+                        + Add deposit
                       </button>
-                    ))}
-                  </div>
-                  <div className="list-rupee">
-                    <span aria-hidden="true">₹</span>
-                    <input id="list-deposit" type="number" value={form.deposit} onChange={set('deposit')}
-                      min={500} className="input-dark" aria-label="Security deposit" />
-                  </div>
-                  <p className="list-hint">Held on the booking. Returned after a clean rental.</p>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="list-chips" role="group" aria-label="Deposit presets">
+                        <button
+                          type="button"
+                          className={`list-chip${String(form.deposit) === '0' || !form.hasDeposit ? ' is-on' : ''}`}
+                          onClick={() => setForm((f) => ({ ...f, hasDeposit: false, deposit: '0' }))}
+                          aria-label="No deposit"
+                        >
+                          No deposit (₹0)
+                        </button>
+                        {DEPOSIT_PRESETS.filter((n) => n > 0).map((n) => (
+                          <button
+                            key={n}
+                            type="button"
+                            className={`list-chip${String(form.deposit) === String(n) && form.hasDeposit ? ' is-on' : ''}`}
+                            onClick={() => setForm((f) => ({ ...f, hasDeposit: true, deposit: String(n) }))}
+                            aria-label={`Set deposit ${n}`}
+                          >
+                            ₹{n.toLocaleString('en-IN')}
+                          </button>
+                        ))}
+                      </div>
+                      <div className="list-rupee">
+                        <span aria-hidden="true">₹</span>
+                        <input
+                          id="list-deposit"
+                          type="number"
+                          value={form.deposit}
+                          onChange={(e) => {
+                            const val = e.target.value
+                            setForm((f) => ({
+                              ...f,
+                              deposit: val,
+                              hasDeposit: val !== '' && Number(val) > 0,
+                            }))
+                          }}
+                          min={0}
+                          placeholder="0"
+                          className="input-dark"
+                          aria-label="Security deposit"
+                        />
+                      </div>
+                      <p className="list-hint">Held on the booking. Returned after a clean rental.</p>
+                    </>
+                  )}
                 </div>
 
                 <div className="list-grid-2">

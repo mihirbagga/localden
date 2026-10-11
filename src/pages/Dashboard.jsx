@@ -9,6 +9,7 @@ import GameBackground from '../components/GameBackground'
 import ListingCard from '../components/ListingCard'
 import { useAuth } from '../contexts/AuthContext'
 import { useToast } from '../contexts/ToastContext'
+import { useConfirm } from '../contexts/ConfirmContext'
 import { supabase } from '../lib/supabase'
 import { getPaymentMethodLabel, getPaymentStatusInfo } from '../lib/payments'
 import {
@@ -31,6 +32,7 @@ import DashboardWallet from './DashboardWallet'
 import { useWallet } from '../hooks/useWallet'
 import { adjustListingStock } from '../lib/stockService'
 import { updateBookingTracking } from '../lib/trackingService'
+import { formatLocationDisplay } from '../lib/cities'
 
 import './dashboard.css'
 
@@ -292,8 +294,16 @@ function BookingCard({ booking, role, open, onToggle, onStatus }) {
     onStatus(booking, next)
   }
 
+  const { confirm } = useConfirm()
+
   const handleConfirmCash = async () => {
-    if (!window.confirm(`Confirm that you received ₹${booking.total_amount} in cash from ${partyName}?`)) return
+    const ok = await confirm({
+      title: 'Confirm Cash Received',
+      message: `Confirm that you received ₹${booking.total_amount} in cash from ${partyName}?`,
+      confirmText: 'Yes, Cash Received',
+      variant: 'success',
+    })
+    if (!ok) return
     try {
       const { error } = await supabase.rpc('confirm_booking_payment', {
         p_booking_id: booking.id,
@@ -634,6 +644,7 @@ export default function Dashboard() {
   const { user, profile, signOut, updateProfile, uploadAvatar, isAdmin } = useAuth()
   const walletState = useWallet()
   const { showToast } = useToast()
+  const { confirm } = useConfirm()
   const navigate = useNavigate()
   const [params, setParams] = useSearchParams()
 
@@ -750,7 +761,7 @@ export default function Dashboard() {
       return { title: 'Idle gear earns nothing', sub: 'List a console or guitar. 5 minutes.', cta: 'List gear', href: '/list-item' }
     }
     if (myBookings.length === 0) {
-      return { title: 'No rentals yet', sub: 'Browse Bangalore gear for this weekend.', cta: 'Browse', href: '/browse' }
+      return { title: 'No rentals yet', sub: 'Browse gear across Bengaluru & Gurugram for this weekend.', cta: 'Browse', href: '/browse' }
     }
     return { title: 'All quiet', sub: 'Nothing urgent. Browse or list another item.', cta: 'Browse', href: '/browse' }
   }, [pendingIn, myBookings, incoming, myListings.length, user?.id])
@@ -790,7 +801,7 @@ export default function Dashboard() {
     const listingRows = myListings.slice(0, 4).map((row) => ({
       id: `l-${row.id}`,
       title: row.title,
-      sub: `Listed · ${row.location || 'Bangalore'}`,
+      sub: `Listed · ${row.location ? formatLocationDisplay(row.location) : 'Local'}`,
       tone: 'magenta',
       at: row.created_at,
       go: () => setTab('listings'),
@@ -871,7 +882,15 @@ export default function Dashboard() {
   }
 
   const setBookingStatus = async (booking, status) => {
-    if (status === 'cancelled' && !window.confirm('Cancel this booking?')) return
+    if (status === 'cancelled') {
+      const ok = await confirm({
+        title: 'Cancel Booking?',
+        message: 'Are you sure you want to cancel this booking? Reserved dates will be unblocked and stock will be returned.',
+        confirmText: 'Yes, Cancel Booking',
+        variant: 'danger',
+      })
+      if (!ok) return
+    }
     const { data: updated, error } = await supabase
       .from('bookings')
       .update({ status, updated_at: new Date().toISOString() })
@@ -1200,7 +1219,7 @@ export default function Dashboard() {
                 </div>
                 {loadingB ? <><div className="dash-skel" /><div className="dash-skel" /></> : (
                   myBookings.length === 0
-                    ? <EmptyBlock emoji="📅" title="No bookings yet" body="Find gear across Bangalore." to="/browse" cta="Browse gear" />
+                    ? <EmptyBlock emoji="📅" title="No bookings yet" body="Find gear across Bengaluru & Gurugram." to="/browse" cta="Browse gear" />
                     : myBookings.slice(0, 3).map((booking) => (
                       <BookingCard
                         key={booking.id}
@@ -1351,7 +1370,7 @@ export default function Dashboard() {
             {loadingB ? (
               <><div className="dash-skel" /><div className="dash-skel" /><div className="dash-skel" /></>
             ) : shownBooks.length === 0 ? (
-              <EmptyBlock large emoji="📅" title="No bookings here" body="Browse Bangalore or change filter." to="/browse" cta="Browse Listings" />
+              <EmptyBlock large emoji="📅" title="No bookings here" body="Browse Bengaluru & Gurugram or change filter." to="/browse" cta="Browse Listings" />
             ) : (
               <div className="dash-books">
                 {shownBooks.map((booking) => (

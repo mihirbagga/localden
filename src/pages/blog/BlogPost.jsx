@@ -74,7 +74,7 @@ export default function BlogPost() {
           style={{ background: 'rgba(255,46,109,0.08)', border: '1px solid rgba(255,46,109,0.2)' }}>
           <p className="font-bungee text-lg text-white mb-2">Ready to Rent?</p>
           <p className="font-display text-sm mb-4" style={{ color: 'rgba(255,255,255,0.4)' }}>
-            Browse gear near you in Bangalore.
+            Browse gear near you in Bengaluru &amp; Gurugram.
           </p>
           <Link to="/browse" className="btn-primary">Browse Listings →</Link>
         </div>

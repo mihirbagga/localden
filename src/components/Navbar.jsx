@@ -3,17 +3,19 @@ import { Link, useLocation } from 'react-router-dom'
 import { Menu, X, ChevronRight, LogOut, User, Shield, Search } from 'lucide-react'
 import LogoMark from './LogoMark'
 import NotificationBell from './NotificationBell'
+import NotificationBar from './NotificationBar'
 import ThemeToggle from './ThemeToggle'
 import { useAuth } from '../contexts/AuthContext'
 import './navbar.css'
 
 const navLinks = [
-  { to: '/',             label: 'Home'         },
-  { to: '/browse',       label: 'Browse'       },
-  { to: '/how-it-works', label: 'How It Works' },
-  { to: '/about',        label: 'About'        },
-  { to: '/contact',      label: 'Contact'      },
-  { to: '/list-item',    label: 'List Gear'    },
+  { to: '/',             label: 'Home'             },
+  { to: '/browse',       label: 'Browse Gear'      },
+  { to: '/live',         label: 'Events & Artists' },
+  { to: '/how-it-works', label: 'How It Works'     },
+  { to: '/about',        label: 'About'            },
+  { to: '/contact',      label: 'Contact'          },
+  { to: '/list-item',    label: 'List Gear'        },
 ]
 
 function NavbarAuth() {
@@ -95,6 +97,7 @@ export default function Navbar() {
     <nav
       className={`nav-bar fixed top-0 inset-x-0 z-50 transition-all duration-500${scrolled ? ' is-scrolled' : ''}`}
     >
+      <NotificationBar />
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
 

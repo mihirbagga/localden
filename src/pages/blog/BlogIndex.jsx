@@ -8,7 +8,7 @@ export default function BlogIndex() {
     <div className="relative min-h-screen pt-24 pb-20">
       <SEOHead
         title="Blog"
-        description="Tips, guides and stories about renting gaming and music gear in Bangalore."
+        description="Tips, guides and stories about renting gaming and music gear in Bengaluru & Gurugram."
       />
       <div className="grid-floor" /><GameBackground />
       <div className="relative z-10 max-w-5xl mx-auto px-4">
@@ -17,7 +17,7 @@ export default function BlogIndex() {
           Gear <span className="gradient-text">Stories</span>
         </h1>
         <p className="font-display mb-12" style={{ color: 'rgba(255,255,255,0.4)' }}>
-          Tips, guides and stories from Bangalore's rental community.
+          Tips, guides and stories from the Bengaluru &amp; Gurugram rental community.
         </p>
 
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">

@@ -23,6 +23,7 @@ import { platformFeeLabel } from '../lib/platformFee'
 import { isOnlineMethod, methodConfig, payButtonLabel } from '../lib/payments'
 import { listingUnits, rangeHasBusy, shiftIso, todayIso } from '../lib/bookingDates'
 import { needsKyc } from '../lib/kyc'
+import { formatLocationDisplay } from '../lib/cities'
 import { rupee } from '../lib/wallet'
 import { useWallet } from '../hooks/useWallet'
 import { useBusyDates } from '../hooks/useBusyDates'
@@ -232,7 +233,7 @@ function BookingWidget({ listing, mobile = false, forceOpen = false }) {
   const days = startDate && endDate
     ? Math.max(1, Math.ceil((new Date(endDate) - new Date(startDate)) / 86400000))
     : 0
-  const deposit = listing.deposit_amount || 5000
+  const deposit = listing.deposit_amount != null ? Math.max(0, Number(listing.deposit_amount)) : 0
   const priced = priceWithCoupon({
     days,
     priceDay: listing.price_day,
@@ -662,7 +663,7 @@ function BookingWidget({ listing, mobile = false, forceOpen = false }) {
           <span className="text-xl">🏠</span>
           <div>
             <p className="text-xs font-display font-bold text-white/80">Direct Handover (From Owner)</p>
-            <p className="text-[11px] font-display text-white/40 leading-tight">Kept at owner's studio/home in {listing.location || 'Bangalore'}.</p>
+            <p className="text-[11px] font-display text-white/40 leading-tight">Kept at owner's studio/home in {formatLocationDisplay(listing.location)}.</p>
           </div>
         </div>
       )}
@@ -778,10 +779,21 @@ function BookingWidget({ listing, mobile = false, forceOpen = false }) {
           )}
           {couponDiscount > 0 ? <div className="is-off"><span>Coupon {appliedCoupon?.code}</span><b>−₹{couponDiscount}</b></div> : null}
           {platformFee > 0 ? <div><span>{platformFeeLabel(platformFeeSetting)}</span><b>₹{platformFee}</b></div> : null}
-          <div><span>Security deposit</span><b>₹{deposit}</b></div>
+          <div>
+            <span>Security deposit</span>
+            {deposit > 0 ? (
+              <b>₹{deposit}</b>
+            ) : (
+              <b className="text-emerald-400 font-medium">₹0 · Zero Deposit</b>
+            )}
+          </div>
           {insuranceOpted ? <div><span>Damage Protection</span><b>₹{INSURANCE_FEE}</b></div> : null}
           <div className="is-total"><span>Total</span><span>₹{total}</span></div>
-          <p>Deposit back after a clean return.</p>
+          {deposit > 0 ? (
+            <p>Deposit back after a clean return.</p>
+          ) : (
+            <p className="text-emerald-400/80">✓ No security deposit held for this rental.</p>
+          )}
         </div>
       ) : (
         <p className="ld-hint">Tap a chip or pick dates. Price fills in here.</p>
@@ -1156,7 +1168,7 @@ export default function ListingDetail() {
     <div className={`ld${isGaming ? ' is-gaming' : ' is-music'}`}>
       <SEOHead
         title={listing?.title}
-        description={listing?.description || `Rent ${listing?.title} in Bangalore for ₹${listing?.price_day}/day.`}
+        description={listing?.description || `Rent ${listing?.title} in ${formatLocationDisplay(listing?.location)} for ₹${listing?.price_day}/day.`}
         image={listing?.photos?.[0]}
       />
       <div className="grid-floor" />
@@ -1191,7 +1203,11 @@ export default function ListingDetail() {
               ) : (
                 <span className="ld-pill is-bad">Booked out</span>
               )}
-              {listing.deposit_amount ? <span className="ld-pill is-warn">Deposit ₹{listing.deposit_amount}</span> : null}
+              {listing.deposit_amount && Number(listing.deposit_amount) > 0 ? (
+                <span className="ld-pill is-warn">Deposit ₹{listing.deposit_amount}</span>
+              ) : (
+                <span className="ld-pill is-ok">✓ Zero Deposit</span>
+              )}
             </div>
 
             <h1>{listing.title}</h1>
@@ -1201,7 +1217,7 @@ export default function ListingDetail() {
                   <Star size={14} /> {listing.rating} ({listing.total_reviews} reviews)
                 </span>
               ) : null}
-              <span><MapPin size={14} /> {listing.location}, Bangalore</span>
+              <span><MapPin size={14} /> {formatLocationDisplay(listing.location)}</span>
             </div>
 
             {/* Gamification Trust & Performance Badges */}
@@ -1271,9 +1287,9 @@ export default function ListingDetail() {
                     ['Brand', listing.brand || '—'],
                     ['Model', listing.model || '—'],
                     ['Condition', conditionLabel(listing.condition)],
-                    ['Deposit', `₹${listing.deposit_amount || 5000}`],
+                    ['Deposit', (listing.deposit_amount && Number(listing.deposit_amount) > 0) ? `₹${listing.deposit_amount}` : '₹0 (Zero Deposit)'],
                     ['Stock', `${listing.stock_qty ?? 1} / ${listing.stock_total ?? listing.stock_qty ?? 1}`],
-                    ['Area', listing.location || 'Bangalore'],
+                    ['Area', formatLocationDisplay(listing.location)],
                   ].map(([label, value]) => (
                     <div key={label}>
                       <span>{label.toUpperCase()}</span>

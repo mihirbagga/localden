@@ -119,7 +119,7 @@ export default function Signup() {
             <span style={{ color: '#00e5ff' }}>&nbsp;Den</span>
           </h1>
           <p className="font-display text-sm mt-1" style={{ color: 'rgba(255,255,255,0.4)' }}>
-            Join Bangalore's rental community
+            Join the Bengaluru &amp; Gurugram rental community
           </p>
         </div>
 
@@ -154,7 +154,7 @@ export default function Signup() {
             <div>
               <label htmlFor="signup-phone" className="block text-xs font-display font-semibold mb-1.5"
                 style={{ color: 'rgba(255,255,255,0.5)', letterSpacing: '0.06em' }}>
-                PHONE (BANGALORE)
+                PHONE NUMBER
               </label>
               <div className="relative">
                 <Phone size={16} className="absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none"

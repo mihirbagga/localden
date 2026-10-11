@@ -9,7 +9,7 @@ export default function SEOHead({ title, description, image, url }) {
     const base = 'लोकल Den'
     document.title = title
       ? `${title} · ${base}`
-      : `${base} — Rent Gaming & Music Gear in Bangalore`
+      : `${base} — Rent Gaming & Music Gear in Bengaluru & Gurugram`
 
     const setMeta = (name, content, isProp = false) => {
       if (!content) return
@@ -23,7 +23,7 @@ export default function SEOHead({ title, description, image, url }) {
       el.setAttribute('content', content)
     }
 
-    const desc = description || 'Rent gaming gear and music instruments in Bangalore by the day.'
+    const desc = description || 'Rent gaming gear and music instruments in Bengaluru and Gurugram by the day.'
     const img  = image  || '/og-image.png'
     const href = url    || window.location.href
 

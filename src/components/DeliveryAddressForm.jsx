@@ -3,17 +3,15 @@ import { Home, ExternalLink, MapPin, Navigation, Sparkles } from 'lucide-react'
 import DeliveryAddressDisplay from './DeliveryAddressDisplay'
 import { reverseGeocode, formatDeliveryAddress } from '../lib/deliveryAddress'
 
-const BANGALORE_LOCALITIES = [
+import { BENGALURU_LOCALITIES, GURUGRAM_LOCALITIES } from '../lib/cities'
+
+const POPULAR_QUICK_LOCALITIES = [
   'Koramangala',
   'Indiranagar',
   'HSR Layout',
-  'Whitefield',
-  'Jayanagar',
-  'JP Nagar',
-  'BTM Layout',
-  'Bellandur',
-  'Marathahalli',
-  'Electronic City',
+  'Cyber City',
+  'DLF Phase 2',
+  'Golf Course Road',
 ]
 
 export default function DeliveryAddressForm({ value = '', onChange }) {
@@ -118,7 +116,7 @@ export default function DeliveryAddressForm({ value = '', onChange }) {
               nextPin = geo.pincode
               setPincode(geo.pincode)
             }
-            const foundArea = geo.locality || geo.road || 'Bangalore'
+            const foundArea = geo.locality || geo.road || geo.city || 'Bengaluru'
             setGpsStatus(`📍 GPS Pin & Area (${foundArea}) Attached!`)
           } else {
             setGpsStatus('📍 GPS Coordinates Attached!')
@@ -197,11 +195,20 @@ export default function DeliveryAddressForm({ value = '', onChange }) {
               onChange={(e) => handleFieldChange('locality', e.target.value)}
             >
               <option value="">-- Select Locality (Optional) --</option>
-              {BANGALORE_LOCALITIES.map((loc) => (
-                <option key={loc} value={loc}>
-                  {loc}
-                </option>
-              ))}
+              <optgroup label="🏙️ Bengaluru">
+                {BENGALURU_LOCALITIES.map((loc) => (
+                  <option key={loc} value={loc}>
+                    {loc}
+                  </option>
+                ))}
+              </optgroup>
+              <optgroup label="🏢 Gurugram (NCR)">
+                {GURUGRAM_LOCALITIES.map((loc) => (
+                  <option key={loc} value={loc}>
+                    {loc}
+                  </option>
+                ))}
+              </optgroup>
             </select>
           </div>
         </div>
@@ -210,7 +217,7 @@ export default function DeliveryAddressForm({ value = '', onChange }) {
         <div>
           <span className="text-[10px] text-white/40 block mb-1">Select Locality (Optional):</span>
           <div className="flex flex-wrap gap-1">
-            {BANGALORE_LOCALITIES.slice(0, 6).map((loc) => (
+            {POPULAR_QUICK_LOCALITIES.map((loc) => (
               <button
                 key={loc}
                 type="button"

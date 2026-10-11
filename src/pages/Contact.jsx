@@ -1,4 +1,4 @@
-import { Mail, Phone, MessageCircle } from 'lucide-react'
+import { Mail, Phone, MessageCircle, Instagram } from 'lucide-react'
 import GameBackground from '../components/GameBackground'
 import { useToast } from '../contexts/ToastContext'
 import {
@@ -7,6 +7,8 @@ import {
   SUPPORT_PHONE,
   SUPPORT_TEL_HREF,
   SUPPORT_WHATSAPP_HREF,
+  INSTAGRAM_HANDLE,
+  INSTAGRAM_URL,
 } from '../lib/contact'
 import './contact.css'
 
@@ -97,6 +99,43 @@ export default function Contact() {
                 className="btn-outline"
                 onClick={() => copy('Email', SUPPORT_EMAIL)}
                 aria-label="Copy support email"
+              >
+                Copy
+              </button>
+            </div>
+          </div>
+
+          <div className="contact-card contact-card--ig">
+            <div className="contact-card__icon text-pink-400" aria-hidden="true">
+              <Instagram size={18} />
+            </div>
+            <div className="contact-card__body">
+              <p className="contact-card__label">Official Instagram</p>
+              <a
+                className="contact-card__value font-mono"
+                href={INSTAGRAM_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label={`Visit @${INSTAGRAM_HANDLE} on Instagram`}
+              >
+                @{INSTAGRAM_HANDLE}
+              </a>
+            </div>
+            <div className="contact-card__actions">
+              <a
+                className="btn-primary"
+                href={INSTAGRAM_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label={`Visit @${INSTAGRAM_HANDLE} on Instagram`}
+              >
+                Open IG
+              </a>
+              <button
+                type="button"
+                className="btn-outline"
+                onClick={() => copy('Instagram Handle', `@${INSTAGRAM_HANDLE}`)}
+                aria-label="Copy Instagram handle"
               >
                 Copy
               </button>

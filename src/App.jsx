@@ -4,6 +4,7 @@ import { motion } from 'framer-motion'
 import { AuthProvider } from './contexts/AuthContext'
 import { ToastProvider } from './contexts/ToastContext'
 import { NotificationProvider } from './contexts/NotificationContext'
+import { ConfirmProvider } from './contexts/ConfirmContext'
 import { ThemeProvider } from './contexts/ThemeContext'
 import Navbar from './components/Navbar'
 import Footer from './components/Footer'
@@ -13,6 +14,7 @@ import ScrollToTop from './components/ScrollToTop'
 import InstallPrompt from './components/InstallPrompt'
 import Home from './pages/Home'
 import Browse from './pages/Browse'
+const Live = lazy(() => import('./pages/Live'))
 const ListItem = lazy(() => import('./pages/ListItem'))
 const HowItWorks = lazy(() => import('./pages/HowItWorks'))
 const Contact = lazy(() => import('./pages/Contact'))
@@ -47,6 +49,7 @@ function AnimatedRoutes() {
           {/* Public routes */}
           <Route path="/"             element={<Home />} />
           <Route path="/browse"       element={<Browse />} />
+          <Route path="/live"         element={<Live />} />
           <Route path="/how-it-works" element={<HowItWorks />} />
           <Route path="/contact"      element={<Contact />} />
           <Route path="/about"        element={<About />} />
@@ -101,19 +104,21 @@ export default function App() {
       <AuthProvider>
         <ToastProvider>
           <NotificationProvider>
-            <BrowserRouter>
-              <ScrollToTop />
-              <div className="min-h-screen flex flex-col">
-                <Navbar />
-                <main className="flex-1">
-                  <Suspense fallback={<LoadingFallback />}>
-                    <AnimatedRoutes />
-                  </Suspense>
-                </main>
-                <Footer />
-                <InstallPrompt />
-              </div>
-            </BrowserRouter>
+            <ConfirmProvider>
+              <BrowserRouter>
+                <ScrollToTop />
+                <div className="min-h-screen flex flex-col">
+                  <Navbar />
+                  <main className="flex-1">
+                    <Suspense fallback={<LoadingFallback />}>
+                      <AnimatedRoutes />
+                    </Suspense>
+                  </main>
+                  <Footer />
+                  <InstallPrompt />
+                </div>
+              </BrowserRouter>
+            </ConfirmProvider>
           </NotificationProvider>
         </ToastProvider>
       </AuthProvider>

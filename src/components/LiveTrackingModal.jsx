@@ -35,7 +35,7 @@ export default function LiveTrackingModal({ booking, onClose, isAdmin = false })
 
   const bookingId = booking?.id
   const listingTitle = booking?.listings?.title || 'Gaming Hardware'
-  const deliveryAddress = booking?.delivery_address || 'Bangalore Address'
+  const deliveryAddress = booking?.delivery_address || 'Delivery Address'
 
   useEffect(() => {
     let isMounted = true

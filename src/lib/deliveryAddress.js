@@ -2,6 +2,8 @@
  * Delivery address parsing, formatting, and reverse-geocoding utilities.
  */
 
+import { getCityForLocation } from './cities'
+
 const MAPS_URL_REGEX = /https?:\/\/(?:maps\.google\.com|www\.google\.com\/maps|maps\.app\.goo\.gl|goo\.gl\/maps)[^\s\]]*/i
 const COORDS_REGEX = /q=(-?\d+\.\d+),(-?\d+\.\d+)|@(-?\d+\.\d+),(-?\d+\.\d+)|(-?\d+\.\d+)[,\s]+(-?\d+\.\d+)/
 
@@ -54,8 +56,9 @@ export function parseDeliveryAddress(rawAddress) {
     .replace(/\s*,\s*$/, '')
     .trim()
 
-  // If clean address became empty or just "Bangalore" but we have coords
-  if (!cleanAddress && coords) {
+  // If clean address became empty or just city name but we have coords
+  const lower = cleanAddress.toLowerCase()
+  if ((!cleanAddress || lower === 'bangalore' || lower === 'bengaluru' || lower === 'gurugram' || lower === 'gurgaon') && coords) {
     cleanAddress = `GPS Location (${coords.lat.toFixed(4)}, ${coords.lng.toFixed(4)})`
   } else if (!cleanAddress) {
     cleanAddress = raw
@@ -82,13 +85,17 @@ export function formatDeliveryAddress({
   landmark = '',
   pincode = '',
   mapsUrl = '',
+  city = '',
 }) {
+  const detectedCity = city || (locality ? getCityForLocation(locality) : 'Bengaluru')
+  const cityPin = pincode.trim() ? `${detectedCity} - ${pincode.trim()}` : detectedCity
+
   const parts = [
     flat.trim(),
     street.trim(),
     locality.trim(),
     landmark.trim() ? `Near ${landmark.trim()}` : '',
-    pincode.trim() ? `Bangalore - ${pincode.trim()}` : 'Bangalore',
+    cityPin,
   ].filter(Boolean)
 
   const addrString = parts.join(', ')
@@ -119,7 +126,7 @@ export async function reverseGeocode(latitude, longitude) {
     const road = addr.road || addr.pedestrian || addr.suburb || addr.neighbourhood || ''
     const sub = addr.suburb || addr.neighbourhood || addr.residential || addr.quarter || ''
     const pin = addr.postcode || ''
-    const city = addr.city || addr.town || addr.state_district || 'Bangalore'
+    const city = addr.city || addr.town || addr.state_district || 'Bengaluru'
 
     return {
       road,

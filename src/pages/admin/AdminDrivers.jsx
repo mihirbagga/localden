@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Truck, Plus, Phone, Star, CheckCircle, XCircle, Trash2, Edit2, Shield, MapPin, X } from 'lucide-react'
 import { useToast } from '../../contexts/ToastContext'
+import { useConfirm } from '../../contexts/ConfirmContext'
 import { useDeliveryPartners } from '../../hooks/useDeliveryPartners'
 import {
   addDeliveryPartner,
@@ -10,6 +11,7 @@ import {
 
 export default function AdminDrivers() {
   const { showToast } = useToast()
+  const { confirm } = useConfirm()
   const { drivers, loading, reload: loadDrivers } = useDeliveryPartners()
   const [showAddModal, setShowAddModal] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -64,7 +66,13 @@ export default function AdminDrivers() {
   }
 
   const handleDelete = async (driver) => {
-    if (!window.confirm(`Remove ${driver.name} from delivery partners?`)) return
+    const ok = await confirm({
+      title: 'Remove Delivery Partner',
+      message: `Are you sure you want to remove ${driver.name} from delivery partners? This cannot be undone.`,
+      confirmText: 'Yes, Remove Driver',
+      variant: 'danger',
+    })
+    if (!ok) return
     try {
       await deleteDeliveryPartner(driver.id)
       setDrivers((prev) => prev.filter((d) => d.id !== driver.id))
@@ -309,7 +317,7 @@ export default function AdminDrivers() {
                 <label className="text-xs text-white/60 font-semibold block mb-1">Operating Hub / Area</label>
                 <input
                   type="text"
-                  placeholder="e.g. Koramangala Hub / South Bangalore"
+                  placeholder="e.g. Koramangala Hub / Cyber City, Gurugram"
                   className="input-dark text-xs"
                   value={form.area}
                   onChange={(e) => setForm({ ...form, area: e.target.value })}

@@ -37,6 +37,18 @@ export const DEFAULT_DRIVERS = [
     avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=150&q=80',
     is_active: true,
   },
+  {
+    id: 'drv-04',
+    name: 'Amit Sharma',
+    phone: '+91 98110 54321',
+    vehicle_type: 'Ola S1 Pro (EV)',
+    vehicle_number: 'HR 26 DQ 1088',
+    area: 'Cyber City / DLF Phase 1-5 Hub',
+    rating: 4.96,
+    deliveries_count: 98,
+    avatar: 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?auto=format&fit=crop&w=150&q=80',
+    is_active: true,
+  },
 ]
 
 /**

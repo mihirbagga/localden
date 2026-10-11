@@ -70,7 +70,7 @@ export default function Terms() {
               </tr>
             </tbody>
           </table>
-          <p><strong>Fair value.</strong> We use current used-market price for the same model in Bangalore / India, not the original MRP. Lister cannot charge “sentimental value”.</p>
+          <p><strong>Fair value.</strong> We use current used-market price for the same model in India, not the original MRP. Lister cannot charge “sentimental value”.</p>
           <p><strong>Proof.</strong> Claims need before/after photos, or a written note both sides signed at handover. No photos from either side = we split the doubt and may hold only a partial deposit.</p>
           <p><strong>Report window.</strong> Lister must flag damage within <strong>24 hours</strong> of return. Renter must flag a defect within <strong>6 hours</strong> of pickup. After that, we assume it happened on your watch.</p>
           <p><strong>No cover for.</strong> Drunken use, pets chewing gear, rain without a bag, leaving kit in an auto/Uber, lending to a friend. That is all on you.</p>

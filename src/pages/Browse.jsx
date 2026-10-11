@@ -5,8 +5,14 @@ import GameBackground from '../components/GameBackground'
 import ListingCard from '../components/ListingCard'
 import { useListings } from '../hooks/useListings'
 import SEOHead from '../components/SEOHead'
+import {
+  BENGALURU_LOCALITIES,
+  GURUGRAM_LOCALITIES,
+  ALL_LOCALITIES,
+  getCityForLocation,
+} from '../lib/cities'
 
-const LOCATIONS    = ['All Locations','Koramangala','Indiranagar','HSR Layout','Whitefield','BTM Layout','Marathahalli','Electronic City','Jayanagar','Sadashivanagar','Malleshwaram','Hebbal']
+const LOCATIONS = ['All Locations', 'Bengaluru', ...BENGALURU_LOCALITIES, 'Gurugram', ...GURUGRAM_LOCALITIES]
 const SORT_OPTIONS = ['Newest','Price: Low to High','Price: High to Low','Top Rated', 'Most Popular']
 const GAMING_SUBS  = ['All','Console','Controller','VR Headset','Gaming Mouse','Racing Wheel','Gaming Chair','Monitor','Headset']
 const MUSIC_SUBS   = ['All','Guitar','Bass','Piano / Keyboard','Drums','DJ Controller','Microphone','Amplifier','Synthesizer','Violin','Saxophone']
@@ -36,15 +42,24 @@ export default function Browse() {
   }, [params])
 
   /* ── Real data from Supabase ────────────────── */
+  const isCityFilter = location === 'Bengaluru' || location === 'Gurugram'
   const { listings, loading, error } = useListings({
     category: activeCategory,
-    location: location !== 'All Locations' ? location : undefined,
+    location: (location !== 'All Locations' && !isCityFilter) ? location : undefined,
     maxPrice,
   })
 
   /* ── Client-side filtering & sorting ────────── */
   const filtered = useMemo(() => {
     let result = listings
+
+    if (location === 'Bengaluru') {
+      result = result.filter(l => getCityForLocation(l.location) === 'Bengaluru')
+    } else if (location === 'Gurugram') {
+      result = result.filter(l => getCityForLocation(l.location) === 'Gurugram')
+    } else if (location !== 'All Locations') {
+      result = result.filter(l => (l.location || '').toLowerCase().includes(location.toLowerCase()))
+    }
 
     if (activeSub !== 'All') {
       result = result.filter(l => l.subcategory === activeSub)
@@ -124,7 +139,7 @@ export default function Browse() {
 
   return (
     <div className="relative min-h-screen pt-24 pb-20">
-      <SEOHead title="Browse Listings" description="Find gaming consoles, guitars, DJ equipment and more for rent in Bangalore. Browse by location, category and price." />
+      <SEOHead title="Browse Listings" description="Find gaming consoles, guitars, DJ equipment and more for rent in Bengaluru and Gurugram. Browse by city, location, category and price." />
       <div className="grid-floor" />
       <GameBackground />
 
@@ -132,7 +147,7 @@ export default function Browse() {
 
         {/* Header */}
         <div className="mb-8">
-          <p className="section-label mb-2">Bangalore's Gear Marketplace</p>
+          <p className="section-label mb-2">Bengaluru & Gurugram Gear Marketplace</p>
           <div className="flex items-end justify-between">
             <h1 className="font-bungee text-4xl">
               Browse <span className="gradient-text">Listings</span>
@@ -207,9 +222,22 @@ export default function Browse() {
 
         {/* Filters row */}
         <div className="flex gap-3 mb-4 items-center overflow-x-auto pb-1 -mx-4 px-4 sm:mx-0 sm:px-0 sm:flex-wrap">
-          <select value={location} onChange={e => setLocation(e.target.value)}
-            className="select-dark text-sm h-10 flex-shrink-0" style={{ minWidth: 140 }}>
-            {LOCATIONS.map(l => <option key={l}>{l}</option>)}
+          <select
+            value={location}
+            onChange={e => setLocation(e.target.value)}
+            className="select-dark text-sm h-10 flex-shrink-0"
+            style={{ minWidth: 175 }}
+            aria-label="Filter by City or Location"
+          >
+            <option value="All Locations">All Cities & Locations</option>
+            <optgroup label="🏙️ Bengaluru">
+              <option value="Bengaluru">Entire Bengaluru</option>
+              {BENGALURU_LOCALITIES.map(l => <option key={l} value={l}>{l}</option>)}
+            </optgroup>
+            <optgroup label="🏢 Gurugram (NCR)">
+              <option value="Gurugram">Entire Gurugram</option>
+              {GURUGRAM_LOCALITIES.map(l => <option key={l} value={l}>{l}</option>)}
+            </optgroup>
           </select>
           <select value={sortBy} onChange={e => setSortBy(e.target.value)}
             className="select-dark text-sm h-10 flex-shrink-0" style={{ minWidth: 150 }}>
