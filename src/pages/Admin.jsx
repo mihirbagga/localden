@@ -1,10 +1,12 @@
-import { useState } from 'react'
-import { Users, Package, Calendar, Star, Boxes, LayoutDashboard, Shield, Ticket, CreditCard, ShieldCheck, Truck, Wallet, Music } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { Users, Package, Calendar, Star, Boxes, LayoutDashboard, Shield, Ticket, CreditCard, ShieldCheck, Truck, Wallet, Music, Eye } from 'lucide-react'
 import GameBackground from '../components/GameBackground'
 import { useAuth } from '../contexts/AuthContext'
 import { useAdminData } from '../hooks/useAdminData'
+import { fetchVisitAnalytics } from '../lib/visitTracker'
 import { AdminTab } from './admin/AdminShared'
 import AdminOverview from './admin/AdminOverview'
+import AdminVisits from './admin/AdminVisits'
 import AdminUsers from './admin/AdminUsers'
 import AdminListings from './admin/AdminListings'
 import AdminBookings from './admin/AdminBookings'
@@ -20,6 +22,7 @@ import './admin/admin.css'
 
 const TABS = [
   { id: 'overview', label: 'Overview', icon: LayoutDashboard },
+  { id: 'visits', label: 'Visits', icon: Eye },
   { id: 'payouts', label: 'Payouts', icon: Wallet },
   { id: 'users', label: 'Users', icon: Users },
   { id: 'listings', label: 'Listings', icon: Package },
@@ -37,9 +40,17 @@ export default function Admin() {
   const { user, isSuperAdmin } = useAuth()
   const data = useAdminData()
   const [tab, setTab] = useState('overview')
+  const [uniqueVisits, setUniqueVisits] = useState(0)
+
+  useEffect(() => {
+    fetchVisitAnalytics().then((res) => {
+      if (res?.totalUnique != null) setUniqueVisits(res.totalUnique)
+    }).catch(() => {})
+  }, [])
 
   const counts = {
     overview: 0,
+    visits: uniqueVisits,
     users: data.users.length,
     listings: data.listings.length,
     bookings: data.bookings.length,
@@ -62,7 +73,7 @@ export default function Admin() {
             <p className="admin-kicker">Control room</p>
             <h1 className="admin-title">Admin Panel</h1>
             <p className="admin-subtitle">
-              Review users, KYC docs, listings, bookings, stock, reviews, coupons, and payments.
+              Review users, site visits, KYC docs, listings, bookings, stock, reviews, coupons, and payments.
             </p>
           </div>
           <span className={`admin-role-badge admin-role-badge--${isSuperAdmin ? 'super' : 'admin'}`}>
@@ -102,6 +113,10 @@ export default function Admin() {
             bookings={data.bookings}
             onOpenTab={setTab}
           />
+        ) : null}
+
+        {!data.loading && tab === 'visits' ? (
+          <AdminVisits />
         ) : null}
 
         {!data.loading && tab === 'payouts' ? (

@@ -12,6 +12,7 @@ import ProtectedRoute from './components/ProtectedRoute'
 import AdminRoute from './components/AdminRoute'
 import ScrollToTop from './components/ScrollToTop'
 import InstallPrompt from './components/InstallPrompt'
+import VisitTracker from './components/VisitTracker'
 import Home from './pages/Home'
 import Browse from './pages/Browse'
 const Live = lazy(() => import('./pages/Live'))
@@ -107,6 +108,7 @@ export default function App() {
             <ConfirmProvider>
               <BrowserRouter>
                 <ScrollToTop />
+                <VisitTracker />
                 <div className="min-h-screen flex flex-col">
                   <Navbar />
                   <main className="flex-1">

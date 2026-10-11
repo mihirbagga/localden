@@ -1,9 +1,19 @@
+import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Users, Package, Calendar, Boxes } from 'lucide-react'
+import { Users, Package, Calendar, Boxes, Eye, Compass } from 'lucide-react'
 import { AdminStat } from './AdminShared'
 import { displayName, formatDate, isLowStock, KYC_LABEL } from './adminHelpers'
+import { fetchVisitAnalytics } from '../../lib/visitTracker'
 
 export default function AdminOverview({ users, listings, bookings, onOpenTab }) {
+  const [visitStats, setVisitStats] = useState({ totalUnique: 0, totalVisits: 0, sources: [] })
+
+  useEffect(() => {
+    fetchVisitAnalytics().then((res) => {
+      if (res) setVisitStats(res)
+    }).catch(() => {})
+  }, [])
+
   const kycQueue = users.filter((u) => u.kyc_status === 'submitted').length
   const pendingKyc = users.filter((u) => u.kyc_status === 'pending' || u.kyc_status === 'submitted').length
   const hiddenListings = listings.filter((l) => l.is_published === false).length
@@ -14,32 +24,34 @@ export default function AdminOverview({ users, listings, bookings, onOpenTab }) 
   return (
     <div>
       <div className="admin-stats">
+        <div className="cursor-pointer" onClick={() => onOpenTab('visits')}>
+          <AdminStat
+            icon={<Eye size={16} />}
+            label="Unique site visits"
+            value={visitStats.totalUnique.toLocaleString()}
+            sub={visitStats.sources[0] ? `Top: ${visitStats.sources[0].source} (${visitStats.sources[0].unique_count})` : 'Source-tracked'}
+            tone="magenta"
+          />
+        </div>
         <AdminStat
           icon={<Users size={16} />}
           label="Onboarded users"
           value={users.length}
           sub={kycQueue ? `${kycQueue} KYC to review` : `${pendingKyc} KYC pending`}
-          tone="magenta"
+          tone="cyan"
         />
         <AdminStat
           icon={<Package size={16} />}
           label="Listings"
           value={listings.length}
           sub={`${hiddenListings} hidden from browse`}
-          tone="cyan"
+          tone="gold"
         />
         <AdminStat
           icon={<Calendar size={16} />}
           label="Bookings"
           value={bookings.length}
           sub={`${openBookings} in progress`}
-          tone="gold"
-        />
-        <AdminStat
-          icon={<Boxes size={16} />}
-          label="Low stock"
-          value={lowStock}
-          sub="qty at 1 or below"
           tone="green"
         />
       </div>
@@ -83,6 +95,37 @@ export default function AdminOverview({ users, listings, bookings, onOpenTab }) 
             </div>
           ))}
           {bookings.length === 0 ? <p className="admin-muted">No bookings yet.</p> : null}
+        </div>
+
+        <div className="admin-card md:col-span-2">
+          <div className="flex items-center justify-between">
+            <h3 className="admin-card__title">SITE TRAFFIC BY SOURCE</h3>
+            <button type="button" className="admin-link text-xs" onClick={() => onOpenTab('visits')} aria-label="Open site visits tracker">
+              View full analytics
+            </button>
+          </div>
+          {visitStats.sources.length === 0 ? (
+            <p className="admin-muted">No visits recorded yet. Share links with <code className="text-pink-400 font-mono">?source=instagram</code> to track.</p>
+          ) : (
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-1">
+              {visitStats.sources.slice(0, 4).map((s) => (
+                <div key={s.source} className="p-3 rounded-xl bg-white/[0.03] border border-white/5 space-y-1">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="font-mono text-cyan-300 font-semibold truncate">{s.source}</span>
+                    <span className="text-[10px] text-white/40">
+                      {visitStats.totalUnique > 0 ? `${Math.round((s.unique_count / visitStats.totalUnique) * 100)}%` : '0%'}
+                    </span>
+                  </div>
+                  <div className="font-bungee text-lg text-white">
+                    {s.unique_count.toLocaleString()} <span className="text-[10px] font-sans text-white/40 font-normal">uniques</span>
+                  </div>
+                  <div className="text-[10px] text-white/40">
+                    {s.total_count} total hits
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
         <div className="admin-card md:col-span-2">
