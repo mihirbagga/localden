@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Users, Package, Calendar, Star, Boxes, LayoutDashboard, Shield, Ticket, CreditCard, ShieldCheck, Truck, Wallet, Music, Eye, Tag } from 'lucide-react'
+import { Users, Package, Calendar, Star, Boxes, LayoutDashboard, Shield, Ticket, CreditCard, ShieldCheck, Truck, Wallet, Music, Eye, Tag, MessageSquare } from 'lucide-react'
 import GameBackground from '../components/GameBackground'
 import { useAuth } from '../contexts/AuthContext'
 import { useAdminData } from '../hooks/useAdminData'
@@ -19,6 +19,7 @@ import AdminKyc from './admin/AdminKyc'
 import AdminDrivers from './admin/AdminDrivers'
 import AdminPayouts from './admin/AdminPayouts'
 import AdminLive from './admin/AdminLive'
+import AdminWhatsApp from './admin/AdminWhatsApp'
 import './admin/admin.css'
 
 const TABS = [
@@ -28,6 +29,7 @@ const TABS = [
   { id: 'users', label: 'Users', icon: Users },
   { id: 'listings', label: 'Listings', icon: Package },
   { id: 'bookings', label: 'Bookings', icon: Calendar },
+  { id: 'whatsapp', label: 'WhatsApp Alerts', icon: MessageSquare },
   { id: 'drivers', label: 'Drivers', icon: Truck },
   { id: 'stock', label: 'Stock', icon: Boxes },
   { id: 'reviews', label: 'Reviews', icon: Star },
@@ -61,6 +63,7 @@ export default function Admin() {
     users: data.users.length,
     listings: data.listings.length,
     bookings: data.bookings.length,
+    whatsapp: 0,
     drivers: 0,
     stock: data.listings.length,
     reviews: data.reviews.length,
@@ -152,6 +155,10 @@ export default function Admin() {
             bookings={data.bookings}
             patchBooking={data.patchBooking}
           />
+        ) : null}
+
+        {!data.loading && tab === 'whatsapp' ? (
+          <AdminWhatsApp />
         ) : null}
 
         {!data.loading && tab === 'drivers' ? (

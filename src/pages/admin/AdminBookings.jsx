@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { MessageSquare, Send } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import { useToast } from '../../contexts/ToastContext'
 import { useConfirm } from '../../contexts/ConfirmContext'
@@ -8,6 +9,13 @@ import { BOOKING_LABEL, BOOKING_STATUSES, displayName, explainAdminError, format
 import { adjustListingStock } from '../../lib/stockService'
 import { updateBookingTracking } from '../../lib/trackingService'
 import { getPaymentMethodLabel, getPaymentStatusInfo } from '../../lib/payments'
+import {
+  formatNewOrderAdminMessage,
+  buildWhatsAppLink,
+  cleanPhoneNumber,
+  sendWhatsAppNotification,
+  fetchWhatsAppSettings
+} from '../../lib/whatsappSmsService'
 
 import LiveTrackingModal from '../../components/LiveTrackingModal'
 import DepositRefundModal from '../../components/DepositRefundModal'
@@ -125,6 +133,53 @@ export default function AdminBookings({ bookings, patchBooking }) {
     } catch (err) {
       showToast(err.message || 'Failed to reject payment', 'error')
     }
+  }
+
+  const handleWhatsAppAlert = async (booking) => {
+    try {
+      const settings = await fetchWhatsAppSettings()
+      const adminPhone = settings.admin_phone || '919034695091'
+      const msg = formatNewOrderAdminMessage({
+        bookingId: booking.id,
+        listing: booking.listings,
+        renter: booking.renter,
+        startDate: booking.start_date,
+        endDate: booking.end_date,
+        days: booking.total_days,
+        total: booking.total_amount,
+        paymentStatus: booking.payment_status,
+        paymentMethod: booking.payment_method,
+        deliveryType: booking.delivery_type,
+        deliveryAddress: booking.delivery_address,
+        couponCode: booking.coupon_code,
+      })
+
+      await sendWhatsAppNotification({
+        phone: adminPhone,
+        message: msg,
+        event: 'admin_order_alert',
+        payload: { webhook_url: settings.webhook_url, data: booking },
+      })
+
+      const waLink = buildWhatsAppLink(adminPhone, msg)
+      window.open(waLink, '_blank')
+      showToast('WhatsApp order alert opened!', 'success')
+    } catch (err) {
+      showToast(err.message || 'WhatsApp alert failed', 'error')
+    }
+  }
+
+  const handleWhatsAppRenter = (booking) => {
+    const renterPhone = booking.renter?.phone
+    if (!renterPhone) {
+      showToast('No phone number on renter profile. Contact via email.', 'info')
+      return
+    }
+    const name = displayName(booking.renter, 'Customer')
+    const gearTitle = booking.listings?.title || 'gear'
+    const msg = `Hi ${name}! LocalDen team here regarding your rental for *${gearTitle}* (Booking #${shortId(booking.id)}).\n\nDates: ${booking.start_date} → ${booking.end_date}.\nStatus: ${booking.status.toUpperCase()}.\n\nHow can we help you today? ⚡`
+    const link = buildWhatsAppLink(renterPhone, msg)
+    window.open(link, '_blank')
   }
 
   return (
@@ -324,6 +379,26 @@ export default function AdminBookings({ bookings, patchBooking }) {
                       >
                         🚚 Tracking Control
                       </button>
+                      <div className="flex items-center gap-1 mt-0.5">
+                        <button
+                          type="button"
+                          onClick={() => handleWhatsAppAlert(booking)}
+                          className="flex-1 px-1.5 py-1 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 text-[10px] font-bold hover:bg-emerald-500/30 transition-all flex items-center justify-center gap-1"
+                          title="Open formatted WhatsApp alert for Admin"
+                        >
+                          <MessageSquare size={11} /> Admin WA
+                        </button>
+                        {booking.renter?.phone && (
+                          <button
+                            type="button"
+                            onClick={() => handleWhatsAppRenter(booking)}
+                            className="px-1.5 py-1 rounded bg-green-600/20 text-green-300 border border-green-500/40 text-[10px] font-bold hover:bg-green-600/30 transition-all flex items-center justify-center gap-0.5"
+                            title={`Chat with ${displayName(booking.renter)} on WhatsApp`}
+                          >
+                            <Send size={10} /> Renter
+                          </button>
+                        )}
+                      </div>
                     </div>
                   </td>
                 </tr>

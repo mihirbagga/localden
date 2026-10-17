@@ -4,8 +4,10 @@ import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import {
   ArrowLeft, MapPin, Star, Shield, Calendar,
   ChevronLeft, ChevronRight, Share2, Heart,
-  CheckCircle, AlertCircle, User, CreditCard, X,
+  CheckCircle, AlertCircle, User, CreditCard, X, MessageSquare,
 } from 'lucide-react'
+import { notifyAdminOnNewOrder, buildWhatsAppLink } from '../lib/whatsappSmsService'
+import { SUPPORT_PHONE_TEL } from '../lib/contact'
 import GameBackground from '../components/GameBackground'
 import ListingCard from '../components/ListingCard'
 import AvailableCoupons from '../components/AvailableCoupons'
@@ -375,6 +377,23 @@ function BookingWidget({ listing, mobile = false, forceOpen = false }) {
           paymentStatus: rpcBooking.payment_status,
           methodName: method?.name,
         })
+
+        // Dispatch WhatsApp notification to Admin & Store Team
+        notifyAdminOnNewOrder({
+          bookingId: createdId,
+          listing,
+          renter: user,
+          startDate,
+          endDate,
+          days: rpcBooking.days || days,
+          total: rpcBooking.total || total,
+          paymentStatus: rpcBooking.payment_status,
+          paymentMethod: method?.name || method?.id,
+          deliveryType: handover,
+          deliveryAddress: handover === 'delivery' ? address : null,
+          couponCode: rpcBooking.coupon_code || appliedCoupon?.code,
+        }).catch((err) => console.warn('WhatsApp notify error:', err))
+
         if (isPaid) {
           showToast('Booking confirmed & paid!', 'success')
         } else if (isSubmitted) {
@@ -480,6 +499,23 @@ function BookingWidget({ listing, mobile = false, forceOpen = false }) {
       paid: isPaid,
       methodName: method?.name,
     })
+
+    // Dispatch WhatsApp notification to Admin & Store Team
+    notifyAdminOnNewOrder({
+      bookingId,
+      listing,
+      renter: user,
+      startDate,
+      endDate,
+      days,
+      total,
+      paymentStatus: isPaid ? 'paid' : (['qr', 'upi', 'bank'].includes(method?.id) ? 'submitted' : 'pending'),
+      paymentMethod: method?.name || method?.id,
+      deliveryType: handover,
+      deliveryAddress: handover === 'delivery' ? address : null,
+      couponCode: appliedCoupon?.code,
+    }).catch((err) => console.warn('WhatsApp notify error:', err))
+
     showToast(isPaid ? 'Booking confirmed' : 'Booking placed. Awaiting payment confirm.', 'success')
   }
 
@@ -641,6 +677,9 @@ function BookingWidget({ listing, mobile = false, forceOpen = false }) {
   }
 
   if (booking) {
+    const waSupportMsg = `Hi LocalDen! I just placed a booking for *${listing?.title || 'gear'}* (Order #${String(booking.id).slice(0, 8).toUpperCase()}). Dates: ${booking.startDate} → ${booking.endDate}. Total: ₹${booking.total}. Need assistance with my order.`
+    const waSupportLink = buildWhatsAppLink(SUPPORT_PHONE_TEL, waSupportMsg)
+
     const successCard = (
       <div className="glass ld-book ld-success is-sticky">
         <CheckCircle size={36} />
@@ -650,6 +689,13 @@ function BookingWidget({ listing, mobile = false, forceOpen = false }) {
             ? 'Payment in. Lister will ping you for handover.'
             : 'Pay marked. Lister or admin confirms when money shows.'}
         </p>
+
+        {/* WhatsApp Notification confirmation pill */}
+        <div className="flex items-center gap-2 p-2 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-300 text-xs font-semibold my-2">
+          <MessageSquare size={14} className="text-emerald-400 shrink-0" />
+          <span>Order alert dispatched to LocalDen team on WhatsApp!</span>
+        </div>
+
         <div className="ld-facts">
           <div><span>Dates</span><b>{booking.startDate} → {booking.endDate}</b></div>
           <div><span>Days</span><b>{booking.days}</b></div>
@@ -657,7 +703,21 @@ function BookingWidget({ listing, mobile = false, forceOpen = false }) {
           {booking.methodName ? <div><span>Pay</span><b>{booking.methodName}</b></div> : null}
           {booking.couponCode ? <div><span>Coupon</span><b>{booking.couponCode} −₹{booking.discount}</b></div> : null}
         </div>
-        <Link to="/dashboard?tab=bookings" className="btn-primary w-full">View in My Bookings</Link>
+
+        <div className="flex flex-col gap-2 mt-3">
+          <a
+            href={waSupportLink}
+            target="_blank"
+            rel="noreferrer"
+            className="w-full py-2.5 px-3 rounded-xl bg-[#25D366] text-black font-bold text-xs hover:bg-[#20ba59] transition-all flex items-center justify-center gap-1.5 shadow-md shadow-[#25D366]/20"
+          >
+            <MessageSquare size={14} />
+            Chat with Team on WhatsApp
+          </a>
+          <Link to="/dashboard?tab=bookings" className="btn-primary w-full text-center">
+            View in My Bookings
+          </Link>
+        </div>
       </div>
     )
     if (mobile) {
