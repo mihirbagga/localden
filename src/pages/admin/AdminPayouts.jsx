@@ -157,10 +157,10 @@ export default function AdminPayouts() {
         </div>
 
         <div className="p-4 rounded-2xl bg-black/40 border border-white/10 backdrop-blur-sm flex flex-col justify-between">
-          <div className="text-xs text-white/50 font-semibold">Security Policy</div>
+          <div className="text-xs text-white/50 font-semibold">Payout Policy</div>
           <div className="text-xs text-white/70 space-y-1">
-            <p>🔒 <strong>Referrals & Welcome Bonuses</strong> are strictly non-withdrawable.</p>
-            <p>Only verified rental earnings can be requested.</p>
+            <p>⚡ <strong>Direct Settlement:</strong> Review destination UPI or Bank details before sending funds.</p>
+            <p>Marking Paid clears pending balance; Rejecting refunds money back to user wallet.</p>
           </div>
         </div>
       </div>
@@ -257,7 +257,7 @@ export default function AdminPayouts() {
                         {isPending ? 'Pending Settlement' : isCompleted ? 'Completed' : 'Rejected'}
                       </span>
                       <span className="text-white/40 text-xs">
-                        #{req.id.slice(-6)}
+                        #{String(req.id).slice(-6)}
                       </span>
                     </div>
 
@@ -273,8 +273,14 @@ export default function AdminPayouts() {
                       )}
                     </div>
 
-                    <div className="text-xs text-white/40">
-                      Requested on {formatDate(req.created_at)}
+                    <div className="flex items-center gap-2 text-xs text-white/40 flex-wrap">
+                      <span>Requested on {formatDate(req.created_at)}</span>
+                      {req.wallet && (
+                        <>
+                          <span>·</span>
+                          <span>Wallet: <strong className="text-emerald-400 font-mono">{rupee(req.wallet.available)}</strong> avail / <strong className="text-amber-400 font-mono">{rupee(req.wallet.pending)}</strong> pending</span>
+                        </>
+                      )}
                     </div>
                   </div>
 

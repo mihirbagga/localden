@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Link, useSearchParams, Navigate } from 'react-router-dom'
+import { Link, useSearchParams, useNavigate, Navigate } from 'react-router-dom'
 import { Eye, EyeOff, Mail, Lock, User, Phone, AlertCircle, CheckCircle } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import { useToast } from '../contexts/ToastContext'
@@ -11,6 +11,7 @@ import GameBackground from '../components/GameBackground'
 import './auth.css'
 
 export default function Signup() {
+  const navigate = useNavigate()
   const { signUp, signInWithGoogle, isAuthenticated, loading: authLoading } = useAuth()
   const { showToast } = useToast()
   const { setting: couponSetting } = useSignupCouponSetting()
@@ -20,6 +21,10 @@ export default function Signup() {
     fullName: '', email: '', phone: '', password: '', confirm: '',
     referral: normalizeReferralCode(params.get('ref')) || readStoredReferral(),
   })
+  const [showPw, setShowPw]   = useState(false)
+  const [loading, setLoading] = useState(false)
+  const [error, setError]     = useState('')
+  const [success, setSuccess] = useState(false)
 
   useEffect(() => {
     const code = captureReferralFromSearch() || readStoredReferral()
@@ -39,10 +44,6 @@ export default function Signup() {
   if (isAuthenticated) {
     return <Navigate to="/" replace />
   }
-  const [showPw, setShowPw]   = useState(false)
-  const [loading, setLoading] = useState(false)
-  const [error, setError]     = useState('')
-  const [success, setSuccess] = useState(false)
 
   const activePercent = couponSetting?.discount_percent ?? 50
   const isCouponEnabled = couponSetting?.enabled !== false
@@ -61,16 +62,20 @@ export default function Signup() {
     }
     setLoading(true)
     try {
-      await signUp({
+      const data = await signUp({
         email:    form.email,
         password: form.password,
         fullName: form.fullName,
         phone:    form.phone,
         referralCode: form.referral,
       })
-      setSuccess(true)
       if (isCouponEnabled) {
         showToast(`Welcome coupon ${welcomeCode} — ${activePercent}% off`, 'success')
+      }
+      if (data?.session) {
+        navigate('/', { replace: true })
+      } else {
+        setSuccess(true)
       }
     } catch (err) {
       setError(err.message || 'Sign up failed. Please try again.')

@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState } from 'react'
+import { createContext, useContext, useEffect, useState, useRef } from 'react'
 import { supabase } from '../lib/supabase'
 import { applyStoredReferral, captureReferralFromSearch, storeReferralCode } from '../lib/referrals'
 import { issueWelcomeCouponForUser } from '../lib/signupCouponSetting'
@@ -9,6 +9,7 @@ export function AuthProvider({ children }) {
   const [user,    setUser]    = useState(null)
   const [profile, setProfile] = useState(null)
   const [loading, setLoading] = useState(true)
+  const processedWelcomeUsers = useRef(new Set())
 
   const ensureWelcomeCoupon = async (fullName, userId) => {
     const targetId = userId || user?.id
@@ -110,7 +111,10 @@ export function AuthProvider({ children }) {
               )
               await applyStoredReferral(supabase)
               await ensureReferralCode()
-              await ensureWelcomeWalletBonus()
+              if (!processedWelcomeUsers.current.has(currentUser.id)) {
+                processedWelcomeUsers.current.add(currentUser.id)
+                await ensureWelcomeWalletBonus()
+              }
             }
           } else {
             setProfile(null)
@@ -139,18 +143,21 @@ export function AuthProvider({ children }) {
 
     // Update the auto-created profile with phone + name
     if (data.user) {
-      await supabase.from('profiles').upsert({
-        id:        data.user.id,
-        full_name: fullName,
-        phone,
-        email,
-      })
-      if (referralCode) storeReferralCode(referralCode)
-      if (data.session) {
-        await ensureWelcomeCoupon(fullName, data.user.id)
-        await applyStoredReferral(supabase)
-        await ensureReferralCode()
-        await ensureWelcomeWalletBonus()
+      try {
+        await supabase.from('profiles').upsert({
+          id:        data.user.id,
+          full_name: fullName,
+          phone,
+          email,
+        })
+        if (referralCode) storeReferralCode(referralCode)
+        if (data.session) {
+          await ensureWelcomeCoupon(fullName, data.user.id)
+          await applyStoredReferral(supabase)
+          await ensureReferralCode()
+        }
+      } catch (err) {
+        console.warn('Post-signup profile setup warning:', err?.message)
       }
     }
     return data

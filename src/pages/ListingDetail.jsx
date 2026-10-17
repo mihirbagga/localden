@@ -936,6 +936,11 @@ function BookingWidget({ listing, mobile = false, forceOpen = false }) {
             >
               Pay with wallet · {rupee(wallet.available)}
             </button>
+          ) : isAuthenticated && (wallet?.available || 0) > 0 ? (
+            <div className="text-xs text-white/50 mb-2 p-2 rounded-lg bg-white/5 border border-white/10 flex items-center justify-between">
+              <span>Wallet balance: <strong className="text-cyan-300 font-mono">{rupee(wallet.available)}</strong></span>
+              <span className="text-[11px] text-white/40">Requires {rupee(total)} for 100% wallet payment</span>
+            </div>
           ) : null}
 
           {payMethods.length > 0 ? (

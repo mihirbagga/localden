@@ -4,6 +4,7 @@ import GameBackground from '../components/GameBackground'
 import { useAuth } from '../contexts/AuthContext'
 import { useAdminData } from '../hooks/useAdminData'
 import { fetchVisitAnalytics } from '../lib/visitTracker'
+import { fetchPendingPayoutCount } from '../lib/payoutService'
 import { AdminTab } from './admin/AdminShared'
 import AdminOverview from './admin/AdminOverview'
 import AdminVisits from './admin/AdminVisits'
@@ -41,16 +42,22 @@ export default function Admin() {
   const data = useAdminData()
   const [tab, setTab] = useState('overview')
   const [uniqueVisits, setUniqueVisits] = useState(0)
+  const [pendingPayouts, setPendingPayouts] = useState(0)
 
   useEffect(() => {
     fetchVisitAnalytics().then((res) => {
       if (res?.totalUnique != null) setUniqueVisits(res.totalUnique)
+    }).catch(() => {})
+
+    fetchPendingPayoutCount().then((cnt) => {
+      if (cnt != null) setPendingPayouts(cnt)
     }).catch(() => {})
   }, [])
 
   const counts = {
     overview: 0,
     visits: uniqueVisits,
+    payouts: pendingPayouts,
     users: data.users.length,
     listings: data.listings.length,
     bookings: data.bookings.length,

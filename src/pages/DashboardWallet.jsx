@@ -49,26 +49,16 @@ export default function DashboardWallet({ wallet, entries, referrals, code, load
     ) && e.amount > 0)
     .reduce((sum, e) => sum + e.amount, 0)
 
-  // Total promo & referral credits that CANNOT be taken out as payout
+  // Total promo & referral credits received
   const totalLockedCreditsEarned = referralRewardsTotal + welcomeBonusTotal
 
-  // Total spent on rentals from wallet (uses promo credits first)
-  const totalSpentOnRentals = Math.abs(
-    (entries || [])
-      .filter((e) => e.kind === 'spend' && e.amount < 0)
-      .reduce((sum, e) => sum + e.amount, 0)
-  )
-
-  // Remaining locked promo / referral credit
-  const lockedCreditsRemaining = Math.max(0, totalLockedCreditsEarned - totalSpentOnRentals)
-
-  // Withdrawable amount: strictly listing earnings (and deposit returns), excluding referral/promo money
-  const withdrawableAmount = Math.max(0, (wallet?.available || 0) - lockedCreditsRemaining)
+  // Withdrawable amount is the user's full available wallet balance
+  const withdrawableAmount = wallet?.available || 0
 
   const handleOpenPayout = () => {
     if (withdrawableAmount < PAYOUT_MIN) {
       showToast(
-        `Minimum withdrawable payout is ${rupee(PAYOUT_MIN)}. Referral & welcome bonuses (${rupee(lockedCreditsRemaining)}) can only be spent on gear rentals.`,
+        `Minimum payout is ${rupee(PAYOUT_MIN)}. Your available balance is ${rupee(withdrawableAmount)}.`,
         'error'
       )
       return
@@ -86,7 +76,7 @@ export default function DashboardWallet({ wallet, entries, referrals, code, load
       return
     }
     if (amt > withdrawableAmount) {
-      showToast(`Cannot withdraw more than your available rental earnings (${rupee(withdrawableAmount)}).`, 'error')
+      showToast(`Cannot withdraw more than your available wallet balance (${rupee(withdrawableAmount)}).`, 'error')
       return
     }
 
@@ -135,25 +125,20 @@ export default function DashboardWallet({ wallet, entries, referrals, code, load
       {/* Wallet Metric Cards */}
       <div className="dash-wallet__stats">
         <div className="dash-wallet__stat">
-          <span>Total Balance</span>
-          <strong>{loading ? '…' : rupee(wallet.available)}</strong>
+          <span>Available Balance</span>
+          <strong style={{ color: '#00ff94' }}>{loading ? '…' : rupee(wallet.available)}</strong>
         </div>
 
-        <div className="dash-wallet__stat">
-          <span>Withdrawable (Earnings)</span>
-          <strong style={{ color: '#00ff94' }}>{loading ? '…' : rupee(withdrawableAmount)}</strong>
-        </div>
-
-        {lockedCreditsRemaining > 0 && (
+        {totalLockedCreditsEarned > 0 && (
           <div className="dash-wallet__stat">
-            <span>Referral & Promo Credit</span>
-            <strong style={{ color: '#ff2e6d' }}>{loading ? '…' : rupee(lockedCreditsRemaining)}</strong>
+            <span>Promo & Referral Bonuses</span>
+            <strong style={{ color: '#ff2e6d' }}>{loading ? '…' : rupee(totalLockedCreditsEarned)}</strong>
           </div>
         )}
 
         <div className="dash-wallet__stat">
           <span>Payout Pending</span>
-          <strong>{loading ? '…' : rupee(wallet.pending)}</strong>
+          <strong style={{ color: '#f59e0b' }}>{loading ? '…' : rupee(wallet.pending)}</strong>
         </div>
       </div>
 
@@ -161,13 +146,13 @@ export default function DashboardWallet({ wallet, entries, referrals, code, load
       <div className="p-3.5 rounded-2xl bg-white/[0.03] border border-white/10 text-xs space-y-1.5 font-display text-white/60">
         <div className="flex items-center gap-1.5 text-cyan-300 font-semibold">
           <Shield size={14} />
-          <span>Withdrawable Earnings vs. Promotional Balance:</span>
+          <span>Wallet & Payout Information:</span>
         </div>
         <p>
-          • <strong>Listing Earnings:</strong> Credited after completed rentals and can be withdrawn directly to your UPI / Bank account (min. ₹{PAYOUT_MIN}).
+          • <strong>Instant Payout:</strong> Your available balance can be withdrawn directly to your UPI ID or Bank account (minimum ₹{PAYOUT_MIN}).
         </p>
         <p>
-          • <strong>Referral Rewards & Welcome Bonuses ({rupee(lockedCreditsRemaining)}):</strong> Cannot be taken out as cash payouts. These credits are locked for renting any gaming or music gear on LocalDen.
+          • <strong>Seamless Checkout:</strong> You can also use your wallet balance to pay directly for any gear rentals on LocalDen.
         </p>
       </div>
 
@@ -203,15 +188,9 @@ export default function DashboardWallet({ wallet, entries, referrals, code, load
             {/* Breakdown Notice */}
             <div className="p-3 rounded-2xl bg-cyan-950/30 border border-cyan-500/30 text-xs space-y-1">
               <div className="flex justify-between">
-                <span className="text-white/60">Total Balance:</span>
+                <span className="text-white/60">Available Wallet Balance:</span>
                 <span className="text-white font-mono">{rupee(wallet.available)}</span>
               </div>
-              {lockedCreditsRemaining > 0 && (
-                <div className="flex justify-between text-rose-300">
-                  <span>Referral & Promo Credits (Non-withdrawable):</span>
-                  <span className="font-mono">−{rupee(lockedCreditsRemaining)}</span>
-                </div>
-              )}
               <div className="flex justify-between pt-1 border-t border-white/10 font-bold">
                 <span className="text-emerald-300">Max Withdrawable:</span>
                 <span className="text-emerald-400 font-mono text-sm">{rupee(withdrawableAmount)}</span>

@@ -9,6 +9,10 @@
     "preview": "vite preview",
     "instagram:preview": "node scripts/instagram_agent.cjs preview",
     "instagram:publish": "node scripts/instagram_agent.cjs publish",
+    "instagram:contest": "node scripts/instagram_agent.cjs preview contest",
+    "instagram:contest:publish": "node scripts/instagram_agent.cjs publish contest",
+    "instagram:reel": "node scripts/instagram_agent.cjs preview-reel",
+    "instagram:reel:publish": "node scripts/instagram_agent.cjs publish-reel",
     "events:fetch": "node scripts/events_district.cjs",
     "events:fetch:dry": "node scripts/events_district.cjs --dry",
     "events:fetch:ai": "node scripts/events_agent.cjs",
@@ -27,11 +31,13 @@
     "react-router-dom": "^6.24.0"
   },
   "devDependencies": {
+    "@resvg/resvg-js": "^2.6.2",
     "@types/react": "^18.3.3",
     "@types/react-dom": "^18.3.0",
     "@vitejs/plugin-react": "^4.3.0",
     "autoprefixer": "^10.4.19",
     "postcss": "^8.4.39",
+    "sharp": "^0.35.5",
     "tailwindcss": "^3.4.4",
     "vite": "^5.3.1"
   }
