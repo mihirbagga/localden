@@ -11,6 +11,7 @@ import { usePlatformFee } from '../hooks/usePlatformFee'
 import { platformFeeCopy } from '../lib/platformFee'
 import { shiftIso, todayIso } from '../lib/bookingDates'
 import SEOHead from '../components/SEOHead'
+import HomeDeals from '../components/HomeDeals'
 import {
   BENGALURU_LOCALITIES,
   GURUGRAM_LOCALITIES,
@@ -335,6 +336,9 @@ export default function Home() {
           </div>
         </div>
       </section>
+
+      {/* ── Active Discounts & Deals Section ── */}
+      <HomeDeals />
 
       <section className="home-section" id="store">
         <div className="home-feat-wrap">

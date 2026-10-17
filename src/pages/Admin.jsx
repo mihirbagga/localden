@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Users, Package, Calendar, Star, Boxes, LayoutDashboard, Shield, Ticket, CreditCard, ShieldCheck, Truck, Wallet, Music, Eye } from 'lucide-react'
+import { Users, Package, Calendar, Star, Boxes, LayoutDashboard, Shield, Ticket, CreditCard, ShieldCheck, Truck, Wallet, Music, Eye, Tag } from 'lucide-react'
 import GameBackground from '../components/GameBackground'
 import { useAuth } from '../contexts/AuthContext'
 import { useAdminData } from '../hooks/useAdminData'
@@ -31,7 +31,7 @@ const TABS = [
   { id: 'drivers', label: 'Drivers', icon: Truck },
   { id: 'stock', label: 'Stock', icon: Boxes },
   { id: 'reviews', label: 'Reviews', icon: Star },
-  { id: 'coupons', label: 'Coupons', icon: Ticket },
+  { id: 'coupons', label: 'Discounts & Deals', icon: Tag },
   { id: 'payments', label: 'Payments', icon: CreditCard },
   { id: 'live', label: 'Live', icon: Music },
   { id: 'kyc', label: 'KYC', icon: ShieldCheck },

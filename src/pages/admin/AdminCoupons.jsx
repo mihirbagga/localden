@@ -1,8 +1,13 @@
 import { useMemo, useState } from 'react'
-import { Pencil, Plus, Power, Trash2 } from 'lucide-react'
+import {
+  Pencil, Plus, Power, Trash2, Zap, Sparkles, Tag,
+  Calendar, Gift, Save, Check, Clock, Percent, ArrowRight
+} from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import { useToast } from '../../contexts/ToastContext'
 import { formatCouponValue, normalizeCouponCode } from '../../lib/coupons'
+import { useDiscountCampaigns, CAMPAIGN_PRESETS } from '../../lib/discountCampaignService'
+import AdminSignupCoupon from './AdminSignupCoupon'
 import { AdminAction, AdminBadge, AdminConfirm, AdminEmpty, AdminSearch, matchesQuery } from './AdminShared'
 import { explainAdminError, formatDate } from './adminHelpers'
 
@@ -64,6 +69,54 @@ function formToPayload(form) {
 
 export default function AdminCoupons({ coupons, setCoupons, patchCoupon, removeCoupon }) {
   const { showToast } = useToast()
+  const { settings, save: saveCampaigns, loading: loadingCampaigns } = useDiscountCampaigns()
+
+  // Sub-tabs: 'campaigns' | 'duration' | 'signup' | 'coupons'
+  const [subTab, setSubTab] = useState('campaigns')
+
+  // Flash Sale Campaign State
+  const [campEnabled, setCampEnabled] = useState(true)
+  const [campTitle, setCampTitle] = useState('Weekend Flash Sale ⚡')
+  const [campBadge, setCampBadge] = useState('FLASH SALE')
+  const [campCode, setCampCode] = useState('FLASH15')
+  const [campPercent, setCampPercent] = useState('15')
+  const [campMinSubtotal, setCampMinSubtotal] = useState('500')
+  const [campMaxDiscount, setCampMaxDiscount] = useState('1000')
+  const [campDesc, setCampDesc] = useState('Get 15% OFF on all gaming & music gear with code FLASH15!')
+  const [savingCamp, setSavingCamp] = useState(false)
+
+  // Duration Discounts State
+  const [durEnabled, setDurEnabled] = useState(true)
+  const [durTiers, setDurTiers] = useState([
+    { days: 3, discount_percent: 5, label: '3+ Days Jam' },
+    { days: 7, discount_percent: 10, label: 'Full Week (7+ Days)' },
+    { days: 14, discount_percent: 20, label: 'Fortnight Pro (14+ Days)' },
+    { days: 30, discount_percent: 30, label: 'Monthly Pass (30+ Days)' },
+  ])
+  const [savingDur, setSavingDur] = useState(false)
+
+  // Sync settings when loaded
+  const [synced, setSynced] = useState(false)
+  if (!loadingCampaigns && settings && !synced) {
+    const c = settings.active_campaign || {}
+    setCampEnabled(c.enabled !== false)
+    setCampTitle(c.title || 'Weekend Flash Sale ⚡')
+    setCampBadge(c.badge || 'FLASH SALE')
+    setCampCode(c.code || 'FLASH15')
+    setCampPercent(String(c.discount_percent ?? 15))
+    setCampMinSubtotal(String(c.min_subtotal ?? 500))
+    setCampMaxDiscount(String(c.max_discount ?? 1000))
+    setCampDesc(c.description || 'Get 15% OFF on all gaming & music gear with code FLASH15!')
+
+    const d = settings.duration_discounts || {}
+    setDurEnabled(d.enabled !== false)
+    if (Array.isArray(d.tiers) && d.tiers.length > 0) {
+      setDurTiers(d.tiers)
+    }
+    setSynced(true)
+  }
+
+  // Coupon codes table state
   const [query, setQuery] = useState('')
   const [form, setForm] = useState(EMPTY_FORM)
   const [editingId, setEditingId] = useState(null)
@@ -88,6 +141,87 @@ export default function AdminCoupons({ coupons, setCoupons, patchCoupon, removeC
   const startEdit = (coupon) => {
     setEditingId(coupon.id)
     setForm(couponToForm(coupon))
+    setSubTab('coupons')
+  }
+
+  const applyPreset = (preset) => {
+    setCampTitle(preset.title)
+    setCampBadge(preset.badge)
+    setCampCode(preset.code)
+    setCampPercent(String(preset.discount_percent))
+    setCampMinSubtotal(String(preset.min_subtotal))
+    setCampMaxDiscount(String(preset.max_discount))
+    setCampDesc(preset.description)
+    showToast(`Loaded "${preset.title}" preset!`, 'info')
+  }
+
+  const handleSaveCampaign = async (e) => {
+    e?.preventDefault()
+    const pVal = Number(campPercent)
+    if (!Number.isFinite(pVal) || pVal < 1 || pVal > 100) {
+      showToast('Discount percent must be between 1% and 100%.', 'error')
+      return
+    }
+    if (!campCode.trim()) {
+      showToast('Promo code is required.', 'error')
+      return
+    }
+
+    setSavingCamp(true)
+    try {
+      const nextSettings = {
+        ...settings,
+        active_campaign: {
+          enabled: campEnabled,
+          title: campTitle.trim(),
+          badge: campBadge.trim().toUpperCase(),
+          code: campCode.trim().toUpperCase(),
+          discount_percent: pVal,
+          min_subtotal: Number(campMinSubtotal) || 0,
+          max_discount: Number(campMaxDiscount) || null,
+          description: campDesc.trim(),
+          updated_at: new Date().toISOString(),
+        },
+      }
+      await saveCampaigns(nextSettings)
+      showToast(
+        campEnabled
+          ? `Campaign "${campTitle}" is now LIVE! Broadcasted across homepage & notification bar.`
+          : 'Campaign broadcast turned OFF.',
+        'success'
+      )
+    } catch (err) {
+      showToast(err.message || 'Failed to save campaign', 'error')
+    } finally {
+      setSavingCamp(false)
+    }
+  }
+
+  const handleSaveDurationTiers = async (e) => {
+    e?.preventDefault()
+    setSavingDur(true)
+    try {
+      const nextSettings = {
+        ...settings,
+        duration_discounts: {
+          enabled: durEnabled,
+          tiers: durTiers,
+          updated_at: new Date().toISOString(),
+        },
+      }
+      await saveCampaigns(nextSettings)
+      showToast('Duration discounts saved successfully!', 'success')
+    } catch (err) {
+      showToast(err.message || 'Failed to save duration discounts', 'error')
+    } finally {
+      setSavingDur(false)
+    }
+  }
+
+  const updateTierPercent = (index, value) => {
+    const next = [...durTiers]
+    next[index] = { ...next[index], discount_percent: Number(value) || 0 }
+    setDurTiers(next)
   }
 
   const handleSave = async (e) => {
@@ -168,232 +302,536 @@ export default function AdminCoupons({ coupons, setCoupons, patchCoupon, removeC
   }
 
   return (
-    <div>
-      <form className="admin-card admin-coupon-form" onSubmit={handleSave}>
-        <h3 className="admin-card__title">
-          {editingId ? 'EDIT COUPON' : 'NEW COUPON'}
-        </h3>
-        <div className="admin-form-grid">
-          <div>
-            <label className="field-label" htmlFor="coupon-code">Code</label>
-            <input
-              id="coupon-code"
-              className="input-dark"
-              value={form.code}
-              onChange={setField('code')}
-              placeholder="WELCOME10"
-              aria-label="Coupon code"
-              required
-            />
-          </div>
-          <div>
-            <label className="field-label" htmlFor="coupon-type">Type</label>
-            <select
-              id="coupon-type"
-              className="select-dark"
-              value={form.discount_type}
-              onChange={setField('discount_type')}
-              aria-label="Discount type"
-            >
-              <option value="percent">Percent</option>
-              <option value="flat">Flat ₹</option>
-            </select>
-          </div>
-          <div>
-            <label className="field-label" htmlFor="coupon-value">
-              {form.discount_type === 'percent' ? 'Percent' : 'Amount ₹'}
-            </label>
-            <input
-              id="coupon-value"
-              className="input-dark"
-              type="number"
-              min="1"
-              max={form.discount_type === 'percent' ? 100 : 999999}
-              value={form.discount_value}
-              onChange={setField('discount_value')}
-              aria-label="Discount value"
-              required
-            />
-          </div>
-          <div>
-            <label className="field-label" htmlFor="coupon-min">Min rental ₹</label>
-            <input
-              id="coupon-min"
-              className="input-dark"
-              type="number"
-              min="0"
-              value={form.min_subtotal}
-              onChange={setField('min_subtotal')}
-              aria-label="Minimum rental subtotal"
-            />
-          </div>
-          {form.discount_type === 'percent' ? (
-            <div>
-              <label className="field-label" htmlFor="coupon-cap">Max discount ₹</label>
-              <input
-                id="coupon-cap"
-                className="input-dark"
-                type="number"
-                min="0"
-                value={form.max_discount}
-                onChange={setField('max_discount')}
-                aria-label="Maximum discount cap"
-              />
-            </div>
-          ) : null}
-          <div>
-            <label className="field-label" htmlFor="coupon-limit">Usage limit</label>
-            <input
-              id="coupon-limit"
-              className="input-dark"
-              type="number"
-              min="1"
-              value={form.usage_limit}
-              onChange={setField('usage_limit')}
-              placeholder="Unlimited"
-              aria-label="Usage limit"
-            />
-          </div>
-          <div>
-            <label className="field-label" htmlFor="coupon-start">Starts</label>
-            <input
-              id="coupon-start"
-              className="input-dark"
-              type="date"
-              value={form.starts_at}
-              onChange={setField('starts_at')}
-              aria-label="Coupon start date"
-            />
-          </div>
-          <div>
-            <label className="field-label" htmlFor="coupon-end">Ends</label>
-            <input
-              id="coupon-end"
-              className="input-dark"
-              type="date"
-              value={form.ends_at}
-              onChange={setField('ends_at')}
-              aria-label="Coupon end date"
-            />
-          </div>
-          <div className="admin-form-wide">
-            <label className="field-label" htmlFor="coupon-desc">Description</label>
-            <input
-              id="coupon-desc"
-              className="input-dark"
-              value={form.description}
-              onChange={setField('description')}
-              placeholder="Welcome offer"
-              aria-label="Coupon description"
-            />
-          </div>
-          <label className="admin-check" htmlFor="coupon-active">
-            <input
-              id="coupon-active"
-              type="checkbox"
-              checked={form.is_active}
-              onChange={setField('is_active')}
-              aria-label="Coupon is active"
-            />
-            Active
-          </label>
-        </div>
-        <div className="admin-form-actions">
-          <button type="submit" className="btn-primary" disabled={saving} aria-label={editingId ? 'Update coupon' : 'Create coupon'}>
-            <Plus size={14} />
-            {saving ? 'Saving…' : editingId ? 'Update coupon' : 'Create coupon'}
-          </button>
-          {editingId ? (
-            <button type="button" className="btn-outline" onClick={resetForm} aria-label="Cancel coupon edit">
-              Cancel
-            </button>
-          ) : null}
-        </div>
-      </form>
+    <div className="space-y-6">
+      {/* Top Navigation Tabs */}
+      <div className="flex items-center gap-2 border-b border-white/10 pb-3 overflow-x-auto">
+        <button
+          type="button"
+          onClick={() => setSubTab('campaigns')}
+          className={`px-4 py-2 rounded-xl text-xs font-semibold flex items-center gap-2 transition-all whitespace-nowrap ${
+            subTab === 'campaigns'
+              ? 'bg-pink-500/20 text-pink-300 border border-pink-500/40 shadow-sm'
+              : 'bg-white/5 text-white/60 hover:text-white border border-white/5'
+          }`}
+        >
+          <Zap size={14} className="text-pink-400" />
+          <span>Flash Sales &amp; Campaigns</span>
+          {campEnabled && <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse ml-1" />}
+        </button>
 
-      <div className="admin-toolbar">
-        <AdminSearch
-          value={query}
-          onChange={setQuery}
-          placeholder="Search coupon code…"
-          ariaLabel="Search coupons"
-        />
-        <p className="admin-muted">{filtered.length} coupon{filtered.length === 1 ? '' : 's'}</p>
+        <button
+          type="button"
+          onClick={() => setSubTab('duration')}
+          className={`px-4 py-2 rounded-xl text-xs font-semibold flex items-center gap-2 transition-all whitespace-nowrap ${
+            subTab === 'duration'
+              ? 'bg-pink-500/20 text-pink-300 border border-pink-500/40 shadow-sm'
+              : 'bg-white/5 text-white/60 hover:text-white border border-white/5'
+          }`}
+        >
+          <Calendar size={14} className="text-cyan-400" />
+          <span>Multi-Day Duration Discounts</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setSubTab('signup')}
+          className={`px-4 py-2 rounded-xl text-xs font-semibold flex items-center gap-2 transition-all whitespace-nowrap ${
+            subTab === 'signup'
+              ? 'bg-pink-500/20 text-pink-300 border border-pink-500/40 shadow-sm'
+              : 'bg-white/5 text-white/60 hover:text-white border border-white/5'
+          }`}
+        >
+          <Gift size={14} className="text-amber-400" />
+          <span>Welcome Signup Bonus</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setSubTab('coupons')}
+          className={`px-4 py-2 rounded-xl text-xs font-semibold flex items-center gap-2 transition-all whitespace-nowrap ${
+            subTab === 'coupons'
+              ? 'bg-pink-500/20 text-pink-300 border border-pink-500/40 shadow-sm'
+              : 'bg-white/5 text-white/60 hover:text-white border border-white/5'
+          }`}
+        >
+          <Tag size={14} className="text-purple-400" />
+          <span>Promo Codes ({coupons.length})</span>
+        </button>
       </div>
 
-      {filtered.length === 0 ? (
-        <AdminEmpty emoji="🎟️" title="No coupons" body="Create a code above. Renters apply it at checkout." />
-      ) : (
-        <div className="admin-table-wrap">
-          <table className="admin-table">
-            <thead>
-              <tr>
-                <th>Code</th>
-                <th>Discount</th>
-                <th>Uses</th>
-                <th>Window</th>
-                <th>Status</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.map((coupon) => (
-                <tr key={coupon.id}>
-                  <td>
-                    <span className="admin-cell-title">{coupon.code}</span>
-                    <span className="admin-cell-sub">{coupon.description || '—'}</span>
-                  </td>
-                  <td>
-                    {formatCouponValue(coupon)}
-                    {coupon.min_subtotal > 0 ? (
-                      <span className="admin-cell-sub">min ₹{coupon.min_subtotal}</span>
-                    ) : null}
-                  </td>
-                  <td>
-                    {coupon.used_count || 0}
-                    {coupon.usage_limit != null ? ` / ${coupon.usage_limit}` : ' / ∞'}
-                  </td>
-                  <td>
-                    {coupon.starts_at || coupon.ends_at
-                      ? `${formatDate(coupon.starts_at)} → ${formatDate(coupon.ends_at)}`
-                      : 'Always'}
-                  </td>
-                  <td>
-                    {coupon.is_active
-                      ? <AdminBadge kind="live">Active</AdminBadge>
-                      : <AdminBadge kind="hidden">Off</AdminBadge>}
-                  </td>
-                  <td>
-                    <div className="admin-actions">
-                      <AdminAction
-                        tip="Edit coupon"
-                        ariaLabel={`Edit ${coupon.code}`}
-                        onClick={() => startEdit(coupon)}
-                      >
-                        <Pencil size={14} />
-                      </AdminAction>
-                      <AdminAction
-                        tip={coupon.is_active ? 'Disable coupon' : 'Enable coupon'}
-                        ariaLabel={coupon.is_active ? `Disable ${coupon.code}` : `Enable ${coupon.code}`}
-                        on={coupon.is_active}
-                        onClick={() => toggleActive(coupon)}
-                      >
-                        <Power size={14} />
-                      </AdminAction>
-                      <AdminAction
-                        tip="Delete coupon"
-                        ariaLabel={`Delete ${coupon.code}`}
-                        danger
-                        onClick={() => setDeleteTarget(coupon)}
-                      >
-                        <Trash2 size={14} />
-                      </AdminAction>
-                    </div>
-                  </td>
-                </tr>
+      {/* ── SUB-TAB 1: Flash Sales & Active Campaigns ── */}
+      {subTab === 'campaigns' && (
+        <div className="space-y-6 animate-fade-in">
+          {/* Quick Presets */}
+          <div className="p-4 rounded-2xl bg-white/[0.02] border border-white/10 space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold uppercase tracking-wider text-white/50 flex items-center gap-1.5">
+                <Sparkles size={13} className="text-pink-400" /> 1-Click Campaign Presets
+              </span>
+              <span className="text-[11px] text-white/40">Load ready-to-run marketing promos</span>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5">
+              {CAMPAIGN_PRESETS.map((p) => (
+                <button
+                  key={p.code}
+                  type="button"
+                  onClick={() => applyPreset(p)}
+                  className="p-3 rounded-xl bg-black/40 hover:bg-pink-500/10 border border-white/10 hover:border-pink-500/30 text-left transition-all group"
+                >
+                  <div className="font-semibold text-xs text-white group-hover:text-pink-300">{p.title}</div>
+                  <div className="text-[11px] text-white/50 mt-1 font-mono">{p.code} · {p.discount_percent}% OFF</div>
+                </button>
               ))}
-            </tbody>
-          </table>
+            </div>
+          </div>
+
+          {/* Active Campaign Card */}
+          <form onSubmit={handleSaveCampaign} className="admin-card">
+            <div className="flex items-center justify-between border-b border-white/10 pb-4 mb-4">
+              <div className="flex items-center gap-2">
+                <Zap className="w-5 h-5 text-pink-400" />
+                <div>
+                  <h3 className="font-bungee text-base text-white">Sitewide Discount Campaign</h3>
+                  <p className="text-xs text-white/50">Broadcasted across the top announcement bar, homepage deals, and cart.</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                {campEnabled ? (
+                  <AdminBadge kind="live">Active Campaign LIVE</AdminBadge>
+                ) : (
+                  <AdminBadge kind="hidden">Campaign OFF</AdminBadge>
+                )}
+              </div>
+            </div>
+
+            <div className="admin-form-grid">
+              <div>
+                <label className="field-label">Campaign Title</label>
+                <input
+                  type="text"
+                  className="input-dark"
+                  value={campTitle}
+                  onChange={(e) => setCampTitle(e.target.value)}
+                  placeholder="Weekend Flash Sale ⚡"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="field-label">Badge Label (Short)</label>
+                <input
+                  type="text"
+                  className="input-dark"
+                  value={campBadge}
+                  onChange={(e) => setCampBadge(e.target.value)}
+                  placeholder="FLASH DEAL"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="field-label">Promo Code</label>
+                <input
+                  type="text"
+                  className="input-dark font-mono font-bold text-pink-400"
+                  value={campCode}
+                  onChange={(e) => setCampCode(e.target.value.toUpperCase())}
+                  placeholder="FLASH15"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="field-label">Discount Percent (%)</label>
+                <input
+                  type="number"
+                  min="1"
+                  max="100"
+                  className="input-dark"
+                  value={campPercent}
+                  onChange={(e) => setCampPercent(e.target.value)}
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="field-label">Min Rental Subtotal (₹)</label>
+                <input
+                  type="number"
+                  min="0"
+                  className="input-dark"
+                  value={campMinSubtotal}
+                  onChange={(e) => setCampMinSubtotal(e.target.value)}
+                  placeholder="0"
+                />
+              </div>
+
+              <div>
+                <label className="field-label">Max Discount Cap (₹)</label>
+                <input
+                  type="number"
+                  min="0"
+                  className="input-dark"
+                  value={campMaxDiscount}
+                  onChange={(e) => setCampMaxDiscount(e.target.value)}
+                  placeholder="Optional cap"
+                />
+              </div>
+
+              <div className="sm:col-span-2">
+                <label className="field-label">Announcement Banner Description</label>
+                <input
+                  type="text"
+                  className="input-dark"
+                  value={campDesc}
+                  onChange={(e) => setCampDesc(e.target.value)}
+                  placeholder="Get 15% OFF on all gaming & music gear with code FLASH15!"
+                  required
+                />
+              </div>
+
+              <div className="sm:col-span-2">
+                <label className="admin-check flex items-center gap-2 cursor-pointer mt-2">
+                  <input
+                    type="checkbox"
+                    checked={campEnabled}
+                    onChange={(e) => setCampEnabled(e.target.checked)}
+                  />
+                  <span>Run and broadcast this discount campaign sitewide (Notification Bar &amp; Homepage Deals)</span>
+                </label>
+              </div>
+            </div>
+
+            {/* Live Banner Preview */}
+            <div className="p-4 rounded-2xl bg-black/50 border border-white/10 mt-5 space-y-2">
+              <span className="text-[11px] uppercase tracking-wider text-white/40 font-semibold block">Live Storefront Banner Preview</span>
+              <div className="p-3 rounded-xl bg-gradient-to-r from-pink-500/10 via-purple-500/10 to-cyan-500/10 border border-pink-500/30 flex items-center justify-between gap-3 flex-wrap">
+                <div className="flex items-center gap-2">
+                  <span className="px-2 py-0.5 rounded bg-pink-500/20 text-pink-300 font-mono text-[10px] font-bold">
+                    {campBadge || 'DEAL'}
+                  </span>
+                  <span className="text-xs text-white font-semibold">{campTitle} — </span>
+                  <span className="text-xs text-white/70">{campDesc}</span>
+                </div>
+                <div className="px-2.5 py-1 rounded-md bg-white/10 border border-white/20 text-xs font-mono text-white flex items-center gap-1.5">
+                  <Tag size={12} className="text-amber-400" />
+                  <strong>{campCode}</strong>
+                  <span className="text-pink-300 text-[10px]">({campPercent}% OFF)</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="admin-form-actions mt-5">
+              <button type="submit" className="btn-primary" disabled={savingCamp}>
+                <Save size={14} />
+                {savingCamp ? 'Saving & Publishing…' : 'Save & Publish Campaign'}
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {/* ── SUB-TAB 2: Multi-Day Duration Discounts ── */}
+      {subTab === 'duration' && (
+        <form onSubmit={handleSaveDurationTiers} className="admin-card animate-fade-in space-y-5">
+          <div className="flex items-center justify-between border-b border-white/10 pb-4">
+            <div className="flex items-center gap-2">
+              <Calendar className="w-5 h-5 text-cyan-400" />
+              <div>
+                <h3 className="font-bungee text-base text-white">Multi-Day Rental Discounts</h3>
+                <p className="text-xs text-white/50">Automatic discount rates applied when renters choose longer rental periods.</p>
+              </div>
+            </div>
+            <label className="admin-check flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={durEnabled}
+                onChange={(e) => setDurEnabled(e.target.checked)}
+              />
+              <span className="text-xs font-semibold">{durEnabled ? 'Enabled' : 'Disabled'}</span>
+            </label>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {durTiers.map((tier, idx) => (
+              <div key={tier.days} className="p-4 rounded-2xl bg-black/40 border border-white/10 space-y-2">
+                <div className="text-xs font-bold text-cyan-300">{tier.label || `${tier.days}+ Days`}</div>
+                <div className="text-[11px] text-white/40">Minimum {tier.days} continuous rental days</div>
+                <div className="pt-2">
+                  <label className="field-label text-[11px]">Discount Rate (%)</label>
+                  <div className="relative">
+                    <input
+                      type="number"
+                      min="0"
+                      max="100"
+                      className="input-dark font-bold text-cyan-400"
+                      value={tier.discount_percent}
+                      disabled={!durEnabled}
+                      onChange={(e) => updateTierPercent(idx, e.target.value)}
+                    />
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-white/40">%</span>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <p className="text-xs text-white/60">
+            💡 Renters booking for 3+ days will automatically save <strong>{durTiers[0]?.discount_percent}%</strong>, 7+ days save <strong>{durTiers[1]?.discount_percent}%</strong>, 14+ days save <strong>{durTiers[2]?.discount_percent}%</strong>, and monthly rentals (30+ days) save <strong>{durTiers[3]?.discount_percent}%</strong>.
+          </p>
+
+          <div className="admin-form-actions">
+            <button type="submit" className="btn-primary" disabled={savingDur}>
+              <Save size={14} />
+              {savingDur ? 'Saving…' : 'Save Duration Discounts'}
+            </button>
+          </div>
+        </form>
+      )}
+
+      {/* ── SUB-TAB 3: Welcome Signup Bonus ── */}
+      {subTab === 'signup' && (
+        <div className="animate-fade-in">
+          <AdminSignupCoupon />
+        </div>
+      )}
+
+      {/* ── SUB-TAB 4: Custom Promo Codes & Coupons ── */}
+      {subTab === 'coupons' && (
+        <div className="space-y-6 animate-fade-in">
+          {/* Coupon Form */}
+          <form className="admin-card admin-coupon-form" onSubmit={handleSave}>
+            <h3 className="admin-card__title">
+              {editingId ? 'EDIT PROMO CODE' : 'CREATE NEW PROMO CODE'}
+            </h3>
+            <div className="admin-form-grid">
+              <div>
+                <label className="field-label" htmlFor="coupon-code">Code</label>
+                <input
+                  id="coupon-code"
+                  className="input-dark"
+                  value={form.code}
+                  onChange={setField('code')}
+                  placeholder="WELCOME10"
+                  aria-label="Coupon code"
+                  required
+                />
+              </div>
+              <div>
+                <label className="field-label" htmlFor="coupon-type">Type</label>
+                <select
+                  id="coupon-type"
+                  className="select-dark"
+                  value={form.discount_type}
+                  onChange={setField('discount_type')}
+                  aria-label="Discount type"
+                >
+                  <option value="percent">Percent (%)</option>
+                  <option value="flat">Flat (₹)</option>
+                </select>
+              </div>
+              <div>
+                <label className="field-label" htmlFor="coupon-value">
+                  {form.discount_type === 'percent' ? 'Percent (%)' : 'Amount (₹)'}
+                </label>
+                <input
+                  id="coupon-value"
+                  className="input-dark"
+                  type="number"
+                  min="1"
+                  max={form.discount_type === 'percent' ? 100 : 999999}
+                  value={form.discount_value}
+                  onChange={setField('discount_value')}
+                  aria-label="Discount value"
+                  required
+                />
+              </div>
+              <div>
+                <label className="field-label" htmlFor="coupon-min">Min rental ₹</label>
+                <input
+                  id="coupon-min"
+                  className="input-dark"
+                  type="number"
+                  min="0"
+                  value={form.min_subtotal}
+                  onChange={setField('min_subtotal')}
+                  placeholder="0"
+                  aria-label="Minimum subtotal"
+                />
+              </div>
+              {form.discount_type === 'percent' ? (
+                <div>
+                  <label className="field-label" htmlFor="coupon-max">Max cap ₹</label>
+                  <input
+                    id="coupon-max"
+                    className="input-dark"
+                    type="number"
+                    min="0"
+                    value={form.max_discount}
+                    onChange={setField('max_discount')}
+                    placeholder="None"
+                    aria-label="Max discount cap"
+                  />
+                </div>
+              ) : null}
+              <div>
+                <label className="field-label" htmlFor="coupon-limit">Max total uses</label>
+                <input
+                  id="coupon-limit"
+                  className="input-dark"
+                  type="number"
+                  min="1"
+                  value={form.usage_limit}
+                  onChange={setField('usage_limit')}
+                  placeholder="Unlimited"
+                  aria-label="Usage limit"
+                />
+              </div>
+              <div>
+                <label className="field-label" htmlFor="coupon-start">Starts on</label>
+                <input
+                  id="coupon-start"
+                  className="input-dark"
+                  type="date"
+                  value={form.starts_at}
+                  onChange={setField('starts_at')}
+                  aria-label="Start date"
+                />
+              </div>
+              <div>
+                <label className="field-label" htmlFor="coupon-end">Expires on</label>
+                <input
+                  id="coupon-end"
+                  className="input-dark"
+                  type="date"
+                  value={form.ends_at}
+                  onChange={setField('ends_at')}
+                  aria-label="End date"
+                />
+              </div>
+              <div className="sm:col-span-2">
+                <label className="field-label" htmlFor="coupon-desc">Description</label>
+                <input
+                  id="coupon-desc"
+                  className="input-dark"
+                  value={form.description}
+                  onChange={setField('description')}
+                  placeholder="e.g. 10% off for first 100 gamers"
+                  aria-label="Description"
+                />
+              </div>
+              <div className="sm:col-span-2">
+                <label className="admin-check flex items-center gap-2 cursor-pointer" htmlFor="coupon-active">
+                  <input
+                    id="coupon-active"
+                    type="checkbox"
+                    checked={form.is_active}
+                    onChange={setField('is_active')}
+                    aria-label="Is coupon active"
+                  />
+                  <span>Active right now (renters can apply this code at checkout)</span>
+                </label>
+              </div>
+            </div>
+            <div className="admin-form-actions">
+              <button type="submit" className="btn-primary" disabled={saving}>
+                <Plus size={14} />
+                {saving ? 'Saving…' : editingId ? 'Update Promo Code' : 'Create Promo Code'}
+              </button>
+              {editingId ? (
+                <button type="button" className="btn-outline" onClick={resetForm}>
+                  Cancel
+                </button>
+              ) : null}
+            </div>
+          </form>
+
+          {/* Search & List */}
+          <div className="admin-toolbar">
+            <AdminSearch
+              value={query}
+              onChange={setQuery}
+              placeholder="Search coupon code…"
+              ariaLabel="Search coupons"
+            />
+            <p className="admin-muted">{filtered.length} promo code{filtered.length === 1 ? '' : 's'}</p>
+          </div>
+
+          {filtered.length === 0 ? (
+            <AdminEmpty emoji="🎟️" title="No coupons" body="Create a code above. Renters apply it at checkout." />
+          ) : (
+            <div className="admin-table-wrap">
+              <table className="admin-table">
+                <thead>
+                  <tr>
+                    <th>Code</th>
+                    <th>Discount</th>
+                    <th>Uses</th>
+                    <th>Window</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filtered.map((coupon) => (
+                    <tr key={coupon.id}>
+                      <td>
+                        <span className="admin-cell-title font-mono font-bold text-pink-400">{coupon.code}</span>
+                        <span className="admin-cell-sub">{coupon.description || '—'}</span>
+                      </td>
+                      <td>
+                        {formatCouponValue(coupon)}
+                        {coupon.min_subtotal > 0 ? (
+                          <span className="admin-cell-sub">min ₹{coupon.min_subtotal}</span>
+                        ) : null}
+                      </td>
+                      <td>
+                        {coupon.used_count || 0}
+                        {coupon.usage_limit != null ? ` / ${coupon.usage_limit}` : ' / ∞'}
+                      </td>
+                      <td>
+                        {coupon.starts_at || coupon.ends_at
+                          ? `${formatDate(coupon.starts_at)} → ${formatDate(coupon.ends_at)}`
+                          : 'Always'}
+                      </td>
+                      <td>
+                        {coupon.is_active
+                          ? <AdminBadge kind="live">Active</AdminBadge>
+                          : <AdminBadge kind="hidden">Off</AdminBadge>}
+                      </td>
+                      <td>
+                        <div className="admin-actions">
+                          <AdminAction
+                            tip="Edit coupon"
+                            ariaLabel={`Edit ${coupon.code}`}
+                            onClick={() => startEdit(coupon)}
+                          >
+                            <Pencil size={14} />
+                          </AdminAction>
+                          <AdminAction
+                            tip={coupon.is_active ? 'Disable coupon' : 'Enable coupon'}
+                            ariaLabel={coupon.is_active ? `Disable ${coupon.code}` : `Enable ${coupon.code}`}
+                            on={coupon.is_active}
+                            onClick={() => toggleActive(coupon)}
+                          >
+                            <Power size={14} />
+                          </AdminAction>
+                          <AdminAction
+                            tip="Delete coupon"
+                            ariaLabel={`Delete ${coupon.code}`}
+                            danger
+                            onClick={() => setDeleteTarget(coupon)}
+                          >
+                            <Trash2 size={14} />
+                          </AdminAction>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       )}
 
