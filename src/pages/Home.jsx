@@ -386,8 +386,23 @@ export default function Home() {
         </div>
       </section>
 
+      {/* ── For Gear Owners / Idle Gear Section ── */}
+      <section className="home-section" id="list-gear">
+        <div className="home-earn">
+          <p className="section-label">For owners</p>
+          <h2>Your gear is <span className="gradient-text">sitting idle.</span></h2>
+          <p>{platformFeeCopy(fee)} Deposit stays on the booking. Wallet pays out after return.</p>
+          <div className="home-cta is-center">
+            <Link to="/list-item" className="btn-primary" aria-label="List my gear in Bengaluru or Gurugram">
+              <MapPin size={16} /> List My Gear
+            </Link>
+            <Link to="/dashboard?tab=wallet" className="btn-outline">See wallet</Link>
+          </div>
+        </div>
+      </section>
+
       {/* ── Events & Hire Artists Spotlight Section ── */}
-      <section className="home-section">
+      <section className="home-section" id="events">
         <div className="glass neon-border-card rounded-3xl p-6 sm:p-10 relative overflow-hidden">
           <div className="absolute -right-20 -bottom-20 w-80 h-80 bg-[var(--magenta)]/15 rounded-full blur-3xl pointer-events-none" />
           <div className="absolute -left-20 -top-20 w-80 h-80 bg-[var(--cyan)]/15 rounded-full blur-3xl pointer-events-none" />
@@ -469,20 +484,6 @@ export default function Home() {
           <Link to="/how-it-works" className="btn-outline">
             Full walkthrough <ArrowRight size={14} />
           </Link>
-        </div>
-      </section>
-
-      <section className="home-section">
-        <div className="home-earn">
-          <p className="section-label">For owners</p>
-          <h2>Your gear is <span className="gradient-text">sitting idle.</span></h2>
-          <p>{platformFeeCopy(fee)} Deposit stays on the booking. Wallet pays out after return.</p>
-          <div className="home-cta is-center">
-            <Link to="/list-item" className="btn-primary" aria-label="List my gear in Bengaluru or Gurugram">
-              <MapPin size={16} /> List My Gear
-            </Link>
-            <Link to="/dashboard?tab=wallet" className="btn-outline">See wallet</Link>
-          </div>
         </div>
       </section>
 
