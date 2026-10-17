@@ -1,10 +1,12 @@
 import { useState, useMemo, useEffect } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { Search, SlidersHorizontal, Gamepad2, Music, X, RefreshCw, AlertCircle, LayoutGrid, List } from 'lucide-react'
+import { Search, SlidersHorizontal, Gamepad2, Music, X, RefreshCw, AlertCircle, LayoutGrid, List, CalendarDays } from 'lucide-react'
 import GameBackground from '../components/GameBackground'
 import ListingCard from '../components/ListingCard'
 import { useListings } from '../hooks/useListings'
 import SEOHead from '../components/SEOHead'
+import { supabase } from '../lib/supabase'
+import { todayIso, shiftIso, formatDayLabel } from '../lib/bookingDates'
 import {
   BENGALURU_LOCALITIES,
   GURUGRAM_LOCALITIES,
@@ -19,6 +21,7 @@ const MUSIC_SUBS   = ['All','Guitar','Bass','Piano / Keyboard','Drums','DJ Contr
 
 export default function Browse() {
   const [params] = useSearchParams()
+  const today = todayIso()
   const [activeCategory, setActiveCategory] = useState(params.get('cat') || 'all')
   const [activeSub, setActiveSub]     = useState('All')
   const [location, setLocation]       = useState('All Locations')
@@ -30,15 +33,41 @@ export default function Browse() {
   const [fulfillment, setFulfillment] = useState('All Fulfillment')
   const [inStockOnly, setInStockOnly] = useState(false)
 
+  // Date-wise filtering
+  const [fromDate, setFromDate] = useState(() => {
+    const f = params.get('from')
+    if (f) return f
+    try {
+      const saved = sessionStorage.getItem('ldPlan')
+      if (saved) return JSON.parse(saved).from || ''
+    } catch {}
+    return ''
+  })
+  const [toDate, setToDate] = useState(() => {
+    const t = params.get('to')
+    if (t) return t
+    try {
+      const saved = sessionStorage.getItem('ldPlan')
+      if (saved) return JSON.parse(saved).to || ''
+    } catch {}
+    return ''
+  })
+  const [availableOnlyOnDates, setAvailableOnlyOnDates] = useState(true)
+  const [bookedListingIds, setBookedListingIds] = useState(new Set())
+
   useEffect(() => {
     const cat = params.get('cat')
     const loc = params.get('loc')
     const sub = params.get('sub')
     const q = params.get('q')
+    const f = params.get('from')
+    const t = params.get('to')
     if (cat) setActiveCategory(cat)
     if (loc && LOCATIONS.includes(loc)) setLocation(loc)
     if (sub) setActiveSub(sub)
     if (q) setSearch(q)
+    if (f) setFromDate(f)
+    if (t) setToDate(t)
   }, [params])
 
   /* ── Real data from Supabase ────────────────── */
@@ -48,6 +77,44 @@ export default function Browse() {
     location: (location !== 'All Locations' && !isCityFilter) ? location : undefined,
     maxPrice,
   })
+
+  // Date-wise busy listings calculation
+  useEffect(() => {
+    if (!fromDate || !toDate || toDate <= fromDate) {
+      setBookedListingIds(new Set())
+      return
+    }
+
+    let cancelled = false
+    supabase
+      .from('bookings')
+      .select('listing_id, start_date, end_date')
+      .in('status', ['pending', 'confirmed', 'active'])
+      .lt('start_date', toDate)
+      .gt('end_date', fromDate)
+      .then(({ data, error: bErr }) => {
+        if (!cancelled && !bErr && data) {
+          const counts = {}
+          for (const b of data) {
+            if (b.listing_id) {
+              counts[b.listing_id] = (counts[b.listing_id] || 0) + 1
+            }
+          }
+          const busyIds = new Set()
+          for (const [id, count] of Object.entries(counts)) {
+            const l = listings.find((item) => item.id === id)
+            const cap = Math.max(1, Number(l?.stock_total || l?.stock_qty || 1))
+            if (count >= cap) {
+              busyIds.add(id)
+            }
+          }
+          setBookedListingIds(busyIds)
+        }
+      })
+      .catch(() => {})
+
+    return () => { cancelled = true }
+  }, [fromDate, toDate, listings])
 
   /* ── Client-side filtering & sorting ────────── */
   const filtered = useMemo(() => {
@@ -72,7 +139,11 @@ export default function Browse() {
     }
 
     if (inStockOnly) {
-      result = result.filter(l => l.is_available && (l.stock > 0 || l.stock_qty > 0))
+      result = result.filter(l => l.is_available !== false)
+    }
+
+    if (fromDate && toDate && availableOnlyOnDates) {
+      result = result.filter(l => !bookedListingIds.has(l.id))
     }
 
     if (search) {
@@ -87,6 +158,14 @@ export default function Browse() {
     }
 
     const sorted = [...result]
+    if (fromDate && toDate && !availableOnlyOnDates) {
+      sorted.sort((a, b) => {
+        const aBooked = bookedListingIds.has(a.id) ? 1 : 0
+        const bBooked = bookedListingIds.has(b.id) ? 1 : 0
+        return aBooked - bBooked
+      })
+    }
+
     switch (sortBy) {
       case 'Price: Low to High':
         sorted.sort((a, b) => (a.price_day || 0) - (b.price_day || 0)); break
@@ -102,7 +181,7 @@ export default function Browse() {
     }
 
     return sorted
-  }, [listings, activeSub, fulfillment, inStockOnly, search, sortBy])
+  }, [listings, activeSub, fulfillment, inStockOnly, fromDate, toDate, availableOnlyOnDates, bookedListingIds, search, sortBy])
 
   const subcats = activeCategory === 'gaming' ? GAMING_SUBS
     : activeCategory === 'music'  ? MUSIC_SUBS
@@ -113,6 +192,7 @@ export default function Browse() {
     activeCategory !== 'all'        && { key: 'cat',      label: activeCategory === 'gaming' ? '🎮 Gaming' : '🎵 Music',  clear: () => { setActiveCategory('all'); setActiveSub('All') } },
     activeSub !== 'All'             && { key: 'sub',      label: activeSub,                                                clear: () => setActiveSub('All') },
     location  !== 'All Locations'  && { key: 'loc',      label: `📍 ${location}`,                                         clear: () => setLocation('All Locations') },
+    (fromDate && toDate)            && { key: 'dates',    label: `📅 ${formatDayLabel(fromDate)} → ${formatDayLabel(toDate)}`, clear: () => { setFromDate(''); setToDate('') } },
     maxPrice  < 5000                && { key: 'price',    label: `Max ₹${maxPrice}/day`,                                   clear: () => setMaxPrice(5000) },
     search                          && { key: 'search',   label: `"${search}"`,                                            clear: () => setSearch('') },
     fulfillment !== 'All Fulfillment' && { key: 'fulfillment', label: fulfillment,                                         clear: () => setFulfillment('All Fulfillment') },
@@ -249,6 +329,67 @@ export default function Browse() {
             <option>🏠 Direct Handover</option>
             <option>🏬 Hub Stored</option>
           </select>
+
+          {/* Date range picker */}
+          <div
+            className="flex items-center gap-1.5 h-10 px-3 rounded-xl text-sm font-display font-semibold flex-shrink-0"
+            style={{
+              background: fromDate && toDate ? 'rgba(255,46,109,0.12)' : 'var(--surface)',
+              border: `1px solid ${fromDate && toDate ? 'rgba(255,46,109,0.35)' : 'var(--border)'}`,
+              color: fromDate && toDate ? '#ff6b9d' : 'var(--text-muted)',
+            }}
+          >
+            <CalendarDays size={14} className="text-white/60" />
+            <span className="text-xs text-white/50 hidden sm:inline">From</span>
+            <input
+              type="date"
+              value={fromDate}
+              min={today}
+              onChange={(e) => {
+                const val = e.target.value
+                setFromDate(val)
+                if (toDate && toDate <= val) setToDate(shiftIso(val, 1))
+              }}
+              className="bg-transparent text-xs font-display outline-none text-white cursor-pointer"
+              aria-label="Rental start date"
+            />
+            <span className="text-xs text-white/40">→</span>
+            <span className="text-xs text-white/50 hidden sm:inline">To</span>
+            <input
+              type="date"
+              value={toDate}
+              min={fromDate || today}
+              onChange={(e) => setToDate(e.target.value)}
+              className="bg-transparent text-xs font-display outline-none text-white cursor-pointer"
+              aria-label="Rental end date"
+            />
+            {(fromDate || toDate) && (
+              <button
+                type="button"
+                onClick={() => { setFromDate(''); setToDate('') }}
+                className="text-white/40 hover:text-white ml-1 p-0.5 rounded"
+                aria-label="Clear dates"
+              >
+                <X size={12} />
+              </button>
+            )}
+          </div>
+
+          {fromDate && toDate && (
+            <button
+              type="button"
+              onClick={() => setAvailableOnlyOnDates(!availableOnlyOnDates)}
+              className="flex items-center gap-1.5 h-10 px-3 rounded-xl text-xs font-display font-semibold flex-shrink-0 transition-all duration-300"
+              style={{
+                background: availableOnlyOnDates ? 'rgba(0,229,255,0.12)' : 'var(--surface)',
+                border: `1px solid ${availableOnlyOnDates ? 'rgba(0,229,255,0.4)' : 'var(--border)'}`,
+                color: availableOnlyOnDates ? '#00e5ff' : 'var(--text-muted)',
+              }}
+            >
+              {availableOnlyOnDates ? '✓ Available only' : 'Showing all gear'}
+            </button>
+          )}
+
           <button onClick={() => setInStockOnly(!inStockOnly)}
             className="flex items-center gap-2 h-10 px-4 rounded-xl text-sm font-display font-semibold transition-all duration-300 flex-shrink-0 whitespace-nowrap"
             style={{
@@ -290,7 +431,7 @@ export default function Browse() {
             ))}
             {activeFilters.length > 1 && (
               <button
-                onClick={() => { setActiveCategory('all'); setActiveSub('All'); setLocation('All Locations'); setMaxPrice(5000); setSearch(''); setFulfillment('All Fulfillment'); setInStockOnly(false); }}
+                onClick={() => { setActiveCategory('all'); setActiveSub('All'); setLocation('All Locations'); setMaxPrice(5000); setSearch(''); setFulfillment('All Fulfillment'); setInStockOnly(false); setFromDate(''); setToDate(''); }}
                 className="text-xs font-display transition-colors"
                 style={{ color: 'var(--text-dim)' }}
                 onMouseEnter={e => e.currentTarget.style.color = 'var(--text)'}
@@ -349,11 +490,26 @@ export default function Browse() {
         {!loading && filtered.length > 0 && (
           viewMode === 'grid' ? (
             <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
-              {filtered.map(l => <ListingCard key={l.id} listing={l} />)}
+              {filtered.map(l => (
+                <ListingCard
+                  key={l.id}
+                  listing={l}
+                  selectedDates={fromDate && toDate ? { from: fromDate, to: toDate } : null}
+                  isBookedForDates={bookedListingIds.has(l.id)}
+                />
+              ))}
             </div>
           ) : (
             <div className="space-y-3">
-              {filtered.map(l => <ListingCard key={l.id} listing={l} listView />)}
+              {filtered.map(l => (
+                <ListingCard
+                  key={l.id}
+                  listing={l}
+                  listView
+                  selectedDates={fromDate && toDate ? { from: fromDate, to: toDate } : null}
+                  isBookedForDates={bookedListingIds.has(l.id)}
+                />
+              ))}
             </div>
           )
         )}

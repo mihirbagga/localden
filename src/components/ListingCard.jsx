@@ -8,7 +8,12 @@ import './listingCard.css'
  * Supabase: price_day, is_available, total_reviews, profiles.full_name
  * Legacy:   price.day, available, reviews, lister
  */
-export default function ListingCard({ listing, listView = false }) {
+export default function ListingCard({
+  listing,
+  listView = false,
+  selectedDates = null,
+  isBookedForDates = false,
+}) {
   const navigate = useNavigate()
   const [hovered, setHovered] = useState(false)
   const isGaming = listing.category === 'gaming'
@@ -21,9 +26,16 @@ export default function ListingCard({ listing, listView = false }) {
   const priceWeekend = listing.price_weekend ?? listing.price?.weekend ?? 0
   const priceWeek    = listing.price_week    ?? listing.price?.week    ?? 0
   const rawAvailable = listing.is_available  ?? listing.available      ?? true
-  const stockQty     = listing.stock_qty !== undefined && listing.stock_qty !== null ? Number(listing.stock_qty) : null
-  const available    = rawAvailable && (stockQty === null || stockQty > 0)
-  const isBookedOut  = !available
+  const isManuallyUnavailable = rawAvailable === false
+  const isBookedOut  = isManuallyUnavailable || isBookedForDates
+  const available    = !isBookedOut
+
+  const dateQuery = selectedDates?.from && selectedDates?.to
+    ? `?from=${encodeURIComponent(selectedDates.from)}&to=${encodeURIComponent(selectedDates.to)}`
+    : ''
+  const targetUrl = `/listing/${listing.id}${dateQuery}`
+  const bookedLabel = isBookedForDates ? 'Booked on dates' : 'Booked Out'
+
   const verified     = listing.is_verified   ?? listing.verified       ?? false
   const reviewCount  = listing.total_reviews ?? listing.reviews        ?? 0
   const rating       = listing.rating        ?? 0
@@ -35,7 +47,7 @@ export default function ListingCard({ listing, listView = false }) {
   /* ──────────── LIST VIEW ──────────────── */
   if (listView) {
     return (
-      <Link to={`/listing/${listing.id}`} style={{ textDecoration: 'none' }}>
+      <Link to={targetUrl} style={{ textDecoration: 'none' }}>
         <div
           className="flex items-center gap-4 rounded-2xl p-3 transition-all duration-300 relative overflow-hidden"
           style={{
@@ -54,8 +66,8 @@ export default function ListingCard({ listing, listView = false }) {
               ? <img src={heroPhoto} alt={listing.title} className="w-full h-full object-cover" />
               : emoji}
             {isBookedOut && (
-              <div className="absolute inset-0 bg-black/60 flex items-center justify-center text-[10px] font-bold text-red-400 uppercase tracking-wider">
-                Booked
+              <div className="absolute inset-0 bg-black/60 flex items-center justify-center text-[10px] font-bold text-red-400 uppercase tracking-wider text-center px-1">
+                {isBookedForDates ? 'Booked' : 'Off'}
               </div>
             )}
           </div>
@@ -73,7 +85,7 @@ export default function ListingCard({ listing, listView = false }) {
                 <span className="text-xs font-semibold" style={{ color: 'var(--success)' }}>● Available</span>
               ) : (
                 <span className="text-xs font-semibold px-1.5 py-0.5 rounded text-red-400 bg-red-950/60 border border-red-500/30">
-                  🚫 Booked Out
+                  🚫 {bookedLabel}
                 </span>
               )}
             </div>
@@ -106,7 +118,7 @@ export default function ListingCard({ listing, listView = false }) {
 
   /* ──────────── GRID VIEW (default) ───── */
   return (
-    <Link to={`/listing/${listing.id}`} className="block" style={{ textDecoration: 'none' }}>
+    <Link to={targetUrl} className="block" style={{ textDecoration: 'none' }}>
       <div
         className="relative rounded-2xl overflow-hidden cursor-pointer transition-all duration-400"
         style={{
@@ -152,7 +164,7 @@ export default function ListingCard({ listing, listView = false }) {
           <div className="absolute inset-0 bg-black/40 backdrop-blur-[1px] z-10 flex items-center justify-center pointer-events-none">
             <div className="bg-red-950/80 border border-red-500/50 text-red-300 font-display font-bold text-xs uppercase px-3.5 py-1.5 rounded-full shadow-xl tracking-wider flex items-center gap-1.5 backdrop-blur-md">
               <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
-              Booked Out
+              {isBookedForDates ? 'Booked on dates' : 'Unavailable'}
             </div>
           </div>
         )}
@@ -179,7 +191,7 @@ export default function ListingCard({ listing, listView = false }) {
               }}>
               <span className="w-1.5 h-1.5 rounded-full"
                 style={{ background: available ? 'var(--success)' : '#ef4444' }} />
-              {available ? 'Available' : 'Booked Out'}
+              {available ? 'Available' : bookedLabel}
             </div>
           </div>
         </div>

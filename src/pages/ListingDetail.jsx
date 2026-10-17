@@ -205,14 +205,20 @@ function BookingWidget({ listing, mobile = false, forceOpen = false }) {
   const units = listingUnits(listing)
   const { busy } = useBusyDates(listing.id, units)
   const busyRef = useRef(busy)
-  busyRef.current = busy
+  const [params] = useSearchParams()
   const rawAvailable = listing.is_available ?? listing.available ?? true
-  const stockQty = listing.stock_qty !== undefined && listing.stock_qty !== null ? Number(listing.stock_qty) : null
-  const isBookedOut = !rawAvailable || (stockQty !== null && stockQty <= 0)
+  const isBookedOut = rawAvailable === false
   const outOfStock = isBookedOut
 
-  const [startDate, setStartDate] = useState('')
-  const [endDate, setEndDate] = useState('')
+  const [startDate, setStartDate] = useState(() => params.get('from') || '')
+  const [endDate, setEndDate] = useState(() => params.get('to') || '')
+
+  useEffect(() => {
+    const f = params.get('from')
+    const t = params.get('to')
+    if (f) setStartDate(f)
+    if (t) setEndDate(t)
+  }, [params])
   const [quick, setQuick] = useState('')
   const [booking, setBooking] = useState(null)
   const [payError, setPayError] = useState('')
@@ -234,27 +240,45 @@ function BookingWidget({ listing, mobile = false, forceOpen = false }) {
     ? Math.max(1, Math.ceil((new Date(endDate) - new Date(startDate)) / 86400000))
     : 0
   const deposit = listing.deposit_amount != null ? Math.max(0, Number(listing.deposit_amount)) : 0
+  const protectionCost = calculateProtectionCost(protectionPlan, days, protectionSettings)
   const priced = priceWithCoupon({
     days,
     priceDay: listing.price_day,
     deposit,
     coupon: appliedCoupon,
     fee: platformFeeSetting,
+    protectionCost,
   })
-  const { subtotal, discount: couponDiscount, platformFee } = priced
-  
-  let discountRate = 0
-  if (days >= 14) discountRate = 0.20
-  else if (days >= 7) discountRate = 0.10
-  else if (days >= 3) discountRate = 0.05
 
-  const durationDiscount = Math.round((listing.price_day * days) * discountRate)
-  const totalDiscount = durationDiscount + couponDiscount
-  const subtotalAfterDuration = Math.max(0, subtotal - durationDiscount)
-  const baseTotal = Math.max(0, subtotalAfterDuration - couponDiscount) + platformFee + deposit
-  
-  const protectionCost = calculateProtectionCost(protectionPlan, days, protectionSettings)
-  const total = baseTotal + protectionCost
+  // Proactively fetch official server quote so client is always 100% in sync with database
+  const [serverQuote, setServerQuote] = useState(null)
+
+  useEffect(() => {
+    if (!startDate || !endDate || !listing?.id || days <= 0) {
+      setServerQuote(null)
+      return
+    }
+    let cancelled = false
+    supabase.rpc('quote_booking', {
+      p_listing_id: listing.id,
+      p_start_date: startDate,
+      p_end_date: endDate,
+      p_coupon_code: appliedCoupon?.code || null,
+      p_protection_plan: protectionPlan || 'none',
+    }).then(({ data, error }) => {
+      if (!cancelled && !error && data && data.total != null) {
+        setServerQuote(data)
+      }
+    }).catch(() => {})
+    return () => { cancelled = true }
+  }, [listing?.id, startDate, endDate, appliedCoupon?.code, protectionPlan, days])
+
+  const subtotal = serverQuote?.subtotal ?? priced.subtotal
+  const durationDiscount = serverQuote?.duration_discount ?? priced.durationDiscount
+  const couponDiscount = serverQuote?.coupon_discount ?? priced.couponDiscount
+  const totalDiscount = serverQuote?.discount_total ?? priced.totalDiscount
+  const platformFee = serverQuote?.platform_fee ?? priced.platformFee
+  const total = serverQuote?.total ?? priced.total
   const canWallet = isAuthenticated && days > 0 && total > 0 && (wallet.available || 0) >= total
   const selectedPay = payMethodId === 'wallet'
     ? walletMethod
@@ -365,6 +389,15 @@ function BookingWidget({ listing, mobile = false, forceOpen = false }) {
       if (rpcError && !/does not exist|function public\.create_booking/i.test(rpcError.message || '')) {
         setSaving(false)
         const msg = rpcError.message || 'Booking failed.'
+        const match = msg.match(/PRICE_CHANGED: the total is now ₹(\d+)/i)
+        if (match) {
+          const newTotal = parseInt(match[1], 10)
+          setServerQuote((prev) => (prev ? { ...prev, total: newTotal } : { total: newTotal }))
+          const reviewMsg = `Total updated to ₹${newTotal}. Review and tap to confirm.`
+          setPayError(reviewMsg)
+          showToast(reviewMsg, 'info')
+          return
+        }
         setPayError(msg)
         showToast(msg, 'error')
         return
@@ -435,7 +468,6 @@ function BookingWidget({ listing, mobile = false, forceOpen = false }) {
       total_bookings: (listing.total_bookings || 0) + 1,
       updated_at: new Date().toISOString(),
     }).eq('id', listing.id)
-    await adjustListingStock(listing.id, -1)
     setBooking({
       id: bookingId,
       startDate,
@@ -1198,10 +1230,10 @@ export default function ListingDetail() {
                 {isGaming ? '🎮' : '🎵'} {listing.subcategory}
               </span>
               {listing.condition ? <span className="ld-pill">{conditionLabel(listing.condition)}</span> : null}
-              {listing.is_available && stock > 0 ? (
-                <span className="ld-pill is-ok">Available{stock <= 1 ? ' · last one' : ` · ${stock} left`}</span>
+              {listing.is_available !== false ? (
+                <span className="ld-pill is-ok">Available to rent</span>
               ) : (
-                <span className="ld-pill is-bad">Booked out</span>
+                <span className="ld-pill is-bad">Unavailable</span>
               )}
               {listing.deposit_amount && Number(listing.deposit_amount) > 0 ? (
                 <span className="ld-pill is-warn">Deposit ₹{listing.deposit_amount}</span>

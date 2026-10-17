@@ -335,11 +335,8 @@ begin
   if v_listing.user_id = v_uid then
     raise exception 'You cannot rent your own listing.';
   end if;
-  if coalesce(v_listing.is_published, true) = false then
-    raise exception 'This listing is not available.';
-  end if;
-  if coalesce(v_listing.is_available, true) = false or coalesce(v_listing.stock_qty, 1) <= 0 then
-    raise exception 'This item is booked out right now.';
+  if coalesce(v_listing.is_published, true) = false or coalesce(v_listing.is_available, true) = false then
+    raise exception 'This listing is not currently available.';
   end if;
 
   if v_delivery = 'delivery' and (v_address is null or char_length(v_address) < 5) then
@@ -358,7 +355,7 @@ begin
     raise exception '%', v_q ->> 'coupon_error';
   end if;
   v_total := (v_q ->> 'total')::int;
-  if p_expected_total is not null and p_expected_total <> v_total then
+  if p_expected_total is not null and abs(p_expected_total - v_total) > 2 then
     raise exception 'PRICE_CHANGED: the total is now ₹% (you saw ₹%). Review and try again.', v_total, p_expected_total;
   end if;
 
@@ -429,12 +426,9 @@ begin
     v_pay_status := 'paid';
   end if;
 
-  -- Stock + counters
-  v_qty := greatest(0, coalesce(v_listing.stock_qty, 1) - 1);
+  -- Counters
   update public.listings
-  set stock_qty = v_qty,
-      is_available = case when v_qty > 0 then is_available else false end,
-      total_bookings = coalesce(total_bookings, 0) + 1,
+  set total_bookings = coalesce(total_bookings, 0) + 1,
       updated_at = now()
   where id = v_listing.id;
 
@@ -548,34 +542,9 @@ begin
 end;
 $$;
 
--- ── 5. Stock comes back automatically when a booking ends ────
-create or replace function public.restore_stock_on_booking_end()
-returns trigger
-language plpgsql
-security definer
-set search_path = public
-as $$
-begin
-  if tg_op = 'UPDATE'
-     and old.status in ('pending', 'confirmed', 'active')
-     and new.status in ('cancelled', 'completed') then
-    update public.listings
-    set stock_qty = case
-          when coalesce(stock_qty, 0) >= coalesce(stock_total, 1) then coalesce(stock_qty, 0)
-          else coalesce(stock_qty, 0) + 1
-        end,
-        is_available = case when coalesce(stock_qty, 0) = 0 then true else is_available end,
-        updated_at = now()
-    where id = new.listing_id;
-  end if;
-  return new;
-end;
-$$;
-
+-- ── 5. Date-wise availability: drop old stock depletion trigger ──
 drop trigger if exists bookings_restore_stock on public.bookings;
-create trigger bookings_restore_stock
-  after update of status on public.bookings
-  for each row execute procedure public.restore_stock_on_booking_end();
+drop function if exists public.restore_stock_on_booking_end();
 
 -- ── 6. RLS review: bookings ──────────────────────────────────
 -- Bookings can only be created through create_booking().

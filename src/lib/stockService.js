@@ -21,16 +21,19 @@ export async function adjustListingStock(listingId, delta) {
       return null
     }
 
-    const currentQty = typeof listing.stock_qty === 'number' ? listing.stock_qty : 1
-    const nextQty = Math.max(0, currentQty + delta)
-    const isAvailable = nextQty > 0
+    // In a peer-to-peer rental marketplace, bookings are date-bound reservations.
+    // We never mark listings unavailable (is_available = false) just because a rental is placed.
+    // Date availability is checked against the bookings calendar.
+    const capacity = Math.max(1, typeof listing.stock_total === 'number' ? listing.stock_total : (listing.stock_qty || 1))
+    const currentQty = typeof listing.stock_qty === 'number' ? listing.stock_qty : capacity
+    const nextQty = Math.min(capacity, Math.max(1, currentQty + delta))
 
-    // 2. Update listing with new stock and availability
+    // 2. Ensure listing remains available and stock does not collapse to 0
     const { data: updated, error: updateErr } = await supabase
       .from('listings')
       .update({
         stock_qty: nextQty,
-        is_available: isAvailable,
+        is_available: true,
         updated_at: new Date().toISOString(),
       })
       .eq('id', listingId)

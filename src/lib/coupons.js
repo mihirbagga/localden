@@ -67,19 +67,42 @@ export function couponFitsUser(coupon, userId) {
   return Boolean(userId && coupon?.owner_id === userId)
 }
 
-export function priceWithCoupon({ days, priceDay, deposit, coupon, fee }) {
-  const subtotal = days * (priceDay || 0)
-  const discount = computeDiscount(coupon, subtotal)
-  const discountedSubtotal = Math.max(0, subtotal - discount)
-  const platformFee = computePlatformFee(discountedSubtotal, fee)
-  const safeDeposit = deposit || 0
+export function priceWithCoupon({ days, priceDay, deposit, coupon, fee, protectionCost = 0 }) {
+  const d = Math.max(0, Number(days) || 0)
+  const pd = Math.max(0, Number(priceDay) || 0)
+  const subtotal = d * pd
+
+  let discountRate = 0
+  if (d >= 14) discountRate = 0.20
+  else if (d >= 7) discountRate = 0.10
+  else if (d >= 3) discountRate = 0.05
+
+  const durationDiscount = Math.round(subtotal * discountRate)
+  const subtotalAfterDuration = Math.max(0, subtotal - durationDiscount)
+
+  const couponDiscount = computeDiscount(coupon, subtotalAfterDuration)
+  const netRent = Math.max(0, subtotalAfterDuration - couponDiscount)
+
+  const platformFee = computePlatformFee(netRent, fee)
+  const safeDeposit = Math.max(0, Number(deposit) || 0)
+  const safeProtection = Math.max(0, Number(protectionCost) || 0)
+  const totalDiscount = durationDiscount + couponDiscount
+
   return {
+    days: d,
     subtotal,
-    discount,
-    discountedSubtotal,
+    durationDiscount,
+    discountRate,
+    couponDiscount,
+    discount: totalDiscount,
+    totalDiscount,
+    subtotalAfterDuration,
+    discountedSubtotal: netRent,
+    netRent,
     platformFee,
     deposit: safeDeposit,
-    total: discountedSubtotal + platformFee + safeDeposit,
+    protectionCost: safeProtection,
+    total: netRent + platformFee + safeDeposit + safeProtection,
   }
 }
 

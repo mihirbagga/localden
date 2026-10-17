@@ -39,7 +39,6 @@ export function useListings(filters = {}) {
               kyc_status
             )
           `)
-          .eq('is_available', true)
           .eq('is_published', true)
 
         if (category && category !== 'all') {
