@@ -11,7 +11,7 @@ declare
   deduct_amount int;
 begin
   for r in (
-    select user_id, count(*) as cnt, min(id) as keep_id
+    select user_id, count(*) as cnt
     from public.wallet_entries
     where kind = 'welcome_bonus'
     group by user_id
@@ -20,10 +20,16 @@ begin
     dup_count := r.cnt - 1;
     deduct_amount := dup_count * 100;
 
+    -- Delete all except the single earliest welcome bonus entry
     delete from public.wallet_entries
-    where user_id = r.user_id
-      and kind = 'welcome_bonus'
-      and id <> r.keep_id;
+    where id in (
+      select id
+      from public.wallet_entries
+      where user_id = r.user_id
+        and kind = 'welcome_bonus'
+      order by created_at asc, id asc
+      offset 1
+    );
 
     update public.wallets
     set available = greatest(available - deduct_amount, 0),
