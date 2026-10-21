@@ -66,55 +66,126 @@ export const CAMPAIGN_PRESETS = [
   },
 ]
 
+const LOCAL_STORAGE_KEY = 'rent_discount_campaigns'
+const UPDATE_EVENT = 'discount-campaigns-updated'
+
+function readCachedSettings() {
+  try {
+    const raw = localStorage.getItem(LOCAL_STORAGE_KEY)
+    if (!raw) return null
+    const parsed = JSON.parse(raw)
+    if (parsed && typeof parsed === 'object') return parsed
+  } catch {}
+  return null
+}
+
+function writeCachedSettings(payload) {
+  try {
+    localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(payload))
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent(UPDATE_EVENT, { detail: payload }))
+    }
+  } catch {}
+}
+
+function mergeWithDefaults(raw) {
+  if (!raw || typeof raw !== 'object') return DEFAULT_CAMPAIGN_SETTINGS
+  const dur = raw.duration_discounts || {}
+  return {
+    active_campaign: {
+      ...DEFAULT_CAMPAIGN_SETTINGS.active_campaign,
+      ...(raw.active_campaign || {}),
+    },
+    duration_discounts: {
+      ...DEFAULT_CAMPAIGN_SETTINGS.duration_discounts,
+      ...dur,
+      enabled: dur.enabled !== false,
+      tiers: Array.isArray(dur.tiers) && dur.tiers.length > 0
+        ? dur.tiers.map((t) => ({
+            days: Math.max(1, Number(t.days) || 1),
+            discount_percent: Math.max(0, Math.min(100, Number(t.discount_percent) || 0)),
+            label: String(t.label || `${t.days}+ Days`),
+          })).sort((a, b) => a.days - b.days)
+        : DEFAULT_CAMPAIGN_SETTINGS.duration_discounts.tiers,
+    },
+  }
+}
+
 /**
- * Fetch campaign settings from site_settings with fallback to defaults
+ * Fetch campaign settings from site_settings with fallback to localStorage & defaults
  */
 export async function fetchCampaignSettings() {
+  const cached = readCachedSettings()
   try {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('site_settings')
-      .select('value')
-      .eq('id', SETTING_KEY)
+      .select('*')
+      .or(`id.eq.${SETTING_KEY},key.eq.${SETTING_KEY}`)
       .maybeSingle()
 
-    if (data?.value) {
-      return {
-        active_campaign: {
-          ...DEFAULT_CAMPAIGN_SETTINGS.active_campaign,
-          ...(data.value.active_campaign || {}),
-        },
-        duration_discounts: {
-          ...DEFAULT_CAMPAIGN_SETTINGS.duration_discounts,
-          ...(data.value.duration_discounts || {}),
-        },
-      }
+    if (!error && data?.value && typeof data.value === 'object') {
+      const merged = mergeWithDefaults(data.value)
+      writeCachedSettings(merged)
+      return merged
     }
-  } catch (err) {
-    console.warn('Failed to load discount campaigns:', err?.message)
+  } catch {
+    try {
+      const { data: fallback } = await supabase
+        .from('site_settings')
+        .select('value')
+        .eq('id', SETTING_KEY)
+        .maybeSingle()
+      if (fallback?.value && typeof fallback.value === 'object') {
+        const merged = mergeWithDefaults(fallback.value)
+        writeCachedSettings(merged)
+        return merged
+      }
+    } catch (err) {
+      console.warn('Failed to load discount campaigns:', err?.message)
+    }
+  }
+
+  if (cached) {
+    return mergeWithDefaults(cached)
   }
   return DEFAULT_CAMPAIGN_SETTINGS
 }
 
 /**
- * Save campaign settings and ensure coupon exists in public.coupons table
+ * Save campaign settings with id/key fallback + localStorage persistence
  */
 export async function saveCampaignSettings(settings) {
+  const merged = mergeWithDefaults(settings)
   const payload = {
-    active_campaign: settings.active_campaign,
-    duration_discounts: settings.duration_discounts,
+    active_campaign: merged.active_campaign,
+    duration_discounts: merged.duration_discounts,
     updated_at: new Date().toISOString(),
   }
 
-  const { error } = await supabase.from('site_settings').upsert({
+  // Always persist locally first so UI & checkout update immediately
+  writeCachedSettings(payload)
+
+  let { error } = await supabase.from('site_settings').upsert({
     id: SETTING_KEY,
     value: payload,
     updated_at: new Date().toISOString(),
   })
 
-  if (error) throw error
+  if (error && /column "id"/i.test(error.message || '')) {
+    const res = await supabase.from('site_settings').upsert({
+      key: SETTING_KEY,
+      value: payload,
+      updated_at: new Date().toISOString(),
+    })
+    error = res.error
+  }
+
+  if (error) {
+    console.warn('Supabase site_settings discount_campaigns save note:', error.message)
+  }
 
   // If active campaign is enabled with a code, sync into coupons table
-  const camp = settings.active_campaign
+  const camp = merged.active_campaign
   if (camp?.enabled && camp?.code) {
     try {
       const codeClean = String(camp.code).trim().toUpperCase()
@@ -139,10 +210,10 @@ export async function saveCampaignSettings(settings) {
 }
 
 /**
- * React Hook for Discount Campaigns
+ * React Hook for Discount Campaigns (auto-syncs across tabs/components)
  */
 export function useDiscountCampaigns() {
-  const [settings, setSettings] = useState(DEFAULT_CAMPAIGN_SETTINGS)
+  const [settings, setSettings] = useState(() => mergeWithDefaults(readCachedSettings()))
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -153,12 +224,27 @@ export function useDiscountCampaigns() {
         setLoading(false)
       }
     })
-    return () => { isMounted = false }
+
+    const onUpdate = (e) => {
+      if (isMounted && e?.detail) {
+        setSettings(mergeWithDefaults(e.detail))
+      }
+    }
+    if (typeof window !== 'undefined') {
+      window.addEventListener(UPDATE_EVENT, onUpdate)
+    }
+    return () => {
+      isMounted = false
+      if (typeof window !== 'undefined') {
+        window.removeEventListener(UPDATE_EVENT, onUpdate)
+      }
+    }
   }, [])
 
   const save = async (nextSettings) => {
-    await saveCampaignSettings(nextSettings)
-    setSettings(nextSettings)
+    const saved = await saveCampaignSettings(nextSettings)
+    setSettings(mergeWithDefaults(saved))
+    return saved
   }
 
   return { settings, setSettings, save, loading }

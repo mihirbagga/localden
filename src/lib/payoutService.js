@@ -14,59 +14,108 @@ const SETTING_KEY = 'payout_requests'
  */
 export async function fetchPayoutRequests() {
   try {
-    // 1. Primary: query dedicated payout_requests table
+    let combined = []
+    const seenIds = new Set()
+
+    // 1. Primary: query dedicated payout_requests table (without broken wallets FK join)
     const { data: dbRows, error: dbErr } = await supabase
       .from('payout_requests')
-      .select(`
-        *,
-        profiles:user_id(id, full_name, email, phone),
-        wallets:user_id(available, pending)
-      `)
+      .select('*')
       .order('created_at', { ascending: false })
 
     if (!dbErr && Array.isArray(dbRows)) {
-      return dbRows.map((r) => ({
-        id: String(r.id),
-        user_id: r.user_id,
-        amount: Number(r.amount || 0),
-        payout_method: r.payout_method,
-        upi_id: r.upi_id,
-        bank_details: r.bank_details,
-        status: r.status,
-        transaction_ref: r.transaction_ref,
-        admin_notes: r.admin_notes,
-        created_at: r.created_at,
-        updated_at: r.updated_at,
-        user: r.profiles || {
-          full_name: 'Member',
-          email: 'N/A',
-          phone: 'N/A',
-        },
-        wallet: r.wallets || { available: 0, pending: 0 },
-      }))
+      for (const r of dbRows) {
+        const id = String(r.id)
+        seenIds.add(id)
+        combined.push({
+          id,
+          user_id: r.user_id,
+          amount: Math.abs(Number(r.amount || 0)),
+          payout_method: r.payout_method || 'upi',
+          upi_id: r.upi_id || null,
+          bank_details: r.bank_details || null,
+          status: r.status || 'pending',
+          transaction_ref: r.transaction_ref || null,
+          admin_notes: r.admin_notes || null,
+          created_at: r.created_at,
+          updated_at: r.updated_at || r.created_at,
+        })
+      }
     }
 
-    // 2. Fallback: fetch from site_settings (for legacy fallback)
+    // 2. Secondary: merge from site_settings (legacy fallback)
     const { data: settingRow } = await supabase
       .from('site_settings')
       .select('value')
       .eq('id', SETTING_KEY)
       .maybeSingle()
 
-    let requests = []
     if (settingRow?.value) {
-      if (Array.isArray(settingRow.value)) {
-        requests = settingRow.value
-      } else if (Array.isArray(settingRow.value.requests)) {
-        requests = settingRow.value.requests
+      const sList = Array.isArray(settingRow.value)
+        ? settingRow.value
+        : Array.isArray(settingRow.value.requests)
+          ? settingRow.value.requests
+          : []
+      for (const req of sList) {
+        const id = String(req.id)
+        if (!seenIds.has(id)) {
+          seenIds.add(id)
+          combined.push({
+            ...req,
+            id,
+            amount: Math.abs(Number(req.amount || 0)),
+            payout_method: req.payout_method || 'upi',
+            status: req.status || 'pending',
+          })
+        }
       }
     }
 
-    if (!requests.length) {
+    // 3. Tertiary: check wallet_entries (kind = 'payout_request') for any unrecorded requests
+    const { data: ledgerRows } = await supabase
+      .from('wallet_entries')
+      .select('*')
+      .eq('kind', 'payout_request')
+      .order('created_at', { ascending: false })
+
+    if (Array.isArray(ledgerRows)) {
+      for (const le of ledgerRows) {
+        const amt = Math.abs(Number(le.amount || 0))
+        // Check if already matched by user_id + amount within 2 minutes
+        const leTime = new Date(le.created_at || 0).getTime()
+        const alreadyTracked = combined.some(
+          (c) =>
+            c.user_id === le.user_id &&
+            c.amount === amt &&
+            Math.abs(new Date(c.created_at || 0).getTime() - leTime) < 120000
+        )
+        const id = String(le.id)
+        if (!alreadyTracked && !seenIds.has(id)) {
+          seenIds.add(id)
+          const upiMatch = (le.note || '').match(/UPI\s*\(([^)]+)\)/i)
+          combined.push({
+            id,
+            user_id: le.user_id,
+            amount: amt,
+            payout_method: /bank/i.test(le.note || '') ? 'bank' : 'upi',
+            upi_id: upiMatch ? upiMatch[1].trim() : null,
+            bank_details: null,
+            status: 'pending',
+            transaction_ref: null,
+            admin_notes: le.note || null,
+            created_at: le.created_at,
+            updated_at: le.created_at,
+          })
+        }
+      }
+    }
+
+    if (!combined.length) {
       return []
     }
 
-    const userIds = [...new Set(requests.map((r) => r.user_id).filter(Boolean))]
+    // 4. Hydrate profiles and wallet balances in parallel
+    const userIds = [...new Set(combined.map((r) => r.user_id).filter(Boolean))]
     let profileMap = {}
     let walletMap = {}
 
@@ -84,11 +133,9 @@ export async function fetchPayoutRequests() {
       }
     }
 
-    return requests
+    return combined
       .map((req) => ({
         ...req,
-        id: String(req.id),
-        amount: Number(req.amount || 0),
         user: profileMap[req.user_id] || {
           full_name: 'Member',
           email: 'N/A',
@@ -364,7 +411,7 @@ export async function updatePayoutStatus(requestId, { status, transactionRef = '
   }
 
   let targetRequest = null
-  const updatedList = currentList.map((item) => {
+  let updatedList = currentList.map((item) => {
     if (item.id === requestId) {
       targetRequest = {
         ...item,
@@ -379,7 +426,32 @@ export async function updatePayoutStatus(requestId, { status, transactionRef = '
   })
 
   if (!targetRequest) {
-    throw new Error('Payout request not found')
+    // Check if requestId is a wallet_entries row
+    const { data: leRow } = await supabase
+      .from('wallet_entries')
+      .select('*')
+      .eq('id', requestId)
+      .maybeSingle()
+
+    if (leRow) {
+      const upiMatch = (leRow.note || '').match(/UPI\s*\(([^)]+)\)/i)
+      targetRequest = {
+        id: String(leRow.id),
+        user_id: leRow.user_id,
+        amount: Math.abs(Number(leRow.amount || 0)),
+        payout_method: /bank/i.test(leRow.note || '') ? 'bank' : 'upi',
+        upi_id: upiMatch ? upiMatch[1].trim() : null,
+        bank_details: null,
+        status,
+        transaction_ref: transactionRef || null,
+        admin_notes: adminNotes || null,
+        created_at: leRow.created_at,
+        updated_at: new Date().toISOString(),
+      }
+      updatedList = [targetRequest, ...currentList]
+    } else {
+      throw new Error('Payout request not found')
+    }
   }
 
   if (status === 'rejected') {

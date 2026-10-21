@@ -15,6 +15,7 @@ import { supabase } from './supabase'
 import { toPublicStorageUrl } from './storageUrl'
 import { parseDeliveryAddress } from './deliveryAddress'
 import { formatLocationDisplay } from './cities'
+import { getHandoverPin, getReturnPin } from './messages'
 
 function paymentLabel(booking) {
   if (booking.razorpay_payment_id) return getPaymentMethodLabel('razorpay')
@@ -233,35 +234,43 @@ export async function generateAgreementPDF(booking, listing, renterName, listerN
   if (listing?.location) row('Location', formatLocationDisplay(listing.location))
   y += 3
 
-  // ───────────────────────── 3. Time window
+  // ───────────────────────── 3. Time window & Handover Security
   const days = Number(booking.total_days || 1)
-  section(3, 'The time window', C.purple)
+  section(3, 'Time window & handover security', C.purple)
   row('Pick-up / Start', niceDate(booking.start_date), { bold: true })
   row('Return / End', niceDate(booking.end_date), { bold: true })
   row('Duration', `${days} day${days > 1 ? 's' : ''}`)
   const parsedDelivery = parseDeliveryAddress(booking.delivery_address)
   row(
-    'Handover',
+    'Handover mode',
     booking.delivery_type === 'delivery'
-      ? `Home delivery${parsedDelivery.cleanAddress ? ` to ${parsedDelivery.cleanAddress}` : ''}${parsedDelivery.coordsLabel ? ` [GPS: ${parsedDelivery.coordsLabel}]` : ''}`
-      : 'Pick-up from the Owner',
+      ? `Doorstep delivery${parsedDelivery.cleanAddress ? ` to ${parsedDelivery.cleanAddress}` : ''}${parsedDelivery.coordsLabel ? ` [GPS: ${parsedDelivery.coordsLabel}]` : ''}`
+      : 'Self pick-up from the Owner / Hub',
   )
+  if (parsedDelivery.slot) row('Preferred delivery slot', parsedDelivery.slot, { bold: true })
+  if (parsedDelivery.instructions) row('Rider / handover note', parsedDelivery.instructions)
+  row('4-Digit Handover PIN (Check-in)', getHandoverPin(booking.id), { bold: true, color: C.cyan })
+  row('4-Digit Return PIN (Check-out)', getReturnPin(booking.id), { bold: true, color: C.purple })
   y += 3
 
   // ───────────────────────── 4. Money
   section(4, 'The money talk', C.gold)
   const subtotal = Number(booking.subtotal ?? Number(booking.price_per_day || 0) * days)
   const fee = Number(booking.platform_fee || 0)
+  const deliveryFeeNum = Number(booking.delivery_fee || 0)
+  const walletNum = Number(booking.wallet_amount || 0)
   const feePct = subtotal > 0 && fee > 0 ? ` (${Math.round((fee / subtotal) * 100)}%)` : ''
   row('Rate per day', money(booking.price_per_day))
   row(`Rent for ${days} day${days > 1 ? 's' : ''}`, money(subtotal))
-  row(`LocalDen service fee${feePct}`, money(fee))
+  if (deliveryFeeNum > 0) row('Doorstep delivery fee', money(deliveryFeeNum))
+  if (fee > 0) row(`LocalDen service fee${feePct}`, money(fee))
   if (booking.insurance_opted) row('Damage protection', money(booking.insurance_amount))
   if (Number(booking.discount_amount) > 0) {
     row(`Discount${booking.coupon_code ? ` (${booking.coupon_code})` : ''}`, `- ${money(booking.discount_amount)}`, { color: C.green })
   }
   const depositNum = Number(booking.deposit || 0)
   row('Refundable security deposit', depositNum > 0 ? money(depositNum) : 'None (Zero Deposit)')
+  if (walletNum > 0) row('LocalDen wallet applied', `- ${money(walletNum)}`, { color: C.cyan })
   divider()
   ensure(16)
   doc.setFont('helvetica', 'bold')
@@ -298,18 +307,18 @@ export async function generateAgreementPDF(booking, listing, renterName, listerN
   y += 3
 
   // ───────────────────────── 6. Rules
-  section(6, 'The rules of the game', C.pink)
+  section(6, 'Borrower Care Charter & Lender Protection Rules', C.pink)
   const rules = [
-    ['Treat it like your own', `${renter} promises to use the gear with care and return it in the same condition it arrived.`],
-    ['Oops happens', 'Normal wear and tear is totally fine. Real damage or loss gets deducted from the security deposit.'],
-    ['The deposit comes home', depositNum > 0
-      ? `Your ${money(depositNum)} deposit is refunded within 48 hours of a confirmed, happy return.`
-      : 'Zero security deposit rental. No deposit was collected for this gear.'],
-    ['Be on time', `Late returns are charged at the daily rate (${money(booking.price_per_day)}) for each extra day.`],
-    ["The Owner's promise", `${lister} promises the gear works and matches the listing at handover.`],
-    ['Photos are proof', 'Take check-in and check-out photos in the app. They settle any "it was like that before" debates.'],
-    ['Got a beef?', 'Raise a dispute within 24 hours of the rental ending, using the Dispute Center in the app.'],
-    ["We're just the matchmaker", 'LocalDen connects Borrowers and Owners and is not liable for disputes between them. Be kind to each other!'],
+    ['Treat it like your own (6-inch airflow & clean zone)', `${renter} agrees to place consoles/amps on hard, flat surfaces with 6 inches of ventilation (never on beds, carpets, or sofas) and keep liquids, food, and smoke strictly away.`],
+    ['Anti-tamper & account lock', 'Never open hardware casings, peel warranty/serial stickers, sub-rent the item to third parties, or factory-reset/modify the Owner\'s digital game accounts.'],
+    ['2-hour pickup check & photo proof', 'Test all ports, buttons, and cables within 2 hours of handover. Check-in and check-out photos in the app serve as binding condition proof.'],
+    ['Fair wear vs damage & accessory tariff', 'Normal wear (light scuffs, natural finger marks) is free. Drops, liquid spills, or missing cables/controllers are deducted per the Standard Accessory Tariff or official service invoice.'],
+    ['Security deposit escrow', depositNum > 0
+      ? `Your ${money(depositNum)} security deposit is held safely and refunded within 48 hours of a verified, clean return.`
+      : 'Zero security deposit rental. Borrower remains liable for any physical damage, missing parts, or late fees under this Pact.'],
+    ['On-time return & late fee', `Wrap cables neatly and verify the Return PIN on time. Unapproved late returns incur ${money(booking.price_per_day)}/day plus a Rs. 250 inconvenience fee if the next booking is impacted.`],
+    ["The Owner's promise", `${lister} certifies the gear is sanitized, 100% functional, and includes all listed cables and controllers at handover.`],
+    ['24-hour dispute & legal protection', 'Any dispute must be raised within 24 hours of return via the Dispute Center. This e-signed Pact is enforceable under the Indian Contract Act, 1872 & IT Act, 2000.'],
   ]
   rules.forEach(([title, body], i) => {
     const lines = doc.splitTextToSize(body, CW - 18)

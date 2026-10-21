@@ -1,7 +1,7 @@
 .list-page {
   position: relative;
   min-height: 100vh;
-  padding: 6rem 1rem 5rem;
+  padding: calc(var(--nav-height, 68px) + 1.75rem) 1rem 5rem;
 }
 
 .list-wrap {

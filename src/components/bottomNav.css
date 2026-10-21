@@ -1,0 +1,59 @@
+.bottom-nav {
+  position: fixed;
+  left: 0.75rem;
+  right: 0.75rem;
+  bottom: calc(0.6rem + env(safe-area-inset-bottom, 0px));
+  z-index: 45;
+  display: flex;
+  justify-content: space-around;
+  padding: 0.4rem;
+  border-radius: 20px;
+  background: var(--nav-bg-scrolled);
+  backdrop-filter: blur(22px);
+  -webkit-backdrop-filter: blur(22px);
+  border: 1px solid var(--border);
+  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+.bottom-nav__tab {
+  position: relative;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 0.45rem 0.25rem;
+  min-height: 48px;
+  border-radius: 14px;
+  color: var(--text-dim);
+  font-family: var(--font-body, inherit);
+  font-size: 0.68rem;
+  font-weight: 600;
+  text-decoration: none;
+  transition: color 0.2s ease, background 0.2s ease;
+}
+
+.bottom-nav__tab.is-on {
+  color: var(--text);
+  background: var(--surface-2);
+}
+
+.bottom-nav__tab.is-on::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  width: 18px;
+  height: 3px;
+  border-radius: 3px;
+  background: var(--grad-accent);
+  box-shadow: 0 0 10px rgba(191, 36, 199, 0.7);
+}
+
+/* Reserve space so content/footer isn't hidden behind the bar */
+@media (max-width: 1079px) {
+  body { padding-bottom: calc(5rem + env(safe-area-inset-bottom, 0px)); }
+}
+
+@media (min-width: 1080px) {
+  .bottom-nav { display: none; }
+}

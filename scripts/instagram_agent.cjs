@@ -39,6 +39,137 @@ const CONFIG = {
 
 // Available Content Campaigns
 const CAMPAIGNS = {
+  gurugram: {
+    name: 'Gurugram City Launch Announcement',
+    target: 'Gurugram / NCR Gamers, Techies, House Party Hosts & Gear Owners (CyberHub, DLF Phase 1-5, Golf Course Road, Sohna Road)',
+    postImage: 'gurugram_launch_soon.png',
+    storyImage: 'gurugram_launch_soon.png',
+    captionVariants: [
+      {
+        hook: '🚨 GURUGRAM, ARE YOU READY?! लोकल DEN IS ENTERING THE CHAT! 🚀🔥',
+        body: `After powering the wildest FIFA nights & house parties in Bangalore, we’re officially dropping in GURUGRAM very soon! 🎮🎧
+
+From DLF CyberCity & Phase 1–5 to Golf Course Road, Sushant Lok & Sohna Road — your weekend scene is about to get a massive upgrade! ⚡
+
+What’s landing at your doorstep soon:
+🎮 PlayStation 5 & Xbox Series X (DualSense Controllers + Top Titles)
+🎧 Pioneer DJ Controllers & Club-Grade Party Audio
+🥽 Meta Quest VR Headsets
+🎸 Electric Guitars & Jamming Gear
+
+━━━━━━━━━━━━━━━━━━━━━
+💰 𝗚𝗢𝗧 𝗜𝗗𝗟𝗘 𝗚𝗘𝗔𝗥 𝗜𝗡 𝗚𝗨𝗥𝗨𝗚𝗥𝗔𝗠?
+Become a Founding Lender on लोकल DEN! List your PS5, DJ deck, camera, or guitar and earn up to ₹10,000+/month passively with 100% verified renters!
+━━━━━━━━━━━━━━━━━━━━━
+
+👇 Tag your Gurgaon squad & drop your Sector/Phase in the comments so we unlock your area FIRST! 📍`,
+        cta: 'Sign up early or list your gear now at 👉 localden.online (Link in bio) 🔗',
+        hashtags: [
+          '#localDen',
+          '#Gurugram',
+          '#GurgaonDiaries',
+          '#CyberHub',
+          '#GurgaonGamers',
+          '#DLFCyberCity',
+          '#GurgaonLife',
+          '#GurgaonHouseParty',
+          '#DelhiNCRGamers',
+          '#PS5Gurgaon',
+          '#GolfCourseRoad',
+          '#GurgaonNightlife',
+          '#LaunchingSoon',
+          '#NoCap'
+        ]
+      }
+    ]
+  },
+  festive25: {
+    name: 'Festive 25 Sale - Flat 25% OFF All Products',
+    target: 'Bangalore Gamers, House Party Hosts, Friends & Families Celebrating the Festive Season',
+    postImage: 'festive_25_sale.png',
+    storyImage: 'festive_25_sale.png',
+    captionVariants: [
+      {
+        hook: '🪔✨ FESTIVE 25 SALE IS LIVE: FLAT 25% OFF ON ALL GEAR! 🎮🎧',
+        body: `Kurta pehen ke FIFA aur Tekken khelne ka maza hi alag hai! 🔥
+Iss festive season, house party aur cousins get-together ko banao legendary with लोकल DEN! 🥳
+
+Get FLAT 25% OFF on every single product on our platform:
+🎮 PlayStation 5 & Xbox Series X (Dual Controllers + FIFA / Tekken / GTA / Mortal Kombat)
+🎧 Pioneer DJ Controllers & Party Sound Systems
+🥽 Meta Quest VR Headsets for the ultimate family reaction
+🎸 Electric Guitars & Jamming Amps
+
+━━━━━━━━━━━━━━━━━━━━━
+🏷️ 𝗨𝗦𝗘 𝗖𝗢𝗗𝗘: 𝗙𝗘𝗦𝗧𝗜𝗩𝗘𝟮𝟱 at checkout for an instant 𝗙𝗟𝗔𝗧 𝟮𝟱% 𝗢𝗙𝗙!
+⚡ 100% Verified Gear • Zero Deposit Drama • Same-Day Doorstep Delivery
+━━━━━━━━━━━━━━━━━━━━━
+
+📍 Delivering across all of Bangalore (Koramangala, Indiranagar, HSR Layout, Whitefield, Bellandur, JP Nagar & more)!
+⏳ Festive slots are filling up super fast — book your setup before it’s gone!`,
+        cta: 'Tap the link in bio or visit 👉 localden.online to book now with code FESTIVE25! 🔗',
+        hashtags: [
+          '#localDen',
+          '#FestiveSale',
+          '#DiwaliHouseParty',
+          '#BangaloreGamers',
+          '#PS5Bangalore',
+          '#BangaloreRentals',
+          '#BangaloreLife',
+          '#Koramangala',
+          '#Indiranagar',
+          '#HSRLayout',
+          '#Whitefield',
+          '#GameNight',
+          '#DesiGamers',
+          '#RentInBangalore'
+        ]
+      }
+    ]
+  },
+  weekend10: {
+    name: 'Weekend Flash Sale - Extra 10% OFF',
+    target: 'Bangalore Gamers, House Party Hosts, Students & Techies',
+    postImage: 'weekend_10_off_offer.png',
+    storyImage: 'weekend_10_off_offer.png',
+    captionVariants: [
+      {
+        hook: '🔥 WEEKEND FLASH SALE: EXTRA 10% OFF ON ALL GEAR! 🎮🎧',
+        body: `Weekend plans sorted! Why spend ₹55,000+ buying gear when you can rent it for the weekend & get an EXTRA 10% OFF?! ⚡
+
+Get top-tier gear delivered straight to your doorstep in Bangalore:
+🎮 PlayStation 5 & Xbox Series X (with Dual Controllers + FIFA/Tekken)
+🎧 Pioneer DJ Controllers & Party Speakers
+🥽 Meta Quest VR Headsets
+🎸 Electric Guitars & Jamming Gear
+
+━━━━━━━━━━━━━━━━━━━━━
+🏷️ 𝗨𝗦𝗘 𝗖𝗢𝗗𝗘: 𝗪𝗘𝗘𝗞𝗘𝗡𝗗𝟭𝟬 at checkout for an instant 𝗘𝗫𝗧𝗥𝗔 𝟭𝟬% 𝗢𝗙𝗙!
+⚡ 100% Verified Gear • Zero Deposit Drama • Express Bangalore Delivery
+━━━━━━━━━━━━━━━━━━━━━
+
+📍 Delivering across Koramangala, Indiranagar, HSR Layout, Bellandur, Whitefield, BTM & more!
+⏳ Limited weekend slots left — grab yours before they get booked out!`,
+        cta: 'Tap the link in bio or visit 👉 localden.online to book your weekend setup now! 🔗',
+        hashtags: [
+          '#localDen',
+          '#BangaloreGamers',
+          '#PS5Bangalore',
+          '#WeekendOffer',
+          '#BangaloreRentals',
+          '#BangaloreHouseParty',
+          '#Koramangala',
+          '#HSRLayout',
+          '#Indiranagar',
+          '#Whitefield',
+          '#BangaloreLife',
+          '#GameNight',
+          '#FIFA24',
+          '#RentInBangalore'
+        ]
+      }
+    ]
+  },
   contest: {
     name: 'Free PS5 Weekend Coliving/PG Contest',
     target: 'Bangalore PG & Flat Residents (Zolo, Stanza, HelloWorld, Techies)',

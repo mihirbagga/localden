@@ -50,7 +50,7 @@ export default function Footer() {
               <LogoMark size={40} />
               <div className="flex items-baseline">
                 <span className="font-bungee text-xl"
-                  style={{ color: '#ff2e6d', textShadow: '0 0 12px rgba(255,46,109,0.5)' }}>
+                  style={{ color: '#ff1666', textShadow: '0 0 14px rgba(255,22,102,0.45)' }}>
                   लोकल
                 </span>
                 <span className="font-bungee text-xl"

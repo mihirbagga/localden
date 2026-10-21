@@ -35,6 +35,7 @@ export function useRazorpay() {
     prefill = {},   // { name, email, contact }
     notes   = {},   // extra metadata
     keyId,          // optional admin-configured Razorpay key
+    orderId,        // server-created Razorpay order (required for webhook-confirmed payments)
     onSuccess,      // (paymentId, response) => void
     onFailure,      // (error) => void
   }) => {
@@ -64,6 +65,7 @@ export function useRazorpay() {
       amount:      Math.round(amount * 100),  // paise
       currency:    'INR',
       name:        'लोकल Den',
+      ...(orderId ? { order_id: orderId } : {}),
       description,
       image:       '/favicon.svg',
       prefill,

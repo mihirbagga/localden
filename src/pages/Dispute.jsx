@@ -64,14 +64,14 @@ export default function Dispute() {
   }
 
   if (loading) return (
-    <div className="relative min-h-screen pt-24 flex items-center justify-center">
+    <div className="relative min-h-screen pt-nav flex items-center justify-center">
       <div className="grid-floor" /><GameBackground />
       <div className="w-8 h-8 border-2 border-white/20 border-t-white rounded-full animate-spin" />
     </div>
   )
 
   if (done) return (
-    <div className="relative min-h-screen pt-24 flex items-center justify-center">
+    <div className="relative min-h-screen pt-nav flex items-center justify-center">
       <div className="grid-floor" /><GameBackground />
       <div className="relative z-10 text-center px-4">
         <div className="text-6xl mb-4">⚖️</div>
@@ -85,7 +85,7 @@ export default function Dispute() {
   )
 
   return (
-    <div className="relative min-h-screen pt-24 pb-20">
+    <div className="relative min-h-screen pt-nav pb-20">
       <div className="grid-floor" /><GameBackground />
       <div className="relative z-10 max-w-lg mx-auto px-4">
         <div className="glass rounded-3xl p-8">

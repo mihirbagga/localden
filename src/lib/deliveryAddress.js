@@ -2,10 +2,12 @@
  * Delivery address parsing, formatting, and reverse-geocoding utilities.
  */
 
-import { getCityForLocation } from './cities'
+import { getCityForLocation, ALL_LOCALITIES } from './cities'
 
 const MAPS_URL_REGEX = /https?:\/\/(?:maps\.google\.com|www\.google\.com\/maps|maps\.app\.goo\.gl|goo\.gl\/maps)[^\s\]]*/i
 const COORDS_REGEX = /q=(-?\d+\.\d+),(-?\d+\.\d+)|@(-?\d+\.\d+),(-?\d+\.\d+)|(-?\d+\.\d+)[,\s]+(-?\d+\.\d+)/
+const SLOT_TAG_REGEX = /\[\s*Slot:\s*([^\]]+)\]/i
+const NOTE_TAG_REGEX = /\[\s*Note:\s*([^\]]+)\]/i
 
 export function parseDeliveryAddress(rawAddress) {
   if (!rawAddress) {
@@ -15,6 +17,10 @@ export function parseDeliveryAddress(rawAddress) {
       mapsUrl: '',
       coords: null,
       coordsLabel: '',
+      slot: '',
+      instructions: '',
+      pincode: '',
+      locality: '',
       isGpsPinned: false,
     }
   }
@@ -22,14 +28,23 @@ export function parseDeliveryAddress(rawAddress) {
   const raw = String(rawAddress).trim()
   let mapsUrl = ''
   let coords = null
+  let slot = ''
+  let instructions = ''
 
   // 1. Extract Maps URL if present
   const mapMatch = raw.match(MAPS_URL_REGEX)
   if (mapMatch) {
-    mapsUrl = mapMatch[0].replace(/[\])>.,]+$/, '') // strip trailing brackets/punctuation
+    mapsUrl = mapMatch[0].replace(/[\])>.,]+$/, '')
   }
 
-  // 2. Extract Lat/Lng Coordinates
+  // 2. Extract Slot and Instructions tags if present
+  const slotMatch = raw.match(SLOT_TAG_REGEX)
+  if (slotMatch) slot = slotMatch[1].trim()
+
+  const noteMatch = raw.match(NOTE_TAG_REGEX)
+  if (noteMatch) instructions = noteMatch[1].trim()
+
+  // 3. Extract Lat/Lng Coordinates
   const targetForCoords = mapsUrl || raw
   const coordMatch = targetForCoords.match(COORDS_REGEX)
   if (coordMatch) {
@@ -43,25 +58,34 @@ export function parseDeliveryAddress(rawAddress) {
     }
   }
 
-  // 3. Clean human-readable address
+  // 4. Clean human-readable address
   let cleanAddress = raw
-    // remove [Map: ...] or (Map: ...) or similar markers
     .replace(/\[\s*Map:\s*https?:\/\/[^\]]+\]/gi, '')
     .replace(/\(\s*Map:\s*https?:\/\/[^)]+\)/gi, '')
-    // remove standalone maps URL
+    .replace(SLOT_TAG_REGEX, '')
+    .replace(NOTE_TAG_REGEX, '')
     .replace(MAPS_URL_REGEX, '')
-    // clean up commas, spacing
     .replace(/\s*,\s*,+/g, ', ')
     .replace(/^\s*,\s*/, '')
     .replace(/\s*,\s*$/, '')
     .trim()
 
-  // If clean address became empty or just city name but we have coords
   const lower = cleanAddress.toLowerCase()
   if ((!cleanAddress || lower === 'bangalore' || lower === 'bengaluru' || lower === 'gurugram' || lower === 'gurgaon') && coords) {
     cleanAddress = `GPS Location (${coords.lat.toFixed(4)}, ${coords.lng.toFixed(4)})`
   } else if (!cleanAddress) {
     cleanAddress = raw
+  }
+
+  const pinMatch = cleanAddress.match(/\b(\d{6})\b/)
+  const pincode = pinMatch ? pinMatch[1] : ''
+
+  let locality = ''
+  for (const loc of ALL_LOCALITIES) {
+    if (lower.includes(loc.toLowerCase())) {
+      locality = loc
+      break
+    }
   }
 
   const coordsLabel = coords
@@ -74,6 +98,10 @@ export function parseDeliveryAddress(rawAddress) {
     mapsUrl,
     coords,
     coordsLabel,
+    slot,
+    instructions,
+    pincode,
+    locality,
     isGpsPinned: Boolean(mapsUrl || coords),
   }
 }
@@ -85,9 +113,20 @@ export function formatDeliveryAddress({
   landmark = '',
   pincode = '',
   mapsUrl = '',
+  slot = '',
+  instructions = '',
   city = '',
 }) {
-  const detectedCity = city || (locality ? getCityForLocation(locality) : 'Bengaluru')
+  const hasAny =
+    flat.trim() ||
+    street.trim() ||
+    locality.trim() ||
+    landmark.trim() ||
+    pincode.trim() ||
+    mapsUrl.trim()
+  if (!hasAny) return ''
+
+  const detectedCity = city || (locality ? getCityForLocation(locality) : (pincode.startsWith('122') ? 'Gurugram' : 'Bengaluru'))
   const cityPin = pincode.trim() ? `${detectedCity} - ${pincode.trim()}` : detectedCity
 
   const parts = [
@@ -98,11 +137,17 @@ export function formatDeliveryAddress({
     cityPin,
   ].filter(Boolean)
 
-  const addrString = parts.join(', ')
-  if (mapsUrl && mapsUrl.trim()) {
-    return `${addrString}, [Map: ${mapsUrl.trim()}]`
+  let out = parts.join(', ')
+  if (slot && slot.trim()) {
+    out += `, [Slot: ${slot.trim()}]`
   }
-  return addrString
+  if (instructions && instructions.trim()) {
+    out += `, [Note: ${instructions.trim().replace(/[\[\]]/g, '')}]`
+  }
+  if (mapsUrl && mapsUrl.trim()) {
+    out += `, [Map: ${mapsUrl.trim()}]`
+  }
+  return out
 }
 
 export async function reverseGeocode(latitude, longitude) {
@@ -140,4 +185,3 @@ export async function reverseGeocode(latitude, longitude) {
     return null
   }
 }
-

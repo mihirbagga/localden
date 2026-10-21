@@ -10,7 +10,7 @@
   flex-direction: column;
   align-items: center;
   justify-content: flex-start;
-  padding: 6.2rem 1rem 3.2rem;
+  padding: clamp(calc(var(--nav-height, 68px) + 2rem), 11vw, 9.5rem) 1rem 3.2rem;
   overflow: hidden;
 }
 
@@ -55,10 +55,10 @@
 
 .home-float.is-guitar { top: 8%; left: -2%; width: min(26vw, 310px); animation-delay: 0s; }
 .home-float.is-guitar img { transform: rotate(-22deg); }
-.home-float.is-vr { top: 3.5%; left: 54%; width: min(20vw, 250px); animation-delay: 0.5s; }
+.home-float.is-vr { top: 1%; left: 62%; width: min(12vw, 150px); animation-delay: 0.5s; }
 .home-float.is-dj { top: 8%; right: -2%; width: min(30vw, 360px); animation-delay: 0.2s; }
 .home-float.is-dj img { transform: rotate(8deg); }
-.home-float.is-ps5 { top: 3%; left: 22%; width: min(17vw, 210px); z-index: 2; animation-delay: 1.4s; }
+.home-float.is-ps5 { top: 0%; left: 24%; width: min(10vw, 120px); z-index: 2; animation-delay: 1.4s; }
 .home-float.is-xbox { right: 1%; bottom: 12%; width: min(16vw, 190px); z-index: 4; animation-delay: 0.8s; }
 .home-float.is-mic { left: 5%; bottom: 8%; width: min(11vw, 128px); z-index: 4; animation-delay: 1.1s; }
 .home-float.is-mic img { transform: rotate(-8deg); }
@@ -119,7 +119,8 @@
   margin: 0.15rem 0 1.05rem;
 }
 
-.home-pills span {
+.home-pills > span,
+.home-pills .home-cta {
   display: inline-flex;
   align-items: center;
   gap: 0.35rem;
@@ -132,11 +133,27 @@
   font-weight: 700;
 }
 
+.home-pills .home-cta {
+  color: var(--text);
+  border-color: rgba(255, 46, 109, 0.5);
+  background: linear-gradient(90deg, rgba(255, 46, 109, 0.22), rgba(0, 229, 255, 0.22));
+  box-shadow: 0 0 18px rgba(0, 229, 255, 0.18);
+  text-decoration: none;
+  transition: transform 0.2s, border-color 0.2s, box-shadow 0.2s;
+}
+
+.home-pills .home-cta:hover {
+  transform: translateY(-2px) scale(1.04);
+  border-color: var(--cyan);
+  box-shadow: 0 0 26px rgba(0, 229, 255, 0.4);
+}
+
 .home-title {
   font-family: 'Bungee', cursive;
   line-height: 0.95;
-  margin-bottom: 1rem;
+  margin-bottom: 1.25rem;
   font-size: clamp(2.2rem, 8vw, 4.6rem);
+  letter-spacing: 0.01em;
   color: var(--text);
 }
 

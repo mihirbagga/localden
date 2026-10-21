@@ -1,23 +1,35 @@
 import { useEffect, useState } from 'react'
 import { useSearchParams, Link } from 'react-router-dom'
-import { ShieldCheck, CheckCircle2, AlertTriangle, Truck, MapPin, KeyRound, ArrowRight, User, Package } from 'lucide-react'
+import {
+  ShieldCheck, CheckCircle2, AlertTriangle, Truck, KeyRound,
+  ArrowRight, User, MessageCircle, RotateCcw
+} from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useToast } from '../contexts/ToastContext'
 import { getBookingTracking, verifyDualOtp } from '../lib/trackingService'
+import { getHandoverPin, getReturnPin } from '../lib/messages'
+import { buildWhatsAppLink, formatHandoverActiveMessage } from '../lib/whatsappSmsService'
 import GameBackground from '../components/GameBackground'
 import DeliveryAddressDisplay from '../components/DeliveryAddressDisplay'
 
 export default function VerifyDelivery() {
   const [params] = useSearchParams()
   const urlBookingId = params.get('id') || params.get('bookingId') || ''
+  const urlPhase = params.get('phase') || ''
   const { showToast } = useToast()
 
   const [bookingId, setBookingId] = useState(urlBookingId)
   const [booking, setBooking] = useState(null)
   const [tracking, setTracking] = useState(null)
+  const [phase, setPhase] = useState(urlPhase === 'checkout' ? 'checkout' : 'checkin')
   const [loading, setLoading] = useState(false)
   const [renterOtp, setRenterOtp] = useState('')
   const [driverOtp, setDriverOtp] = useState('')
+  const [checklist, setChecklist] = useState({
+    cables: true,
+    controllers: true,
+    condition: true,
+  })
   const [verifying, setVerifying] = useState(false)
   const [verifiedSuccess, setVerifiedSuccess] = useState(false)
   const [errorMessage, setErrorMessage] = useState('')
@@ -48,8 +60,19 @@ export default function VerifyDelivery() {
         setBooking(data)
         const trk = await getBookingTracking(data.id, data)
         setTracking(trk)
-        if (trk?.verified || data.status === 'active') {
-          setVerifiedSuccess(true)
+        // Auto-detect whether this is a delivery handover or a return pickup
+        if (urlPhase === 'checkout' || data.status === 'active') {
+          setPhase('checkout')
+          if (trk?.return_verified || data.status === 'completed') {
+            setVerifiedSuccess(true)
+          } else {
+            setVerifiedSuccess(false)
+          }
+        } else {
+          setPhase('checkin')
+          if (trk?.verified && data.status === 'active') {
+            setVerifiedSuccess(true)
+          }
         }
       }
     } catch (err) {
@@ -63,7 +86,7 @@ export default function VerifyDelivery() {
     e.preventDefault()
     setErrorMessage('')
     if (!renterOtp.trim() || !driverOtp.trim()) {
-      setErrorMessage('Please enter both the Renter OTP and Driver OTP.')
+      setErrorMessage('Please enter both the Customer OTP and Driver Security OTP.')
       return
     }
 
@@ -73,6 +96,8 @@ export default function VerifyDelivery() {
         bookingId: booking?.id || bookingId,
         inputRenterOtp: renterOtp,
         inputDriverOtp: driverOtp,
+        phase,
+        checklist,
       })
 
       if (result.success) {
@@ -90,8 +115,28 @@ export default function VerifyDelivery() {
     }
   }
 
+  const handleSendWhatsAppReceipt = () => {
+    if (!booking) return
+    const phone = booking.profiles?.phone || ''
+    const handoverPin = getHandoverPin(booking.id)
+    const returnPin = getReturnPin(booking.id)
+    if (phase === 'checkin') {
+      const msg = formatHandoverActiveMessage({
+        booking,
+        handoverPin,
+        returnPin,
+        recipientRole: 'renter',
+      })
+      window.open(buildWhatsAppLink(phone, msg), '_blank', 'noopener,noreferrer')
+    } else {
+      const shortId = String(booking.id || '').slice(0, 8).toUpperCase()
+      const msg = `📦 *RETURN HANDSHAKE VERIFIED (#${shortId})*\n\nYour *${booking.listings?.title || 'gear'}* return has been verified via Dual OTP! Your security deposit settlement is now queued. Thank you for renting on LocalDen! ⚡`
+      window.open(buildWhatsAppLink(phone, msg), '_blank', 'noopener,noreferrer')
+    }
+  }
+
   return (
-    <div className="relative min-h-screen flex items-center justify-center px-4 py-20">
+    <div className="relative min-h-screen flex items-center justify-center px-4 pt-nav pb-20">
       <div className="grid-floor" />
       <GameBackground />
 
@@ -102,10 +147,10 @@ export default function VerifyDelivery() {
             <ShieldCheck size={36} />
           </div>
           <h1 className="font-bungee text-2xl md:text-3xl text-white tracking-wide">
-            Delivery Handshake Portal
+            Delivery &amp; Return Handshake Portal
           </h1>
           <p className="font-display text-xs md:text-sm text-white/50 mt-1 max-w-md mx-auto">
-            Dual OTP Verification for secure hardware physical handover at delivery doorstep.
+            Dual OTP + 3-Point Hardware Verification for doorstep delivery and return pickup.
           </p>
         </div>
 
@@ -150,12 +195,49 @@ export default function VerifyDelivery() {
                   </h3>
                   <div className="flex items-center gap-2 text-xs text-white/60">
                     <User size={12} className="text-cyan-400" />
-                    <span>Renter: <strong>{booking.profiles?.full_name || 'Customer'}</strong></span>
+                    <span>
+                      Renter: <strong>{booking.profiles?.full_name || 'Customer'}</strong>
+                      {booking.profiles?.phone ? ` (${booking.profiles.phone})` : ''}
+                    </span>
                   </div>
                 </div>
                 <div className="px-3 py-1 rounded-full text-[11px] font-bold uppercase bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">
-                  {tracking?.tracking_status?.replace('_', ' ') || 'Out For Delivery'}
+                  {tracking?.tracking_status?.replace(/_/g, ' ') || 'Out For Delivery'}
                 </div>
+              </div>
+
+              {/* Handshake Phase Switcher (Delivery Handover vs Return Pickup) */}
+              <div className="grid grid-cols-2 gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPhase('checkin')
+                    setVerifiedSuccess(false)
+                    setErrorMessage('')
+                  }}
+                  className={`py-2 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 border transition-all ${
+                    phase === 'checkin'
+                      ? 'bg-cyan-500/20 text-cyan-300 border-cyan-400/50'
+                      : 'bg-white/5 text-white/50 border-white/10 hover:text-white'
+                  }`}
+                >
+                  <Truck size={13} /> 1. Delivery Handover
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPhase('checkout')
+                    setVerifiedSuccess(false)
+                    setErrorMessage('')
+                  }}
+                  className={`py-2 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 border transition-all ${
+                    phase === 'checkout'
+                      ? 'bg-purple-500/20 text-purple-300 border-purple-400/50'
+                      : 'bg-white/5 text-white/50 border-white/10 hover:text-white'
+                  }`}
+                >
+                  <RotateCcw size={13} /> 2. Return Pickup
+                </button>
               </div>
 
               {booking.delivery_address && (
@@ -171,18 +253,29 @@ export default function VerifyDelivery() {
                 <CheckCircle2 size={32} />
               </div>
               <div>
-                <h3 className="font-bungee text-xl text-emerald-300">Handover Verified!</h3>
+                <h3 className="font-bungee text-xl text-emerald-300">
+                  {phase === 'checkout' ? 'Return Pickup Verified!' : 'Delivery Handover Verified!'}
+                </h3>
                 <p className="text-xs text-white/70 font-display mt-1">
-                  Both OTPs matched successfully. System handover is authenticated, physical custody is transferred, and the rental is now officially active.
+                  {phase === 'checkout'
+                    ? 'Both OTPs matched! Hardware return is authenticated and the rental is now marked Completed.'
+                    : 'Both OTPs matched! Physical custody is transferred and the rental session is now officially Active.'}
                 </p>
-                {tracking?.verified_at && (
+                {(tracking?.verified_at || tracking?.return_verified_at) && (
                   <p className="text-[10px] text-white/40 font-mono mt-2">
-                    Verified at: {new Date(tracking.verified_at).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                    Verified at: {new Date(tracking.return_verified_at || tracking.verified_at).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
                   </p>
                 )}
               </div>
-              <div className="pt-2 flex justify-center gap-3">
-                <Link to="/dashboard" className="btn-primary text-xs py-2 px-6">
+              <div className="pt-2 flex justify-center gap-3 flex-wrap">
+                <button
+                  type="button"
+                  onClick={handleSendWhatsAppReceipt}
+                  className="px-4 py-2 rounded-xl bg-emerald-500 text-black font-bold text-xs hover:bg-emerald-400 transition-all flex items-center gap-1.5"
+                >
+                  <MessageCircle size={14} /> Send WhatsApp Receipt to Customer
+                </button>
+                <Link to="/dashboard" className="btn-outline text-xs py-2 px-5">
                   Go to Dashboard
                 </Link>
               </div>
@@ -203,12 +296,12 @@ export default function VerifyDelivery() {
                   <div className="p-4 rounded-2xl bg-black/40 border border-cyan-500/20 space-y-2">
                     <div className="flex items-center justify-between">
                       <label className="text-[11px] font-bold uppercase tracking-wider text-cyan-300 flex items-center gap-1.5">
-                        <KeyRound size={13} /> 1. Customer OTP
+                        <KeyRound size={13} /> 1. Customer {phase === 'checkout' ? 'Return' : 'Handover'} OTP
                       </label>
                       <span className="text-[10px] text-white/40">From Renter</span>
                     </div>
                     <p className="text-[11px] text-white/50 leading-tight">
-                      4-digit PIN displayed on customer's live tracking screen.
+                      4-digit {phase === 'checkout' ? 'Return' : 'Handover'} PIN displayed on customer's pass.
                     </p>
                     <input
                       type="text"
@@ -226,10 +319,10 @@ export default function VerifyDelivery() {
                       <label className="text-[11px] font-bold uppercase tracking-wider text-pink-300 flex items-center gap-1.5">
                         <Truck size={13} /> 2. Driver Security OTP
                       </label>
-                      <span className="text-[10px] text-white/40">From Driver App</span>
+                      <span className="text-[10px] text-white/40">From Dispatch</span>
                     </div>
                     <p className="text-[11px] text-white/50 leading-tight">
-                      4-digit security code issued to the delivery partner.
+                      4-digit security code issued on the driver dispatch sheet.
                     </p>
                     <input
                       type="text"
@@ -242,13 +335,39 @@ export default function VerifyDelivery() {
                   </div>
                 </div>
 
+                {/* 3-Point Hardware Checklist */}
+                <div className="p-3.5 rounded-2xl bg-black/40 border border-white/10 space-y-2">
+                  <span className="text-[10px] uppercase tracking-wider font-bold text-emerald-300 block">
+                    3-Point Physical Inspection Checklist
+                  </span>
+                  {[
+                    { key: 'cables', label: 'Power cable & HDMI/AV cords present and intact' },
+                    { key: 'controllers', label: 'Controllers / accessories tested & counted' },
+                    { key: 'condition', label: 'Hardware exterior inspected with customer at doorstep' },
+                  ].map((item) => (
+                    <label key={item.key} className="flex items-center gap-2 text-xs text-white/80 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={checklist[item.key]}
+                        onChange={(e) => setChecklist((prev) => ({ ...prev, [item.key]: e.target.checked }))}
+                        className="rounded accent-emerald-400"
+                      />
+                      <span>{item.label}</span>
+                    </label>
+                  ))}
+                </div>
+
                 <button
                   type="submit"
                   disabled={verifying || renterOtp.length < 4 || driverOtp.length < 4}
                   className="btn-primary w-full py-3.5 text-sm font-bold flex items-center justify-center gap-2 shadow-lg shadow-cyan-500/20 disabled:opacity-40"
                 >
                   <ShieldCheck size={18} />
-                  {verifying ? 'Authenticating Handshake...' : 'Verify Dual OTP & Complete Handover'}
+                  {verifying
+                    ? 'Authenticating Handshake...'
+                    : phase === 'checkout'
+                      ? 'Verify Dual OTP & Complete Return Pickup'
+                      : 'Verify Dual OTP & Complete Delivery Handover'}
                 </button>
               </form>
             )
@@ -256,7 +375,7 @@ export default function VerifyDelivery() {
 
           {/* Quick Help Footer */}
           <div className="pt-3 border-t border-white/10 flex items-center justify-between text-[11px] text-white/40 font-display">
-            <span>localDen Secure Logistics</span>
+            <span>LocalDen Secure Logistics</span>
             <Link to="/" className="text-cyan-400 hover:underline">
               Back to Home
             </Link>
@@ -266,3 +385,4 @@ export default function VerifyDelivery() {
     </div>
   )
 }
+

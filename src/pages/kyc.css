@@ -1,7 +1,7 @@
 .kyc-page {
   position: relative;
   min-height: 100vh;
-  padding: 6.5rem 1rem 5rem;
+  padding: calc(var(--nav-height, 68px) + 2rem) 1rem 5rem;
 }
 
 .kyc-wrap {

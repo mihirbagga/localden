@@ -17,6 +17,7 @@ export default function PaymentOptions({
   paymentRef,
   onPaymentRef,
   total = null,
+  payCode = '',
 }) {
   const { showToast } = useToast()
   const selected = methods.find((m) => m.id === selectedId)
@@ -27,14 +28,15 @@ export default function PaymentOptions({
   const effectiveUpiId = cfg.upi_id?.trim() || '9034695091@ybl'
 
   // Standard UPI URI format accepted by GPay, PhonePe, Paytm, Cred, BHIM
+  // Note embeds payCode so the admin can verify the payment automatically from the transaction note
   const upiPayload = useMemo(() => {
     return buildUpiPayload({
       upiId: effectiveUpiId,
       payeeName: 'LocalDen',
       amount: total,
-      note: 'LocalDen Hardware Rental',
+      note: payCode ? `LD-${payCode}` : 'LocalDen Gear Rental',
     })
-  }, [effectiveUpiId, total])
+  }, [effectiveUpiId, total, payCode])
 
   // Zero-dependency pure client-side SVG QR code (runs offline, 100% reliable)
   const generatedQrDataUri = useMemo(() => {
@@ -147,14 +149,21 @@ export default function PaymentOptions({
 
               {/* 1-Tap Mobile UPI Intent Button */}
               {upiPayload && (
-                <a
-                  href={upiPayload}
-                  className="w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-400 hover:to-blue-400 text-black font-bold text-xs flex items-center justify-center gap-2 transition-all shadow-lg shadow-cyan-500/20"
-                >
-                  <Smartphone size={14} />
-                  <span>Open UPI App (GPay / PhonePe / Paytm)</span>
-                  <ArrowUpRight size={13} />
-                </a>
+                <div className="space-y-1.5">
+                  <a
+                    href={upiPayload}
+                    className="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-emerald-400 via-cyan-400 to-blue-500 hover:brightness-110 text-black font-extrabold text-sm flex items-center justify-center gap-2 transition-all shadow-lg shadow-cyan-500/25"
+                  >
+                    <Smartphone size={16} />
+                    <span>Pay ₹{total} via UPI App (GPay / PhonePe / Paytm)</span>
+                    <ArrowUpRight size={14} />
+                  </a>
+                  {payCode && (
+                    <p className="text-[10px] text-cyan-300/80 font-mono text-center">
+                      Payment Note: <strong className="text-white">LD-{payCode}</strong> (Auto-filled in UPI app)
+                    </p>
+                  )}
+                </div>
               )}
             </div>
           )}
@@ -210,12 +219,12 @@ export default function PaymentOptions({
             </div>
           ) : null}
 
-          {/* Payment Reference (UTR) */}
+          {/* Payment Reference (UTR) - Made 100% Optional */}
           {selected.method_type !== 'cash' && selected.method_type !== 'razorpay' ? (
             <div className="pt-1 text-left">
               <label className="field-label text-xs flex items-center justify-between" htmlFor="pay-ref">
-                <span>Payment Reference / UTR <strong className="text-cyan-400">*</strong></span>
-                <span className="text-[10px] text-white/50">From GPay / PhonePe / Paytm</span>
+                <span>Transaction UTR <span className="text-[11px] text-white/45 font-normal">(Optional)</span></span>
+                <span className="text-[10px] text-emerald-400 font-semibold">Auto-matched if skipped</span>
               </label>
               <input
                 id="pay-ref"
@@ -226,8 +235,8 @@ export default function PaymentOptions({
                 aria-label="Payment reference"
                 maxLength={32}
               />
-              <p className="text-[10px] text-white/40 mt-1 leading-tight">
-                Enter your 8–30 digit transaction reference (UTR) from your banking or UPI app so localDen can verify your payment.
+              <p className="text-[10px] text-white/45 mt-1 leading-tight">
+                Paid via UPI? You can tap <strong>"I Have Paid"</strong> directly without typing UTR — we match your payment note automatically.
               </p>
             </div>
           ) : null}

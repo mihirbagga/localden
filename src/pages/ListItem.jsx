@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
-import { Upload, X, AlertCircle, Gamepad2, Music, ChevronRight } from 'lucide-react'
+import { Link, useNavigate, useParams } from 'react-router-dom'
+import { Upload, X, AlertCircle, Gamepad2, Music, ChevronRight, Shield } from 'lucide-react'
 import GameBackground from '../components/GameBackground'
 import { useAuth } from '../contexts/AuthContext'
 import { useToast } from '../contexts/ToastContext'
@@ -12,6 +12,7 @@ import ListingGamesSelector from '../components/ListingGamesSelector'
 import { fetchListingGames, saveListingGames } from '../lib/gamesService'
 import { computePlatformFee, platformFeeCopy } from '../lib/platformFee'
 import { calculateSuggestedPricing } from '../lib/dynamicPricing'
+import { MESSAGES, friendlyError } from '../lib/messages'
 import './couponApply.css'
 import './listItem.css'
 import {
@@ -30,7 +31,7 @@ const CONDITIONS   = [
 ]
 const PRICE_PRESETS = [199, 299, 499, 799, 999]
 const DEPOSIT_PRESETS = [0, 2000, 5000, 10000]
-const STEP_LABELS = ['What & Where', 'Price & Publish']
+const STEP_LABELS = ['1. Gear Details & Photos', '2. Pricing & Publish']
 
 const CATEGORY_EMOJI = {
   Console: '🎮', Controller: '🕹️', 'VR Headset': '🥽', 'Gaming Mouse': '🖱️',
@@ -52,6 +53,129 @@ const EMPTY_FORM = {
   stockQty: '1',
   fulfillmentType: 'direct',
 }
+
+const POPULAR_GEAR_TEMPLATES = [
+  {
+    id: 'ps5-bundle',
+    badge: '🎮 PS5 + 2 Controllers',
+    category: 'gaming',
+    itemType: 'Console',
+    title: 'Sony PlayStation 5 Disc Edition + 2 DualSense Controllers',
+    brand: 'Sony',
+    model: 'PS5 Disc Edition (1TB)',
+    condition: 'like_new',
+    description: 'Includes Sony PS5 console, 2 original DualSense wireless controllers, HDMI 2.1 cable, power cord, and USB-C charging cable. Cleaned, tested, and ready for couch co-op or weekend gaming.',
+    priceDay: '599',
+    priceWeekend: '1499',
+    priceWeek: '3299',
+    deposit: '5000',
+  },
+  {
+    id: 'quest-3',
+    badge: '🥽 Meta Quest 3 VR',
+    category: 'gaming',
+    itemType: 'VR Headset',
+    title: 'Meta Quest 3 (128GB) Mixed Reality VR Headset + Touch Plus',
+    brand: 'Meta',
+    model: 'Quest 3 128GB',
+    condition: 'like_new',
+    description: 'Standalone wireless VR headset with 4K+ Infinite Display, 2 Touch Plus controllers, silicone hygiene face cover, and fast USB-C charger. Sanitized before every rental.',
+    priceDay: '699',
+    priceWeekend: '1699',
+    priceWeek: '3799',
+    deposit: '5000',
+  },
+  {
+    id: 'xbox-series-x',
+    badge: '🕹️ Xbox Series X',
+    category: 'gaming',
+    itemType: 'Console',
+    title: 'Microsoft Xbox Series X 1TB + 2 Wireless Controllers',
+    brand: 'Microsoft',
+    model: 'Xbox Series X 1TB',
+    condition: 'like_new',
+    description: 'True 4K 120FPS Xbox Series X console with 2 official wireless controllers, Ultra High Speed HDMI cable, and power cord. Ready for Game Pass sessions.',
+    priceDay: '499',
+    priceWeekend: '1299',
+    priceWeek: '2799',
+    deposit: '5000',
+  },
+  {
+    id: 'switch-oled',
+    badge: '🎯 Switch OLED',
+    category: 'gaming',
+    itemType: 'Console',
+    title: 'Nintendo Switch OLED Console + Neon Joy-Cons & Dock',
+    brand: 'Nintendo',
+    model: 'Switch OLED',
+    condition: 'like_new',
+    description: '7-inch OLED screen Nintendo Switch with Joy-Con pair, TV Dock, HDMI cable, Joy-Con grip, and carry case. Ideal for house parties and travel.',
+    priceDay: '399',
+    priceWeekend: '999',
+    priceWeek: '2199',
+    deposit: '2000',
+  },
+  {
+    id: 'g29-wheel',
+    badge: '🏎️ Logitech G29 Wheel',
+    category: 'gaming',
+    itemType: 'Racing Wheel',
+    title: 'Logitech G29 Driving Force Racing Wheel + Floor Pedals',
+    brand: 'Logitech',
+    model: 'G29 Driving Force',
+    condition: 'good',
+    description: 'Dual-motor force feedback sim racing wheel with stainless steel paddle shifters and responsive 3-pedal floor unit. Compatible with PS5, PS4, and PC.',
+    priceDay: '449',
+    priceWeekend: '1149',
+    priceWeek: '2499',
+    deposit: '2000',
+  },
+  {
+    id: 'pioneer-dj',
+    badge: '🎛️ Pioneer DJ Deck',
+    category: 'music',
+    itemType: 'DJ Controller',
+    title: 'Pioneer DDJ-FLX4 / DDJ-400 2-Channel DJ Controller',
+    brand: 'Pioneer DJ',
+    model: 'DDJ-FLX4',
+    condition: 'like_new',
+    description: 'Club-standard 2-channel Rekordbox & Serato DJ controller with USB-C cable and RCA master out cable. Plug-and-play with laptop or iPad for house parties and gigs.',
+    priceDay: '699',
+    priceWeekend: '1799',
+    priceWeek: '3899',
+    deposit: '5000',
+  },
+  {
+    id: 'yamaha-p125',
+    badge: '🎹 Yamaha P-125 Piano',
+    category: 'music',
+    itemType: 'Piano / Keyboard',
+    title: 'Yamaha P-125 88-Key Weighted Digital Piano + Sustain Pedal',
+    brand: 'Yamaha',
+    model: 'P-125',
+    condition: 'like_new',
+    description: 'Full 88-key Graded Hammer Standard (GHS) weighted digital piano with sustain pedal, music rest, stand, and power adapter.',
+    priceDay: '599',
+    priceWeekend: '1499',
+    priceWeek: '3299',
+    deposit: '5000',
+  },
+  {
+    id: 'fender-strat',
+    badge: '🎸 Fender Strat + Amp',
+    category: 'music',
+    itemType: 'Guitar',
+    title: 'Fender Player Stratocaster Electric Guitar + 15W Practice Amp',
+    brand: 'Fender',
+    model: 'Player Stratocaster',
+    condition: 'good',
+    description: 'Authentic Fender Stratocaster freshly set up with Ernie Ball strings, padded gig bag, strap, picks, 1/4" instrument cable, and compact practice amplifier.',
+    priceDay: '499',
+    priceWeekend: '1249',
+    priceWeek: '2699',
+    deposit: '2000',
+  },
+]
 
 function keepAfterFee(amount, fee) {
   const n = Number(amount) || 0
@@ -97,7 +221,7 @@ export default function ListItem() {
     if (!editId || !user) return
     supabase.from('listings').select('*').eq('id', editId).eq('user_id', user.id).single()
       .then(({ data, error: err }) => {
-        if (err || !data) { showToast('Listing not found', 'error'); navigate('/dashboard'); return }
+        if (err || !data) { showToast('Could not find that listing on your shelf.', 'error'); navigate('/dashboard'); return }
         setCategory(data.category)
         setStep(1)
         const loadedDeposit = data.deposit_amount != null ? Number(data.deposit_amount) : 0
@@ -135,7 +259,7 @@ export default function ListItem() {
     setPhotos((prev) => {
       const next = [...prev, ...incoming].slice(0, 5)
       if (prev.length + incoming.length > 5) {
-        showToast('Max 5 photos.', 'error')
+        showToast('You can upload up to 5 photos per listing.', 'error')
       }
       return next
     })
@@ -170,11 +294,11 @@ export default function ListItem() {
   const goStep = (n) => {
     if (n === step) return
     if (n === 2 && (!category || !form.itemType || !form.title)) {
-      showToast('Category, type, and title are required.', 'error')
+      showToast('Please select a category, item type, and enter a clear listing title first.', 'error')
       return
     }
     if (n > step + 1) {
-      showToast('Finish this step first.', 'error')
+      showToast('Please complete the current step first.', 'error')
       return
     }
     setError('')
@@ -184,16 +308,16 @@ export default function ListItem() {
   const handleSubmit = async (e) => {
     e.preventDefault()
     if (isBanned) {
-      showToast('Account banned. Contact support.', 'error')
+      showToast('Your account is currently restricted. Please contact support.', 'error')
       return
     }
     if (!isEdit && needsKyc(profile)) {
-      showToast('Complete KYC before listing.', 'error')
+      showToast('Please complete quick ID verification before listing gear.', 'error')
       navigate('/kyc', { state: { from: { pathname: '/list-item' } } })
       return
     }
     if (!form.title || !form.itemType || !form.priceDay || !form.location) {
-      showToast('Fill required fields.', 'error')
+      showToast('Please fill in all required fields (title, item type, daily price, and location).', 'error')
       return
     }
     setLoading(true)
@@ -256,8 +380,8 @@ export default function ListItem() {
           await saveListingGames(editId, games)
         }
 
-        showToast('Listing updated!', 'success')
-        navigate('/dashboard')
+        showToast(MESSAGES.listing.savedDraft, 'success')
+        navigate('/dashboard?tab=listings')
       } else {
         const listingId = crypto.randomUUID()
         let photoUrls = []
@@ -300,11 +424,11 @@ export default function ListItem() {
           await saveListingGames(listingId, games)
         }
 
-        showToast('Listing live', 'success')
+        showToast(MESSAGES.listing.published, 'success')
         setStep(3)
       }
     } catch (err) {
-      const msg = err.message || 'Failed to list item. Please try again.'
+      const msg = friendlyError(err, 'Could not publish your listing. Please check your inputs and try again.')
       setError(msg)
       showToast(msg, 'error')
     } finally {
@@ -332,7 +456,7 @@ export default function ListItem() {
         <GameBackground />
         <div className="relative z-10 flex flex-col items-center gap-3">
           <div className="w-10 h-10 border-2 border-white/20 border-t-[#ff2e6d] rounded-full animate-spin" />
-          <span className="text-xs font-display text-white/40">Loading studio...</span>
+          <span className="text-xs font-display text-white/40">Opening Listing Studio…</span>
         </div>
       </div>
     )
@@ -355,14 +479,17 @@ export default function ListItem() {
         <GameBackground />
         <div className="list-success">
           <div className="text-6xl" aria-hidden="true">🎉</div>
-          <h2>Listing Live!</h2>
-          <p>Your item is visible to renters across Bengaluru and Gurugram.</p>
+          <h2>Your Gear is Live in the Den!</h2>
+          <p>Renters across Bengaluru and Gurugram can now discover, reserve, and book your gear.</p>
           <div className="list-success__actions">
-            <button type="button" className="btn-primary" onClick={() => navigate('/browse')} aria-label="View all listings">
-              View All Listings
+            <button type="button" className="btn-primary" onClick={() => navigate('/dashboard?tab=listings')} aria-label="Manage in Dashboard">
+              Manage in My Dashboard
+            </button>
+            <button type="button" className="btn-outline" onClick={() => navigate('/browse')} aria-label="View catalog">
+              Browse Live Catalog
             </button>
             <button type="button" className="btn-outline" onClick={resetForm} aria-label="List another item">
-              List Another Item
+              + List Another Item
             </button>
           </div>
         </div>
@@ -413,6 +540,58 @@ export default function ListItem() {
           <div className="list-form">
             {step === 1 ? (
               <div>
+                {!isEdit && (
+                  <div className="mb-6 p-4 rounded-2xl bg-gradient-to-br from-cyan-500/10 via-purple-500/5 to-transparent border border-cyan-500/25">
+                    <div className="flex items-center justify-between gap-2 mb-2.5 flex-wrap">
+                      <div>
+                        <span className="text-[11px] font-display font-extrabold uppercase tracking-wider text-cyan-300 flex items-center gap-1.5">
+                          ⚡ List in 30 Seconds · 1-Tap Smart Catalog Templates
+                        </span>
+                        <p className="text-xs text-white/60 mt-0.5">
+                          Tap any popular gear below to auto-fill specs, descriptions, and market-winning rental rates.
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {POPULAR_GEAR_TEMPLATES.map((tpl) => {
+                        const isPicked = form.title === tpl.title
+                        return (
+                          <button
+                            key={tpl.id}
+                            type="button"
+                            onClick={() => {
+                              setCategory(tpl.category)
+                              setForm((f) => ({
+                                ...f,
+                                itemType: tpl.itemType,
+                                title: tpl.title,
+                                brand: tpl.brand,
+                                model: tpl.model,
+                                condition: tpl.condition,
+                                description: tpl.description,
+                                priceDay: tpl.priceDay,
+                                priceWeekend: tpl.priceWeekend,
+                                priceWeek: tpl.priceWeek,
+                                deposit: tpl.deposit,
+                                hasDeposit: Number(tpl.deposit) > 0,
+                              }))
+                              setError('')
+                              showToast(`⚡ Auto-filled "${tpl.badge}" — just add photos or tweak anything!`, 'success')
+                            }}
+                            className={`px-3 py-1.5 rounded-xl text-xs font-display font-semibold transition-all border ${
+                              isPicked
+                                ? 'bg-cyan-500/25 border-cyan-400 text-cyan-200 shadow-md shadow-cyan-500/20'
+                                : 'bg-white/5 border-white/10 text-white/80 hover:bg-white/10 hover:border-cyan-400/40'
+                            }`}
+                          >
+                            {tpl.badge} · <span className="text-cyan-300">₹{tpl.priceDay}/d</span>
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )}
+
                 <h2>What are you listing?</h2>
                 <div className="list-cats">
                   <button
@@ -865,6 +1044,39 @@ export default function ListItem() {
                   </div>
                 </div>
 
+                <div className="p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 space-y-2.5">
+                  <div className="flex items-center justify-between flex-wrap gap-2">
+                    <span className="text-xs font-bold text-emerald-300 flex items-center gap-1.5">
+                      <Shield size={15} /> 🛡️ 5-Layer Lender Protection Guarantee
+                    </span>
+                    <Link
+                      to="/terms#lender-shield"
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-[11px] font-semibold text-cyan-300 underline hover:text-white"
+                    >
+                      Read Host Protection Policy ↗
+                    </Link>
+                  </div>
+                  <p className="text-xs text-white/75 leading-relaxed">
+                    List with 100% peace of mind. Every borrower is bound by our legal &amp; hardware verification stack before your gear ever leaves your hands:
+                  </p>
+                  <div className="grid sm:grid-cols-2 gap-2 text-[11px] text-white/80">
+                    <div className="p-2 rounded-lg bg-black/30 border border-white/10">
+                      <strong className="text-emerald-300">1. Govt KYC + Selfie Verified:</strong> Aadhaar/PAN/DL + live selfie required before booking.
+                    </div>
+                    <div className="p-2 rounded-lg bg-black/30 border border-white/10">
+                      <strong className="text-emerald-300">2. E-Signed Rental Pact:</strong> Legally binding IT Act 2000 PDF contract signed by both sides.
+                    </div>
+                    <div className="p-2 rounded-lg bg-black/30 border border-white/10">
+                      <strong className="text-emerald-300">3. Dual-OTP + 3-Point Check:</strong> Handover &amp; Return PINs + serial &amp; cable verification.
+                    </div>
+                    <div className="p-2 rounded-lg bg-black/30 border border-white/10">
+                      <strong className="text-emerald-300">4. Escrow &amp; Anti-Tamper Shield:</strong> Deposit held in escrow + 100% fair market recovery for damage/loss.
+                    </div>
+                  </div>
+                </div>
+
                 <div className="list-actions">
                   <button type="button" className="btn-outline" onClick={() => goStep(1)} aria-label="Back to details">← Back</button>
                   <button type="submit" disabled={loading} className="btn-primary" aria-label="Publish listing">
@@ -885,6 +1097,17 @@ export default function ListItem() {
             <p>{CONDITIONS.find((c) => c.value === form.condition)?.label || 'Condition'}</p>
             <div className="list-preview__price">
               {form.priceDay ? `₹${form.priceDay}/day` : 'Set a day price'}
+            </div>
+            <div className="mt-3 pt-3 border-t border-white/10 text-[11px] text-emerald-300/90 space-y-1">
+              <div className="font-bold flex items-center gap-1">
+                <Shield size={12} /> Host Shield Active
+              </div>
+              <p className="text-white/60 text-[10px] leading-snug">
+                Govt KYC renters only · E-Signed Pact · Dual-OTP Handover · Photo Proof.{' '}
+                <Link to="/terms" target="_blank" rel="noreferrer" className="text-cyan-300 underline">
+                  Policy ↗
+                </Link>
+              </p>
             </div>
           </aside>
         </div>

@@ -3,6 +3,7 @@ import { Link, useSearchParams, useNavigate, Navigate } from 'react-router-dom'
 import { Eye, EyeOff, Mail, Lock, User, Phone, AlertCircle, CheckCircle } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import { useToast } from '../contexts/ToastContext'
+import { friendlyError, MESSAGES } from '../lib/messages'
 import { welcomeCouponCode } from '../lib/coupons'
 import { useSignupCouponSetting } from '../hooks/useSignupCouponSetting'
 import { captureReferralFromSearch, normalizeReferralCode, readStoredReferral } from '../lib/referrals'
@@ -55,10 +56,10 @@ export default function Signup() {
     e.preventDefault()
     setError('')
     if (form.password !== form.confirm) {
-      return setError('Passwords do not match.')
+      return setError('Your passwords do not match. Please re-enter them.')
     }
     if (form.password.length < 6) {
-      return setError('Password must be at least 6 characters.')
+      return setError('Please choose a password with at least 6 characters.')
     }
     setLoading(true)
     try {
@@ -70,7 +71,9 @@ export default function Signup() {
         referralCode: form.referral,
       })
       if (isCouponEnabled) {
-        showToast(`Welcome coupon ${welcomeCode} — ${activePercent}% off`, 'success')
+        showToast(`Welcome gift unlocked! Use code "${welcomeCode}" for ${activePercent}% off your first rental.`, 'success')
+      } else {
+        showToast(MESSAGES.auth.accountCreated, 'success')
       }
       if (data?.session) {
         navigate('/', { replace: true })
@@ -78,7 +81,7 @@ export default function Signup() {
         setSuccess(true)
       }
     } catch (err) {
-      setError(err.message || 'Sign up failed. Please try again.')
+      setError(friendlyError(err, 'Could not create your account. Please check your details and try again.'))
     } finally {
       setLoading(false)
     }
@@ -110,7 +113,7 @@ export default function Signup() {
   }
 
   return (
-    <div className="relative min-h-screen flex items-center justify-center px-4 pt-16 pb-10">
+    <div className="relative min-h-screen flex items-center justify-center px-4 pt-nav pb-10">
       <div className="grid-floor" />
       <GameBackground />
 
@@ -247,10 +250,10 @@ export default function Signup() {
             </div>
 
             {/* Terms */}
-            <p className="text-xs font-display" style={{ color: 'rgba(255,255,255,0.3)' }}>
+            <p className="text-xs font-display" style={{ color: 'rgba(255,255,255,0.35)' }}>
               By signing up you agree to our{' '}
-              <span style={{ color: '#ff2e6d', cursor: 'pointer' }}>Terms of Service</span>{' '}and{' '}
-              <span style={{ color: '#ff2e6d', cursor: 'pointer' }}>Privacy Policy</span>.
+              <Link to="/terms" style={{ color: '#ff2e6d', fontWeight: 600 }}>Terms of Service</Link>{' '}and{' '}
+              <Link to="/privacy" style={{ color: '#ff2e6d', fontWeight: 600 }}>Privacy Policy</Link>.
             </p>
 
             {/* Submit */}

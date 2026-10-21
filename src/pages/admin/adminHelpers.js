@@ -19,10 +19,10 @@ export const ROLE_LABEL = {
 }
 
 export const BOOKING_LABEL = {
-  pending: 'Pending',
+  pending: 'Pending Approval',
   confirmed: 'Confirmed',
-  active: 'Active',
-  completed: 'Done',
+  active: 'Active Rental',
+  completed: 'Completed',
   cancelled: 'Cancelled',
   disputed: 'Disputed',
 }
@@ -57,22 +57,25 @@ export function isLowStock(listing) {
 export function explainAdminError(err) {
   const msg = err?.message || String(err || 'Request failed')
   if (/failed to fetch|networkerror|load failed|cors/i.test(msg)) {
-    return 'Admin API blocked (CORS/network). Stop Vite, run npm run dev again, confirm VITE_SUPABASE_URL.'
+    return 'Connection to Supabase was interrupted (CORS or network). Check your internet connection or restart the dev server.'
   }
   if (/stock_qty|stock_total|42703|PGRST204|schema cache/i.test(msg)) {
-    return 'Stock columns missing. Re-run supabase/listings_columns_migration.sql in Supabase SQL Editor.'
+    return 'Stock columns are not yet initialized in your database. Run supabase/listings_columns_migration.sql in the Supabase SQL Editor.'
   }
   if (/coupons|coupon_/i.test(msg) && /does not exist|schema cache|42P01/i.test(msg)) {
-    return 'Coupons table missing. Run supabase/coupons_migration.sql in Supabase SQL Editor.'
+    return 'Coupons table is not yet initialized. Run supabase/coupons_migration.sql in the Supabase SQL Editor.'
   }
   if (/payment_methods/i.test(msg) && /does not exist|schema cache|42P01/i.test(msg)) {
-    return 'Payment methods missing. Run supabase/payments_migration.sql in Supabase SQL Editor.'
+    return 'Payment methods table is not yet initialized. Run supabase/payments_migration.sql in the Supabase SQL Editor.'
   }
   if (/site_settings/i.test(msg) && /does not exist|schema cache|42P01/i.test(msg)) {
-    return 'Site settings missing. Run supabase/platform_fee_migration.sql in Supabase SQL Editor.'
+    return 'Site settings table is not yet initialized. Run supabase/platform_fee_migration.sql in the Supabase SQL Editor.'
   }
   if (/kyc_submissions|kyc-docs|review_kyc/i.test(msg) && /does not exist|schema cache|42P01|bucket/i.test(msg)) {
-    return 'KYC tables missing. Run supabase/kyc_migration.sql in Supabase SQL Editor.'
+    return 'KYC tables or storage bucket missing. Run supabase/kyc_migration.sql in the Supabase SQL Editor.'
+  }
+  if (/row-level security|permission denied|42501/i.test(msg)) {
+    return 'Admin permission denied by database policy. Ensure your profile has admin_role set to "admin" or "super_admin".'
   }
   return msg
 }

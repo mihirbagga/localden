@@ -1,0 +1,66 @@
+.ld-progress {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+  margin-bottom: 0.35rem;
+}
+.ld-progress span {
+  height: 4px;
+  border-radius: 4px;
+  background: var(--surface-2);
+  transition: background 0.35s ease, box-shadow 0.35s ease;
+}
+.ld-progress span.is-done {
+  background: var(--grad-accent);
+  box-shadow: 0 0 10px rgba(191, 36, 199, 0.35);
+}
+.ld-progress__label {
+  margin-bottom: 0.75rem;
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--text-dim);
+}
+
+/* Slot hold */
+.ld-hold {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 0.35rem 0.75rem;
+  align-items: center;
+  padding: 0.75rem 0.85rem;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 209, 102, 0.4);
+  background: linear-gradient(90deg, rgba(255, 209, 102, 0.12), rgba(255, 22, 102, 0.08));
+}
+.ld-hold__label {
+  display: block;
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--gold);
+}
+.ld-hold p { font-size: 0.75rem; color: var(--text-muted); margin-top: 2px; }
+.ld-hold__time {
+  font-family: var(--font-display, inherit);
+  font-size: 1.5rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+}
+.ld-hold__time.is-urgent { color: #ff5c6c; animation: ldHoldPulse 1s ease-in-out infinite; }
+.ld-hold__release {
+  grid-column: 1 / -1;
+  justify-self: start;
+  padding: 0;
+  background: none;
+  border: none;
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--text-dim);
+  text-decoration: underline;
+  cursor: pointer;
+}
+.ld-hold__release:hover { color: var(--text); }
+.ld-hold__release:disabled { opacity: 0.4; cursor: not-allowed; }
+@keyframes ldHoldPulse { 50% { opacity: 0.55; } }

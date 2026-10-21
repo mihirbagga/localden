@@ -1,6 +1,9 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Link, useLocation } from 'react-router-dom'
-import { Menu, X, ChevronRight, LogOut, User, Shield, Search } from 'lucide-react'
+import {
+  Menu, X, ChevronRight, LogOut, User, Shield, Search,
+  PlusCircle, CheckCircle, AlertCircle, Sparkles, Compass, Calendar,
+} from 'lucide-react'
 import LogoMark from './LogoMark'
 import NotificationBell from './NotificationBell'
 import NotificationBar from './NotificationBar'
@@ -15,52 +18,140 @@ const navLinks = [
   { to: '/how-it-works', label: 'How It Works'     },
   { to: '/about',        label: 'About'            },
   { to: '/contact',      label: 'Contact'          },
-  { to: '/list-item',    label: 'List Gear'        },
 ]
 
 function NavbarAuth() {
-  const { isAuthenticated, profile, signOut, isAdmin } = useAuth()
+  const { isAuthenticated, profile, signOut, isAdmin, kycStatus } = useAuth()
   const [open, setOpen] = useState(false)
+  const menuRef = useRef(null)
+
+  useEffect(() => {
+    if (!open) return
+    function handleOutside(e) {
+      if (menuRef.current && !menuRef.current.contains(e.target)) {
+        setOpen(false)
+      }
+    }
+    function handleKey(e) {
+      if (e.key === 'Escape') setOpen(false)
+    }
+    document.addEventListener('mousedown', handleOutside)
+    document.addEventListener('keydown', handleKey)
+    return () => {
+      document.removeEventListener('mousedown', handleOutside)
+      document.removeEventListener('keydown', handleKey)
+    }
+  }, [open])
 
   if (isAuthenticated) {
+    const kycVerified = kycStatus === 'verified'
+    const kycActionNeeded = kycStatus === 'required' || kycStatus === 'rejected'
+
     return (
-      <div className="nav-auth relative">
-        <Link to="/list-item" className="btn-primary text-sm py-2 px-5">
-          + List Gear
+      <div className="nav-auth relative" ref={menuRef}>
+        <Link to="/list-item" className="btn-primary text-sm py-2 px-4 flex items-center gap-1.5">
+          <PlusCircle size={15} />
+          <span>List Gear</span>
         </Link>
-        {/* Avatar dropdown */}
-        <button onClick={() => setOpen(!open)}
-          className="w-9 h-9 rounded-full flex items-center justify-center font-bungee text-sm text-white flex-shrink-0 transition-transform hover:scale-105"
-          style={{ background: 'linear-gradient(135deg, #ff2e6d, #00e5ff)' }}
+
+        {/* Avatar dropdown trigger */}
+        <button
+          onClick={() => setOpen(!open)}
+          className="nav-avatar-btn"
           aria-label="Open account menu"
-          aria-expanded={open}>
-          {profile?.full_name?.[0]?.toUpperCase() || <User size={16} />}
+          aria-expanded={open}
+        >
+          <span className="nav-avatar-circle">
+            {profile?.avatar_url ? (
+              <img src={profile.avatar_url} alt="" className="w-full h-full object-cover rounded-full" />
+            ) : (
+              profile?.full_name?.[0]?.toUpperCase() || <User size={15} />
+            )}
+          </span>
+          {kycActionNeeded && <span className="nav-avatar-dot is-warn" title="Verification required" />}
+          {kycVerified && <span className="nav-avatar-dot is-ok" title="KYC Verified" />}
         </button>
+
         {open && (
-          <div className="absolute top-12 right-0 glass rounded-2xl p-3 min-w-[180px] z-50 nav-menu"
-            style={{ border: '1px solid rgba(255,46,109,0.2)' }}>
-            <p className="text-xs font-display px-2 pb-2 mb-2 font-semibold nav-menu__name"
-              style={{ borderBottom: '1px solid var(--border)' }}>
-              {profile?.full_name || 'My Account'}
-            </p>
-            <Link to="/dashboard"
-              onClick={() => setOpen(false)}
-              className="w-full flex items-center gap-2 px-2 py-2 rounded-lg text-sm font-display transition-colors hover:bg-white/5 nav-menu__link">
-              <User size={14} /> My Dashboard
-            </Link>
-            {isAdmin ? (
-              <Link to="/admin"
+          <div className="nav-dropdown glass rounded-2xl p-3 z-50">
+            <div className="nav-dropdown__header">
+              <p className="font-display font-bold text-sm truncate" style={{ color: 'var(--text)' }}>
+                {profile?.full_name || 'Den Member'}
+              </p>
+              <p className="text-xs truncate" style={{ color: 'var(--text-dim)' }}>
+                {profile?.email || ''}
+              </p>
+              <div className="mt-2 flex items-center gap-1.5 flex-wrap">
+                {kycVerified ? (
+                  <span className="nav-badge is-ok">
+                    <CheckCircle size={11} /> Verified Member
+                  </span>
+                ) : kycActionNeeded ? (
+                  <Link
+                    to="/dashboard"
+                    onClick={() => setOpen(false)}
+                    className="nav-badge is-warn"
+                  >
+                    <AlertCircle size={11} /> Complete KYC
+                  </Link>
+                ) : (
+                  <span className="nav-badge is-neutral">Standard Account</span>
+                )}
+                {isAdmin && (
+                  <span className="nav-badge is-admin">
+                    <Shield size={11} /> Admin
+                  </span>
+                )}
+              </div>
+            </div>
+
+            <div className="py-1.5 space-y-0.5">
+              <Link
+                to="/dashboard"
                 onClick={() => setOpen(false)}
-                className="w-full flex items-center gap-2 px-2 py-2 rounded-lg text-sm font-display transition-colors hover:bg-white/5 nav-menu__link"
-                aria-label="Open admin panel">
-                <Shield size={14} /> Admin Panel
+                className="nav-dropdown__item"
+              >
+                <User size={15} />
+                <span>My Dashboard & Bookings</span>
               </Link>
-            ) : null}
-            <button onClick={() => { signOut(); setOpen(false) }}
-              className="w-full flex items-center gap-2 px-2 py-2 rounded-lg text-sm font-display transition-colors hover:bg-red-500/10"
-              style={{ color: '#ff6b9d' }}>
-              <LogOut size={14} /> Sign Out
-            </button>
+              <Link
+                to="/list-item"
+                onClick={() => setOpen(false)}
+                className="nav-dropdown__item"
+              >
+                <PlusCircle size={15} />
+                <span>List New Gear</span>
+              </Link>
+              <Link
+                to="/browse"
+                onClick={() => setOpen(false)}
+                className="nav-dropdown__item"
+              >
+                <Compass size={15} />
+                <span>Explore Gear Catalog</span>
+              </Link>
+              {isAdmin && (
+                <Link
+                  to="/admin"
+                  onClick={() => setOpen(false)}
+                  className="nav-dropdown__item is-admin-link"
+                  aria-label="Open admin panel"
+                >
+                  <Shield size={15} />
+                  <span>Admin Command Center</span>
+                </Link>
+              )}
+            </div>
+
+            <div className="pt-1.5 mt-1" style={{ borderTop: '1px solid var(--border)' }}>
+              <button
+                onClick={() => { signOut(); setOpen(false) }}
+                className="nav-dropdown__item is-danger w-full text-left"
+              >
+                <LogOut size={15} />
+                <span>Sign Out</span>
+              </button>
+            </div>
           </div>
         )}
       </div>
@@ -68,12 +159,16 @@ function NavbarAuth() {
   }
 
   return (
-    <div className="nav-auth gap-3">
+    <div className="nav-auth gap-2.5">
+      <Link to="/list-item" className="nav-link hidden xl:inline-flex items-center gap-1">
+        <Sparkles size={13} style={{ color: 'var(--cyan)' }} />
+        List Gear
+      </Link>
       <Link to="/login" className="btn-outline text-sm py-2 px-4">
         Sign In
       </Link>
       <Link to="/signup" className="btn-primary text-sm py-2 px-5">
-        Sign Up Free
+        Join Free
       </Link>
     </div>
   )
@@ -82,36 +177,59 @@ function NavbarAuth() {
 export default function Navbar() {
   const [open, setOpen]         = useState(false)
   const [scrolled, setScrolled] = useState(false)
+  const navRef                  = useRef(null)
   const { pathname }            = useLocation()
-  const { isAuthenticated, isAdmin } = useAuth()
+  const { isAuthenticated, isAdmin, profile, signOut } = useAuth()
 
   useEffect(() => {
-    const onScroll = () => setScrolled(window.scrollY > 20)
-    window.addEventListener('scroll', onScroll)
+    const onScroll = () => setScrolled(window.scrollY > 16)
+    window.addEventListener('scroll', onScroll, { passive: true })
     return () => window.removeEventListener('scroll', onScroll)
   }, [])
 
   useEffect(() => setOpen(false), [pathname])
 
+  useEffect(() => {
+    const el = navRef.current
+    if (!el) return
+    const update = () => {
+      const h = el.offsetHeight || 64
+      document.documentElement.style.setProperty('--nav-height', `${h}px`)
+    }
+    update()
+    const ro = new ResizeObserver(update)
+    ro.observe(el)
+    window.addEventListener('resize', update)
+    return () => {
+      ro.disconnect()
+      window.removeEventListener('resize', update)
+    }
+  }, [])
+
   return (
     <nav
-      className={`nav-bar fixed top-0 inset-x-0 z-50 transition-all duration-500${scrolled ? ' is-scrolled' : ''}`}
+      ref={navRef}
+      className={`nav-bar fixed top-0 inset-x-0 z-50 transition-all duration-300${scrolled ? ' is-scrolled' : ''}`}
+      aria-label="Main navigation"
     >
       <NotificationBar />
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
 
           {/* ── Logo ───────────────────────────────── */}
-          <Link to="/" className="flex items-center gap-2.5 group">
+          <Link to="/" className="flex items-center gap-2.5 group flex-shrink-0">
             <LogoMark size={36} />
-            {/* Brand name */}
             <div className="nav-brand-text">
-              <span className="font-bungee text-lg leading-none"
-                style={{ color: '#ff2e6d', textShadow: '0 0 12px rgba(255,46,109,0.6)' }}>
+              <span
+                className="font-bungee text-lg leading-none"
+                style={{ color: '#ff1666', textShadow: '0 0 14px rgba(255,22,102,0.45)' }}
+              >
                 लोकल
               </span>
-              <span className="font-bungee text-lg leading-none"
-                style={{ color: '#00e5ff', textShadow: '0 0 12px rgba(0,229,255,0.6)' }}>
+              <span
+                className="font-bungee text-lg leading-none"
+                style={{ color: '#00e5ff', textShadow: '0 0 12px rgba(0,229,255,0.55)' }}
+              >
                 &nbsp;Den
               </span>
             </div>
@@ -120,7 +238,7 @@ export default function Navbar() {
           {/* ── Desktop Links ──────────────────────── */}
           <div className="nav-links">
             {navLinks.map(({ to, label }) => {
-              const active = pathname === to
+              const active = pathname === to || (to !== '/' && pathname.startsWith(to))
               return (
                 <Link
                   key={to}
@@ -132,13 +250,29 @@ export default function Navbar() {
                 </Link>
               )
             })}
+            {isAdmin && (
+              <Link
+                to="/admin"
+                className={`nav-link is-admin-pill${pathname.startsWith('/admin') ? ' is-on' : ''}`}
+              >
+                <Shield size={13} />
+                <span>Admin</span>
+              </Link>
+            )}
           </div>
 
+          {/* ── Right Actions ──────────────────────── */}
           <div className="nav-tools">
-            <ThemeToggle />
-            <Link to="/browse" className="nav-search" aria-label="Search gear">
-              <Search size={16} />
+            <Link
+              to="/browse"
+              className="nav-search-pill"
+              aria-label="Search gear catalog"
+              title="Search PS5, cameras, DJ rigs & more"
+            >
+              <Search size={15} />
+              <span className="nav-search-pill__text">Search gear…</span>
             </Link>
+            <ThemeToggle />
             {isAuthenticated ? <NotificationBell /> : null}
             <NavbarAuth />
             <button
@@ -153,39 +287,95 @@ export default function Navbar() {
         </div>
       </div>
 
+      {/* ── Mobile / Tablet Drawer ─────────────────── */}
       <div className={`nav-drawer${open ? ' is-open' : ''}`}>
-        <div className="px-4 pb-4 pt-2 space-y-1 nav-drawer__inner">
+        <div className="px-4 pb-5 pt-3 space-y-1.5 nav-drawer__inner">
+          {isAuthenticated && (
+            <div className="nav-drawer__profile mb-2">
+              <div className="flex items-center gap-3">
+                <div className="nav-avatar-circle">
+                  {profile?.full_name?.[0]?.toUpperCase() || <User size={15} />}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="font-display font-bold text-sm truncate" style={{ color: 'var(--text)' }}>
+                    {profile?.full_name || 'Den Member'}
+                  </p>
+                  <p className="text-xs truncate" style={{ color: 'var(--text-dim)' }}>
+                    {profile?.email}
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
           {navLinks.map(({ to, label }) => (
-            <Link key={to} to={to}
-              className={`nav-drawer__link${pathname === to ? ' is-on' : ''}`}>
-              {label}
-              <ChevronRight size={14} style={{ opacity: 0.4 }} />
+            <Link
+              key={to}
+              to={to}
+              className={`nav-drawer__link${pathname === to ? ' is-on' : ''}`}
+            >
+              <span>{label}</span>
+              <ChevronRight size={15} style={{ opacity: 0.45 }} />
             </Link>
           ))}
+
           {isAuthenticated ? (
-            <Link to="/dashboard"
-              className={`nav-drawer__link${pathname === '/dashboard' ? ' is-on' : ''}`}>
-              My Dashboard
-              <ChevronRight size={14} style={{ opacity: 0.4 }} />
-            </Link>
-          ) : null}
-          {isAdmin ? (
-            <Link to="/admin"
-              className={`nav-drawer__link${pathname === '/admin' ? ' is-on' : ''}`}
-              aria-label="Open admin panel">
-              Admin Panel
-              <ChevronRight size={14} style={{ opacity: 0.4 }} />
-            </Link>
-          ) : null}
-          <div className="pt-2">
+            <>
+              <Link
+                to="/dashboard"
+                className={`nav-drawer__link${pathname === '/dashboard' ? ' is-on' : ''}`}
+              >
+                <span className="flex items-center gap-2">
+                  <Calendar size={15} style={{ color: 'var(--cyan)' }} />
+                  My Dashboard & Bookings
+                </span>
+                <ChevronRight size={15} style={{ opacity: 0.45 }} />
+              </Link>
+              {isAdmin && (
+                <Link
+                  to="/admin"
+                  className={`nav-drawer__link${pathname === '/admin' ? ' is-on' : ''}`}
+                  aria-label="Open admin panel"
+                >
+                  <span className="flex items-center gap-2" style={{ color: 'var(--gold)' }}>
+                    <Shield size={15} />
+                    Admin Command Center
+                  </span>
+                  <ChevronRight size={15} style={{ opacity: 0.45 }} />
+                </Link>
+              )}
+            </>
+          ) : (
+            <div className="grid grid-cols-2 gap-2 pt-2">
+              <Link to="/login" className="btn-outline text-sm py-2.5 text-center">
+                Sign In
+              </Link>
+              <Link to="/signup" className="btn-primary text-sm py-2.5 text-center">
+                Join Free
+              </Link>
+            </div>
+          )}
+
+          <div className="pt-2 flex flex-col gap-2">
             <Link
               to="/list-item"
-              className="btn-primary w-full text-sm py-3 text-center"
+              className="btn-primary w-full text-sm py-3 text-center flex items-center justify-center gap-1.5"
               onClick={() => setOpen(false)}
               aria-label="List your gear"
             >
-              + List Your Gear
+              <PlusCircle size={16} />
+              <span>List Your Gear & Earn</span>
             </Link>
+            {isAuthenticated && (
+              <button
+                type="button"
+                onClick={() => { signOut(); setOpen(false) }}
+                className="w-full py-2.5 rounded-xl text-xs font-display font-bold uppercase tracking-wider transition-colors hover:bg-red-500/10"
+                style={{ color: '#ff6b9d', border: '1px solid rgba(255,46,109,0.2)' }}
+              >
+                Sign Out
+              </button>
+            )}
           </div>
         </div>
       </div>

@@ -39,7 +39,7 @@ export default function ListerProfile() {
 
   if (loading) {
     return (
-      <div className="min-h-screen pt-24 px-4 pb-20">
+      <div className="min-h-screen pt-nav px-4 pb-20">
         <GameBackground />
         <div className="max-w-4xl mx-auto flex items-center justify-center py-20">
           <div className="w-8 h-8 border-2 border-white/10 border-t-[var(--magenta)] rounded-full animate-spin" />
@@ -50,7 +50,7 @@ export default function ListerProfile() {
 
   if (!profile) {
     return (
-      <div className="min-h-screen pt-24 px-4 pb-20">
+      <div className="min-h-screen pt-nav px-4 pb-20">
         <GameBackground />
         <div className="max-w-4xl mx-auto text-center py-20">
           <h2 className="text-2xl font-bungee text-white mb-4">Lister Not Found</h2>
@@ -65,7 +65,7 @@ export default function ListerProfile() {
   const joinYear = new Date(profile.created_at || Date.now()).getFullYear()
 
   return (
-    <div className="min-h-screen pt-24 px-4 pb-20">
+    <div className="min-h-screen pt-nav px-4 pb-20">
       <SEOHead 
         title={`${profile.full_name}'s Hardware Store | localDen`}
         description={`Rent hardware from ${profile.full_name} on localDen.`}

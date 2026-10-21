@@ -692,7 +692,7 @@ export default function Live() {
   }, [hasMore, tab, allFilteredEvents.length, allFilteredArtists.length])
 
   return (
-    <div className="relative min-h-screen pt-28 pb-20">
+    <div className="relative min-h-screen pt-nav pb-20">
       <GameBackground />
       <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <header className="text-center mb-10">

@@ -67,17 +67,72 @@ export function couponFitsUser(coupon, userId) {
   return Boolean(userId && coupon?.owner_id === userId)
 }
 
-export function priceWithCoupon({ days, priceDay, deposit, coupon, fee, protectionCost = 0 }) {
+export function getActiveDurationRate(days, durationDiscounts) {
+  const d = Math.max(0, Number(days) || 0)
+  if (d <= 0) return { rate: 0, tier: null }
+
+  let config = durationDiscounts
+  if (!config) {
+    try {
+      const raw = localStorage.getItem('rent_discount_campaigns')
+      if (raw) {
+        const parsed = JSON.parse(raw)
+        if (parsed?.duration_discounts) config = parsed.duration_discounts
+      }
+    } catch {}
+  }
+
+  if (config && config.enabled === false) {
+    return { rate: 0, tier: null }
+  }
+
+  const tiers = Array.isArray(config?.tiers) && config.tiers.length > 0
+    ? [...config.tiers].sort((a, b) => Number(b.days) - Number(a.days))
+    : [
+        { days: 30, discount_percent: 30, label: 'Monthly Pass (30+ Days)' },
+        { days: 14, discount_percent: 20, label: 'Fortnight Pro (14+ Days)' },
+        { days: 7, discount_percent: 10, label: 'Full Week (7+ Days)' },
+        { days: 3, discount_percent: 5, label: '3+ Days Jam' },
+      ]
+
+  const matched = tiers.find((t) => d >= Number(t.days))
+  if (!matched) return { rate: 0, tier: null }
+  const pct = Math.max(0, Math.min(100, Number(matched.discount_percent) || 0))
+  return { rate: pct / 100, tier: matched }
+}
+
+export function priceWithCoupon({
+  days,
+  priceDay,
+  priceWeekend = 0,
+  priceWeek = 0,
+  deposit,
+  coupon,
+  fee,
+  protectionCost = 0,
+  durationDiscounts = null,
+}) {
   const d = Math.max(0, Number(days) || 0)
   const pd = Math.max(0, Number(priceDay) || 0)
+  const pWknd = Math.max(0, Number(priceWeekend) || 0)
+  const pWeek = Math.max(0, Number(priceWeek) || 0)
   const subtotal = d * pd
 
-  let discountRate = 0
-  if (d >= 14) discountRate = 0.20
-  else if (d >= 7) discountRate = 0.10
-  else if (d >= 3) discountRate = 0.05
+  const { rate: tierRate, tier: durationTier } = getActiveDurationRate(d, durationDiscounts)
+  const tierDiscount = Math.round(subtotal * tierRate)
 
-  const durationDiscount = Math.round(subtotal * discountRate)
+  // Check listing-level multi-day bundle rate (Weekend 2d or Weekly 7d) if configured by lister
+  let listingBundleDiscount = 0
+  if (d >= 7 && pWeek > 0 && pWeek < pd * 7) {
+    const weeklyDailyRate = pWeek / 7
+    listingBundleDiscount = Math.max(0, Math.round(subtotal - d * weeklyDailyRate))
+  } else if (d >= 2 && d < 7 && pWknd > 0 && pWknd < pd * 2) {
+    const wkndDailyRate = pWknd / 2
+    listingBundleDiscount = Math.max(0, Math.round(subtotal - d * wkndDailyRate))
+  }
+
+  const durationDiscount = Math.max(tierDiscount, listingBundleDiscount)
+  const discountRate = subtotal > 0 ? durationDiscount / subtotal : tierRate
   const subtotalAfterDuration = Math.max(0, subtotal - durationDiscount)
 
   const couponDiscount = computeDiscount(coupon, subtotalAfterDuration)
@@ -93,6 +148,7 @@ export function priceWithCoupon({ days, priceDay, deposit, coupon, fee, protecti
     subtotal,
     durationDiscount,
     discountRate,
+    durationTier,
     couponDiscount,
     discount: totalDiscount,
     totalDiscount,

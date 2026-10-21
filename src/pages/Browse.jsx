@@ -218,7 +218,7 @@ export default function Browse() {
   }
 
   return (
-    <div className="relative min-h-screen pt-24 pb-20">
+    <div className="relative min-h-screen pt-nav pb-20">
       <SEOHead title="Browse Listings" description="Find gaming consoles, guitars, DJ equipment and more for rent in Bengaluru and Gurugram. Browse by city, location, category and price." />
       <div className="grid-floor" />
       <GameBackground />
@@ -461,12 +461,21 @@ export default function Browse() {
 
         {/* Error state */}
         {error && (
-          <div className="glass rounded-2xl p-5 mb-6 flex items-center gap-3"
+          <div className="glass rounded-2xl p-5 mb-6 flex items-center justify-between gap-3 flex-wrap"
             style={{ border: '1px solid rgba(255,46,109,0.3)' }}>
-            <AlertCircle size={18} style={{ color: '#ff6b9d', flexShrink: 0 }} />
-            <p className="text-sm font-display" style={{ color: 'var(--text-muted)' }}>
-              Could not connect to database. Check your <code>.env.local</code> file.
-            </p>
+            <div className="flex items-center gap-3">
+              <AlertCircle size={18} style={{ color: '#ff6b9d', flexShrink: 0 }} />
+              <p className="text-sm font-display" style={{ color: 'var(--text-muted)' }}>
+                We had trouble loading the latest catalog. Please check your connection and try refreshing.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => window.location.reload()}
+              className="btn-outline text-xs py-1.5 px-3"
+            >
+              Retry
+            </button>
           </div>
         )}
 
@@ -518,10 +527,10 @@ export default function Browse() {
         {!loading && !error && filtered.length === 0 && (
           <div className="text-center py-16 px-4 rounded-3xl max-w-3xl mx-auto mt-8 glass" style={{ border: '1px solid var(--border)' }}>
             <div className="text-5xl mb-5">🔍</div>
-            <h3 className="font-bungee text-3xl mb-3">No gear found!</h3>
+            <h3 className="font-bungee text-3xl mb-3">No matching gear right now</h3>
             <p className="font-display mb-8" style={{ color: 'var(--text-muted)' }}>
-              We couldn't find exactly what you're looking for. <br className="hidden sm:block" />
-              Try clearing some filters or check out these popular searches:
+              We couldn't find gear matching all of your current filters. <br className="hidden sm:block" />
+              Try adjusting your dates or location, or jump into a popular category below:
             </p>
             
             <div className="flex flex-wrap justify-center gap-3 mb-8">
@@ -566,12 +575,12 @@ export default function Browse() {
             <div className="flex flex-wrap justify-center gap-4">
               {activeFilters.length > 0 && (
                 <button
-                  onClick={() => { setActiveCategory('all'); setActiveSub('All'); setSearch(''); setMaxPrice(5000); setLocation('All Locations'); setFulfillment('All Fulfillment'); setInStockOnly(false); }}
+                  onClick={() => { setActiveCategory('all'); setActiveSub('All'); setSearch(''); setMaxPrice(5000); setLocation('All Locations'); setFulfillment('All Fulfillment'); setInStockOnly(false); setFromDate(''); setToDate(''); }}
                   className="btn-outline flex items-center gap-2">
-                  <RefreshCw size={14} /> Clear all filters
+                  <RefreshCw size={14} /> Reset all filters
                 </button>
               )}
-              <a href="/list-item" className="btn-primary">+ List Your Gear</a>
+              <a href="/list-item" className="btn-primary">+ List Your Gear & Earn</a>
             </div>
           </div>
         )}

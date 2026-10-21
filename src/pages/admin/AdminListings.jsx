@@ -8,12 +8,20 @@ import { displayName, explainAdminError } from './adminHelpers'
 export default function AdminListings({ listings, patchListing, removeListing }) {
   const { showToast } = useToast()
   const [query, setQuery] = useState('')
+  const [viewFilter, setViewFilter] = useState('all')
   const [deleteTarget, setDeleteTarget] = useState(null)
   const [busy, setBusy] = useState(false)
 
   const filtered = useMemo(() => (
-    listings.filter((l) => matchesQuery([l.title, l.location, l.subcategory, l.brand, l.profiles?.full_name], query))
-  ), [listings, query])
+    listings.filter((l) => {
+      const published = l.is_published !== false
+      if (viewFilter === 'live' && (!published || !l.is_available)) return false
+      if (viewFilter === 'hidden' && published) return false
+      if (viewFilter === 'featured' && !l.is_featured) return false
+      if (viewFilter === 'unverified' && l.is_verified) return false
+      return matchesQuery([l.title, l.location, l.subcategory, l.brand, l.profiles?.full_name], query)
+    })
+  ), [listings, query, viewFilter])
 
   const updateListing = async (listing, patch, okMsg) => {
     const { error } = await supabase
@@ -38,7 +46,7 @@ export default function AdminListings({ listings, patchListing, removeListing })
       return
     }
     removeListing(deleteTarget.id)
-    showToast('Listing removed', 'success')
+    showToast('Listing permanently removed from the catalog.', 'success')
     setDeleteTarget(null)
   }
 
@@ -48,14 +56,36 @@ export default function AdminListings({ listings, patchListing, removeListing })
         <AdminSearch
           value={query}
           onChange={setQuery}
-          placeholder="Search listings, lister, area…"
+          placeholder="Search gear title, lister, brand, location…"
           ariaLabel="Search listings"
         />
+        <div className="admin-filter-chips" role="group" aria-label="Filter listings">
+          {[
+            { id: 'all', label: 'All Gear' },
+            { id: 'live', label: 'Live & Bookable' },
+            { id: 'featured', label: 'Featured' },
+            { id: 'unverified', label: 'Unverified' },
+            { id: 'hidden', label: 'Hidden' },
+          ].map((chip) => (
+            <button
+              key={chip.id}
+              type="button"
+              onClick={() => setViewFilter(chip.id)}
+              className={`admin-filter-chip${viewFilter === chip.id ? ' is-on' : ''}`}
+            >
+              {chip.label}
+            </button>
+          ))}
+        </div>
         <p className="admin-muted">{filtered.length} listing{filtered.length === 1 ? '' : 's'}</p>
       </div>
 
       {filtered.length === 0 ? (
-        <AdminEmpty emoji="📦" title="No listings found" body="Approve, hide, or feature listings here." />
+        <AdminEmpty
+          emoji="📦"
+          title="No matching listings"
+          body={viewFilter !== 'all' || query ? 'Try clearing your search or switching the filter chip above.' : 'Approve, verify, feature, or hide marketplace listings here.'}
+        />
       ) : (
         <div className="admin-table-wrap">
           <table className="admin-table">

@@ -27,6 +27,7 @@ export default function ListingCard({
   const priceWeek    = listing.price_week    ?? listing.price?.week    ?? 0
   const rawAvailable = listing.is_available  ?? listing.available      ?? true
   const isManuallyUnavailable = rawAvailable === false
+  const isOutOfStock = isManuallyUnavailable
   const isBookedOut  = isManuallyUnavailable || isBookedForDates
   const available    = !isBookedOut
 
@@ -34,7 +35,7 @@ export default function ListingCard({
     ? `?from=${encodeURIComponent(selectedDates.from)}&to=${encodeURIComponent(selectedDates.to)}`
     : ''
   const targetUrl = `/listing/${listing.id}${dateQuery}`
-  const bookedLabel = isBookedForDates ? 'Booked on dates' : 'Booked Out'
+  const bookedLabel = isBookedForDates ? 'Booked on dates' : 'Unavailable'
 
   const verified     = listing.is_verified   ?? listing.verified       ?? false
   const reviewCount  = listing.total_reviews ?? listing.reviews        ?? 0
@@ -67,7 +68,7 @@ export default function ListingCard({
               : emoji}
             {isBookedOut && (
               <div className="absolute inset-0 bg-black/60 flex items-center justify-center text-[10px] font-bold text-red-400 uppercase tracking-wider text-center px-1">
-                {isBookedForDates ? 'Booked' : 'Off'}
+                {isOutOfStock ? 'Unavailable' : 'Booked'}
               </div>
             )}
           </div>
@@ -164,7 +165,7 @@ export default function ListingCard({
           <div className="absolute inset-0 bg-black/40 backdrop-blur-[1px] z-10 flex items-center justify-center pointer-events-none">
             <div className="bg-red-950/80 border border-red-500/50 text-red-300 font-display font-bold text-xs uppercase px-3.5 py-1.5 rounded-full shadow-xl tracking-wider flex items-center gap-1.5 backdrop-blur-md">
               <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
-              {isBookedForDates ? 'Booked on dates' : 'Unavailable'}
+              {isOutOfStock ? 'Unavailable' : isBookedForDates ? 'Booked on dates' : 'Unavailable'}
             </div>
           </div>
         )}
@@ -237,7 +238,7 @@ export default function ListingCard({
               }}
             >
               <div className="w-4 h-4 rounded-full flex items-center justify-center text-xs font-bold text-white flex-shrink-0"
-                style={{ background: 'linear-gradient(135deg, #ff2e6d, #00e5ff)', fontSize: '0.55rem' }}>
+                style={{ background: 'linear-gradient(90deg, #ff1666, #bf24c7, #5486f7, #00e5ff)', fontSize: '0.55rem' }}>
                 {listerName?.[0]?.toUpperCase() || '?'}
               </div>
               <span className="text-xs font-display" style={{ color: 'rgba(255,255,255,0.4)' }}>
@@ -272,9 +273,9 @@ export default function ListingCard({
                 e.stopPropagation()
                 navigate(`/listing/${listing.id}?rent=1`)
               }}
-              aria-label={isBookedOut ? `${listing.title} is Booked Out` : `Rent ${listing.title} now`}
+              aria-label={isBookedOut ? `${listing.title} is Unavailable` : `Rent ${listing.title} now`}
             >
-              {isBookedOut ? 'Booked Out' : 'Rent now'}
+              {isBookedOut ? (isOutOfStock ? 'Unavailable' : 'Booked Out') : 'Rent now'}
             </button>
           </div>
         </div>

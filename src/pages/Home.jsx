@@ -238,10 +238,10 @@ export default function Home() {
             <span><Wallet size={12} /> Kinder on the pocket</span>
             <Link
               to="/live"
-              className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-gradient-to-r from-[var(--magenta)]/20 to-[var(--cyan)]/20 border border-[var(--magenta)]/40 text-white hover:border-[var(--cyan)] hover:scale-105 transition-all"
+              className="home-cta"
             >
               <Sparkles size={12} className="text-[var(--cyan)]" />
-              <span>Explore Events & Hire Artists →</span>
+              Explore Events & Hire Artists →
             </Link>
           </div>
 

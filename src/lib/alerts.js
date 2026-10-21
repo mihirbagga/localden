@@ -56,27 +56,35 @@ export function buildBookingAlertMessage(type, booking, extraData = {}) {
   const days = booking?.total_days || 1
   const total = booking?.total_amount ? `₹${booking.total_amount}` : ''
   const deposit = booking?.deposit ? `₹${booking.deposit}` : ''
+  const shortRef = booking?.id ? `#${String(booking.id).slice(0, 8).toUpperCase()}` : ''
+  const handoverPin = extraData.handoverPin || ''
+  const returnPin = extraData.returnPin || ''
 
   switch (type) {
     case 'new_request':
       return {
         subject: `New Rental Request: ${title} on LocalDen`,
-        text: `Hey! You have a new rental request for "${title}" from ${start} to ${end} (${days} days, total ${total}). Please log in to LocalDen to review and confirm.`,
+        text: `Hey! You have a new rental request for *${title}* (${shortRef}) from ${start} to ${end} (${days} days, total ${total}). Please open your LocalDen Host Dashboard to review and confirm! ⚡`,
       }
     case 'confirmed':
       return {
         subject: `Booking Confirmed: ${title} on LocalDen`,
-        text: `Great news! Your booking for "${title}" (${start} → ${end}) has been confirmed! Get ready for pickup. Please remember to take check-in photos on handover.`,
+        text: `🎉 Great news! Your booking for *${title}* (${shortRef} · ${start} → ${end}) is *CONFIRMED*!${handoverPin ? `\n\n🔐 *4-Digit Handover PIN:* *${handoverPin}*` : ''}\n\nPlease e-sign the Digital Rental Pact in your Dashboard and snap quick check-in photos on handover.`,
       }
     case 'pickup_reminder':
       return {
-        subject: `Pickup Reminder: ${title} starts tomorrow!`,
-        text: `Reminder: Your rental for "${title}" begins tomorrow (${start}). Please ensure contact is verified and snap condition check-in photos in the app!`,
+        subject: `Pickup / Delivery Reminder: ${title}`,
+        text: `📦 Friendly reminder for your *${title}* rental (${shortRef} · ${start} → ${end}).${handoverPin ? `\n🔐 *Handover OTP PIN:* *${handoverPin}*` : ''}\n\nPlease ensure the Digital Rental Pact is e-signed and take check-in condition photos in the app at handover! ⚡`,
       }
     case 'return_reminder':
       return {
-        subject: `Return Reminder: ${title} is due back today`,
-        text: `Friendly reminder: "${title}" is scheduled to be returned today (${end}). Please meet up, take check-out photos, and return gear on time to get your deposit back!`,
+        subject: `Return Reminder: ${title} is due back on ${end}`,
+        text: `📅 Friendly reminder: *${title}* (${shortRef}) is scheduled for return on *${end}*.${returnPin ? `\n🔐 *Return OTP PIN:* *${returnPin}*` : ''}\n\nPlease snap check-out condition photos and match the 4-digit Return PIN on handover to unlock instant deposit settlement!`,
+      }
+    case 'agreement_reminder':
+      return {
+        subject: `Signature Requested: Rental Pact for ${title}`,
+        text: `✍️ Hi! Please e-sign the LocalDen Friendly Rental Pact for *${title}* (${shortRef} · ${start} → ${end}) in your Dashboard before handover.${handoverPin ? ` (Handover PIN: *${handoverPin}*)` : ''} Takes 10 seconds!`,
       }
     case 'deposit_refund': {
       const refund = extraData.refundAmount != null ? `₹${extraData.refundAmount}` : deposit
@@ -87,7 +95,7 @@ export function buildBookingAlertMessage(type, booking, extraData = {}) {
         : `Full security deposit of ${refund} has been refunded.`
       return {
         subject: `Deposit Settlement: ${title} on LocalDen`,
-        text: `Your security deposit for "${title}" has been settled! ${details} Thanks for using LocalDen!`,
+        text: `💰 Your security deposit for *${title}* (${shortRef}) has been settled! ${details} Thanks for renting on LocalDen!`,
       }
     }
     default:

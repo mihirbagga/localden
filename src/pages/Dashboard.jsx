@@ -29,25 +29,28 @@ import DepositRefundModal from '../components/DepositRefundModal'
 import DeliveryAddressDisplay from '../components/DeliveryAddressDisplay'
 import SignatureModal from '../components/SignatureModal'
 import DashboardWallet from './DashboardWallet'
+import BookingPaymentBreakup, { parseBookingFinancials } from '../components/BookingPaymentBreakup'
 import { useWallet } from '../hooks/useWallet'
 import { adjustListingStock } from '../lib/stockService'
 import { updateBookingTracking } from '../lib/trackingService'
 import { formatLocationDisplay } from '../lib/cities'
+import { shiftIso } from '../lib/bookingDates'
+import { MESSAGES, getHandoverPin, getReturnPin } from '../lib/messages'
 
 import './dashboard.css'
 
 const TABS = ['overview', 'listings', 'bookings', 'incoming', 'wallet']
-const BOOKING_SELECT = '*, listings(id, title, emoji, category, location, contact_phone), renter:profiles!renter_id(id, full_name, phone, email, kyc_status, rating), lister:profiles!lister_id(id, full_name, phone, email, kyc_status, rating)'
+const BOOKING_SELECT = '*, listings(id, title, emoji, category, location, contact_phone, price_day), renter:profiles!renter_id(id, full_name, phone, email, kyc_status, rating), lister:profiles!lister_id(id, full_name, phone, email, kyc_status, rating)'
 const LISTING_SELECT = '*, profiles(full_name, rating, kyc_status)'
 const PAID_STATUSES = ['confirmed', 'active', 'completed']
 const STATUS_CHIPS = ['all', 'pending', 'confirmed', 'active', 'completed', 'cancelled']
 const LISTING_CHIPS = ['all', 'live', 'hidden', 'low']
 
 const STATUS_LABEL = {
-  pending: 'Pending',
+  pending: 'Pending Approval',
   confirmed: 'Confirmed',
-  active: 'Active',
-  completed: 'Done',
+  active: 'Active Rental',
+  completed: 'Completed',
   cancelled: 'Cancelled',
   disputed: 'Disputed',
 }
@@ -182,8 +185,9 @@ function StatCard({ icon, label, value, tone, sub, active, onClick, prefix = '' 
   )
 }
 
-function BookingCard({ booking, role, open, onToggle, onStatus }) {
+function BookingCard({ booking, role, open, onToggle, onStatus, onExtendRental }) {
   const { user, profile } = useAuth()
+  const { showToast } = useToast()
   const listing = booking.listings
   const listingId = listing?.id
   const status = booking.status || 'pending'
@@ -380,11 +384,17 @@ function BookingCard({ booking, role, open, onToggle, onStatus }) {
           <BookingStepper
             booking={booking}
             role={role}
+            partyPhone={partyPhone || contact.phone}
+            partyName={partyName}
             onAction={(next) => askThenStatus(next)}
             onOpenInspection={(phase) => setForcePhase(phase)}
             onOpenRefund={() => setRefundModalOpen(true)}
             onOpenSignature={() => setSignatureOpen(true)}
+            onExtendRental={onExtendRental}
           />
+
+          {/* Transparent Payment Breakup for Lister & Renter */}
+          <BookingPaymentBreakup booking={booking} role={role} defaultExpanded={false} className="my-3" />
 
           <div className="dash-book__facts">
             <div>
@@ -487,27 +497,31 @@ function BookingCard({ booking, role, open, onToggle, onStatus }) {
               <Link to={`/listing/${listingId}`} className="is-cyan">Open listing</Link>
             ) : null}
 
-            {/* Contextual WhatsApp Alerts */}
-            {status === 'confirmed' && partyPhone ? (
+            {/* Contextual WhatsApp Alerts with PINs */}
+            {status === 'confirmed' && (partyPhone || contact.phone) ? (
               <a
-                href={bookingWhatsAppLink('pickup_reminder', booking, partyPhone)}
+                href={bookingWhatsAppLink('pickup_reminder', booking, partyPhone || contact.phone, {
+                  handoverPin: getHandoverPin(booking.id),
+                })}
                 target="_blank"
                 rel="noreferrer"
                 className="is-ok text-xs font-semibold"
-                title="Send pickup reminder via WhatsApp"
+                title="Send pickup reminder with Handover PIN via WhatsApp"
               >
-                📲 Pickup Reminder
+                📲 Pickup + PIN Reminder
               </a>
             ) : null}
-            {status === 'active' && partyPhone ? (
+            {status === 'active' && (partyPhone || contact.phone) ? (
               <a
-                href={bookingWhatsAppLink('return_reminder', booking, partyPhone)}
+                href={bookingWhatsAppLink('return_reminder', booking, partyPhone || contact.phone, {
+                  returnPin: getReturnPin(booking.id),
+                })}
                 target="_blank"
                 rel="noreferrer"
                 className="is-ok text-xs font-semibold"
-                title="Send return reminder via WhatsApp"
+                title="Send return reminder with Return PIN via WhatsApp"
               >
-                📲 Return Reminder
+                📲 Return + PIN Reminder
               </a>
             ) : null}
 
@@ -569,8 +583,8 @@ function BookingCard({ booking, role, open, onToggle, onStatus }) {
             {['active', 'completed'].includes(status) ? (
               <Link to={`/dispute/${booking.id}`} className="is-danger" aria-label="Raise dispute">⚖️ Dispute</Link>
             ) : null}
-            {/* View / Download Agreement PDF */}
-            {['confirmed', 'active', 'completed'].includes(status) ? (
+            {/* View / Download Agreement PDF — available for all non-cancelled bookings */}
+            {status !== 'cancelled' ? (
               <button
                 type="button"
                 className="is-cyan font-bold"
@@ -581,8 +595,8 @@ function BookingCard({ booking, role, open, onToggle, onStatus }) {
                     const renterName = role === 'renter' ? (booking.renter?.full_name || myName || 'Borrower') : partyName
                     const listerName = role === 'lister' ? (booking.lister?.full_name || myName || 'Host') : partyName
                     await generateAgreementPDF(booking, booking.listings, renterName, listerName, {
-                      renterPhone: role === 'renter' ? (booking.renter?.phone || profile?.phone) : partyPhone,
-                      listerPhone: role === 'lister' ? (booking.lister?.phone || profile?.phone) : partyPhone,
+                      renterPhone: role === 'renter' ? (booking.renter?.phone || profile?.phone) : (partyPhone || contact.phone),
+                      listerPhone: role === 'lister' ? (booking.lister?.phone || profile?.phone) : (partyPhone || contact.phone),
                       download: true,
                     })
                     if (booking.renter_signature && booking.lister_signature) {
@@ -731,10 +745,10 @@ export default function Dashboard() {
   const nextUp = useMemo(() => {
     if (pendingIn > 0) {
       return {
-        title: `${pendingIn} booking${pendingIn === 1 ? '' : 's'} waiting`,
-        sub: 'Confirm or decline so the renter is not stuck.',
-        cta: 'Review incoming',
-        go: () => { setTab('incoming'); setBookFilter('pending') },
+        title: `${pendingIn} incoming request${pendingIn === 1 ? '' : 's'} awaiting your response`,
+        sub: 'Confirm or decline quickly so your renter can plan their session.',
+        cta: 'Review Requests',
+        go: () => { setTab('incoming'); setIncomingFilter('pending') },
       }
     }
     const pipeline = [...myBookings, ...incoming]
@@ -742,15 +756,15 @@ export default function Dashboard() {
       .sort((a, b) => String(a.start_date).localeCompare(String(b.start_date)))[0]
     if (pipeline) {
       const days = daysUntil(pipeline.start_date)
-      const title = pipeline.listings?.title || 'Booking'
+      const title = pipeline.listings?.title || 'Upcoming Rental'
       let sub = `${pipeline.start_date} → ${pipeline.end_date}`
-      if (days === 0) sub = 'Handover is today. Snap photos.'
-      else if (days === 1) sub = 'Tomorrow. Confirm pickup point.'
-      else if (days > 1) sub = `In ${days} days. Keep phone on.`
+      if (days === 0) sub = 'Handover is today! Remember to take quick check-in photos.'
+      else if (days === 1) sub = 'Starts tomorrow — coordinate handover time on WhatsApp.'
+      else if (days > 1) sub = `Starts in ${days} days — everything is locked in.`
       return {
         title,
         sub,
-        cta: 'Open booking',
+        cta: 'Open Booking',
         go: () => {
           setTab(pipeline.renter_id === user?.id ? 'bookings' : 'incoming')
           setOpenBook(pipeline.id)
@@ -758,41 +772,56 @@ export default function Dashboard() {
       }
     }
     if (myListings.length === 0) {
-      return { title: 'Idle gear earns nothing', sub: 'List a console or guitar. 5 minutes.', cta: 'List gear', href: '/list-item' }
+      return {
+        title: 'Turn your idle gear into weekend income',
+        sub: 'List a console, controller, guitar, or DJ rig in under 2 minutes.',
+        cta: '+ List Your Gear',
+        href: '/list-item',
+      }
     }
     if (myBookings.length === 0) {
-      return { title: 'No rentals yet', sub: 'Browse gear across Bengaluru & Gurugram for this weekend.', cta: 'Browse', href: '/browse' }
+      return {
+        title: 'Ready for your next gaming or jam session?',
+        sub: 'Explore verified gear available across Bengaluru & Gurugram.',
+        cta: 'Explore Gear',
+        href: '/browse',
+      }
     }
-    return { title: 'All quiet', sub: 'Nothing urgent. Browse or list another item.', cta: 'Browse', href: '/browse' }
+    return {
+      title: 'All caught up!',
+      sub: 'No pending actions right now. Browse new drops or list another item.',
+      cta: 'Browse Catalog',
+      href: '/browse',
+    }
   }, [pendingIn, myBookings, incoming, myListings.length, user?.id])
 
   const checks = [
     {
       done: profile?.kyc_status === 'verified' || profile?.kyc_status !== 'required',
       title: profile?.kyc_status === 'verified'
-        ? 'KYC verified'
+        ? 'Identity Verified (KYC)'
         : profile?.kyc_status === 'required'
-          ? 'KYC requested by Admin'
-          : 'KYC not required',
+          ? 'KYC Verification Requested'
+          : 'Account Ready to Rent & List',
       sub: profile?.kyc_status === 'verified'
-        ? 'Verified by Admin'
+        ? 'Your Verified badge is live across all listings and bookings.'
         : profile?.kyc_status === 'submitted'
-          ? 'Admin is reviewing your docs'
+          ? 'Our trust team is reviewing your documents.'
           : profile?.kyc_status === 'required'
-            ? 'Aadhaar or PAN last 4 + selfie required by Admin.'
-            : 'No KYC required — list and rent freely!',
+            ? 'Complete quick ID verification to unlock high-value rentals.'
+            : 'No extra documents needed right now — rent and list freely!',
       go: () => navigate('/kyc'),
     },
     {
       done: myListings.length > 0,
-      title: 'First listing live',
-      sub: myListings.length ? `${myListings.length} on your shelf` : 'List gear and start earning',
+      title: 'List Your First Gear',
+      sub: myListings.length ? `${myListings.length} item${myListings.length === 1 ? '' : 's'} on your gear shelf` : 'Put your idle console or instrument to work',
       go: () => (myListings.length ? setTab('listings') : navigate('/list-item')),
     },
     {
       done: myBookings.length + incoming.length > 0,
-      title: 'First booking',
-      sub: myBookings.length + incoming.length ? 'You are in the game' : 'Rent something or wait for a ping',
+      title: 'First Rental Activity',
+      sub: myBookings.length + incoming.length ? 'Active member of the Local Den community' : 'Book gear for the weekend or receive your first request',
       go: () => setTab(incoming.length ? 'incoming' : 'bookings'),
     },
   ]
@@ -842,7 +871,7 @@ export default function Dashboard() {
     }
     setMyListings((prev) => prev.filter((row) => row.id !== deleteTarget.id))
     setDeleteTarget(null)
-    showToast('Listing deleted', 'success')
+    showToast(MESSAGES.listing.deleted, 'success')
   }
 
   const bumpStock = async (listing, delta) => {
@@ -859,7 +888,7 @@ export default function Dashboard() {
     setMyListings((prev) => prev.map((row) => (
       row.id === listing.id ? { ...row, stock_qty: nextQty, stock_total: nextTotal } : row
     )))
-    showToast(`Stock is now ${nextQty}`, 'success')
+    showToast(MESSAGES.listing.stockUpdated(nextQty, nextTotal), 'success')
   }
 
   const toggleListing = async (listing, field) => {
@@ -876,33 +905,55 @@ export default function Dashboard() {
       row.id === listing.id ? { ...row, [field]: next } : row
     )))
     const msg = field === 'is_published'
-      ? (next ? 'Listing is public' : 'Listing hidden')
-      : (next ? 'Marked available' : 'Marked unavailable')
+      ? (next ? MESSAGES.listing.availabilityOn : MESSAGES.listing.availabilityOff)
+      : (next ? MESSAGES.listing.availabilityOn : MESSAGES.listing.availabilityOff)
     showToast(msg, 'success')
   }
 
   const setBookingStatus = async (booking, status) => {
     if (status === 'cancelled') {
       const ok = await confirm({
-        title: 'Cancel Booking?',
-        message: 'Are you sure you want to cancel this booking? Reserved dates will be unblocked and stock will be returned.',
+        title: 'Cancel This Booking?',
+        message: 'Are you sure you want to cancel this booking? Reserved dates will reopen on the calendar and unit stock will be restored.',
         confirmText: 'Yes, Cancel Booking',
         variant: 'danger',
       })
       if (!ok) return
     }
-    const { data: updated, error } = await supabase
-      .from('bookings')
-      .update({ status, updated_at: new Date().toISOString() })
-      .eq('id', booking.id)
-      .select('id')
-    if (error) {
-      showToast(error.message, 'error')
-      return
+    // 1. Try secure RPC first (bypasses RLS mismatch, handles role permissions)
+    let updatedOk = false
+    try {
+      const { data: rpcRes, error: rpcErr } = await supabase.rpc('update_booking_status', {
+        p_booking_id: booking.id,
+        p_status: status,
+      })
+      if (!rpcErr) {
+        if (rpcRes?.success) {
+          updatedOk = true
+        } else if (rpcRes?.error) {
+          showToast(rpcRes.error, 'error')
+          return
+        }
+      }
+    } catch {
+      /* proceed to direct table update fallback */
     }
-    if (!updated?.length) {
-      showToast('Could not update booking (not permitted or already changed)', 'error')
-      return
+
+    // 2. Direct table update fallback if RPC not present
+    if (!updatedOk) {
+      const { data: updated, error } = await supabase
+        .from('bookings')
+        .update({ status, updated_at: new Date().toISOString() })
+        .eq('id', booking.id)
+        .select('id')
+      if (error) {
+        showToast(error.message, 'error')
+        return
+      }
+      if (!updated?.length) {
+        showToast('Could not update booking status. Run migration SQL in Supabase.', 'error')
+        return
+      }
     }
 
     // Auto-return stock if booking is cancelled, declined, completed, or returned
@@ -928,22 +979,154 @@ export default function Dashboard() {
     const apply = (prev) => prev.map((row) => (row.id === booking.id ? { ...row, status } : row))
     setMyBookings(apply)
     setIncoming(apply)
-    showToast(`Booking ${STATUS_LABEL[status] || status}`, 'success')
+    showToast(MESSAGES.booking.statusUpdated(status), 'success')
   }
+
+  const handleExtendRental = async (booking) => {
+    const extraDayRate = Number(booking.price_per_day || booking.listings?.price_day || 399)
+    const nextEndDate = shiftIso(booking.end_date, 1)
+    const nextDays = Number(booking.total_days || 1) + 1
+    const nextSubtotal = Number(booking.subtotal || 0) + extraDayRate
+    const nextTotal = Number(booking.total_amount || 0) + extraDayRate
+
+    const ok = await confirm({
+      title: 'Extend Rental by +1 Day?',
+      message: `Extend "${booking.listings?.title || 'your gear'}" until ${nextEndDate} for +₹${extraDayRate.toLocaleString('en-IN')}?`,
+      confirmText: `Extend (+₹${extraDayRate})`,
+      variant: 'info',
+    })
+    if (!ok) return
+
+    const { error } = await supabase
+      .from('bookings')
+      .update({
+        end_date: nextEndDate,
+        total_days: nextDays,
+        subtotal: nextSubtotal,
+        total_amount: nextTotal,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', booking.id)
+
+    if (error) {
+      showToast(error.message || 'Could not extend rental dates.', 'error')
+      return
+    }
+
+    const patch = {
+      end_date: nextEndDate,
+      total_days: nextDays,
+      subtotal: nextSubtotal,
+      total_amount: nextTotal,
+    }
+    setMyBookings((prev) => prev.map((row) => (row.id === booking.id ? { ...row, ...patch } : row)))
+    setIncoming((prev) => prev.map((row) => (row.id === booking.id ? { ...row, ...patch } : row)))
+    showToast(`🎉 Rental extended to ${nextEndDate}! (+1 day added)`, 'success')
+  }
+
+  const allListingsPaused = myListings.length > 0 && myListings.every((l) => !l.is_available)
+
+  const toggleVacationMode = async () => {
+    if (!myListings.length) return
+    const nextAvailable = allListingsPaused
+    const inStockCount = myListings.filter((l) => l.stock_qty == null || l.stock_qty > 0).length
+    const ok = await confirm({
+      title: nextAvailable ? 'Resume In-Stock Listings?' : 'Pause All Listings (Vacation Mode)?',
+      message: nextAvailable
+        ? `Make your ${inStockCount} in-stock listing${inStockCount === 1 ? '' : 's'} bookable again right away? (Out-of-stock items will remain paused).`
+        : `Temporarily pause new bookings across all ${myListings.length} of your listings while you're away? Existing bookings stay unaffected.`,
+      confirmText: nextAvailable ? '⚡ Resume In-Stock Listings' : '🏖️ Enable Vacation Mode',
+      variant: nextAvailable ? 'success' : 'warning',
+    })
+    if (!ok) return
+
+    let dbQuery = supabase
+      .from('listings')
+      .update({ is_available: nextAvailable, updated_at: new Date().toISOString() })
+      .eq('user_id', user.id)
+
+    if (nextAvailable) {
+      dbQuery = dbQuery.or('stock_qty.is.null,stock_qty.gt.0')
+    }
+
+    const { error } = await dbQuery
+
+    if (error) {
+      showToast(error.message || 'Could not update listings.', 'error')
+      return
+    }
+    setMyListings((prev) =>
+      prev.map((row) => {
+        if (!nextAvailable) return { ...row, is_available: false }
+        if (row.stock_qty == null || row.stock_qty > 0) return { ...row, is_available: true }
+        return row
+      })
+    )
+    showToast(
+      nextAvailable
+        ? '⚡ Your in-stock listings are back live and open for bookings!'
+        : '🏖️ Vacation Mode active — all your listings are paused until you resume.',
+      'success'
+    )
+  }
+
+  const handleHostQuickApprove = async (booking, openWhatsApp = false) => {
+    await setBookingStatus(booking, 'confirmed')
+    if (openWhatsApp) {
+      const renterPhone = booking.renter?.phone
+      if (renterPhone) {
+        const pin = getHandoverPin(booking.id)
+        const fin = parseBookingFinancials(booking)
+        const { formatCustomerConfirmationMessage } = await import('../lib/whatsappSmsService')
+        const text = formatCustomerConfirmationMessage({
+          bookingId: booking.id,
+          listing: booking.listings,
+          renterName: booking.renter?.full_name,
+          startDate: booking.start_date,
+          endDate: booking.end_date,
+          days: booking.total_days,
+          subtotal: fin.subtotal,
+          deliveryFee: fin.deliveryFee,
+          deliveryDistanceKm: fin.deliveryDistanceKm,
+          warehouseNote: fin.warehouseNote,
+          deposit: fin.deposit,
+          protectionAmount: fin.insuranceAmount,
+          discountAmount: fin.discountAmount,
+          walletAmount: fin.walletAmount,
+          paidAmount: fin.paidAmount,
+          total: fin.totalAmount,
+          deliveryType: booking.delivery_type,
+          deliveryAddress: booking.delivery_address,
+          handoverPin: pin,
+        })
+        window.open(whatsappHref(renterPhone, text), '_blank', 'noopener,noreferrer')
+      }
+    }
+  }
+
+  const pendingIncomingRows = useMemo(
+    () => incoming.filter((row) => row.status === 'pending'),
+    [incoming]
+  )
+
+  const activeRenterBooking = useMemo(
+    () => myBookings.find((row) => ['active', 'confirmed'].includes(row.status)),
+    [myBookings]
+  )
 
   const saveName = async () => {
     const next = nameVal.trim()
     if (!next) {
-      showToast('Name cannot be empty', 'error')
+      showToast('Please enter a display name before saving.', 'error')
       return
     }
     setSaving(true)
     try {
       await updateProfile({ full_name: next })
-      showToast('Name saved', 'success')
+      showToast(MESSAGES.profile.nameSaved, 'success')
       setEditName(false)
     } catch (err) {
-      showToast(err.message || 'Could not save name', 'error')
+      showToast(err.message || 'Could not update your display name.', 'error')
     }
     setSaving(false)
   }
@@ -953,9 +1136,9 @@ export default function Dashboard() {
     if (!file) return
     try {
       await uploadAvatar(file)
-      showToast('Photo updated', 'success')
+      showToast(MESSAGES.profile.avatarUpdated, 'success')
     } catch (err) {
-      showToast(err.message || 'Upload failed', 'error')
+      showToast(err.message || 'Could not upload photo. Please try an image under 5 MB.', 'error')
     }
   }
 
@@ -973,7 +1156,7 @@ export default function Dashboard() {
       <div className="dash-wrap">
         <header className="dash-hello">
           <h1>{greeting()}, {firstName(profile, user)}</h1>
-          <p>Tap a stat. Expand a booking. Confirm, hide, or bump stock without leaving this page.</p>
+          <p>Manage your gear rentals, incoming requests, listing inventory, and wallet payouts in one command hub.</p>
         </header>
 
         <section className="dash-profile">
@@ -1100,6 +1283,132 @@ export default function Dashboard() {
 
         {tab === 'overview' && (
           <div>
+            {/* 1. Host Fast-Action Request Inbox (if pending requests exist) */}
+            {pendingIncomingRows.length > 0 && (
+              <div className="mb-5 p-4 rounded-2xl bg-gradient-to-r from-emerald-500/15 via-cyan-500/10 to-transparent border border-emerald-500/35">
+                <div className="flex items-center justify-between gap-2 mb-3 flex-wrap">
+                  <div>
+                    <span className="text-[11px] font-display font-extrabold uppercase tracking-wider text-emerald-300 flex items-center gap-1.5">
+                      ⚡ Host Action Inbox · {pendingIncomingRows.length} Request{pendingIncomingRows.length === 1 ? '' : 's'} Waiting
+                    </span>
+                    <p className="text-xs text-white/65">
+                      Approve in 1 tap to lock in your earnings and send the renter their 4-digit Handover OTP.
+                    </p>
+                  </div>
+                </div>
+                <div className="space-y-2.5">
+                  {pendingIncomingRows.map((req) => {
+                    const renterName = req.renter?.full_name || 'Verified Renter'
+                    const netEarn = bookingEarn(req)
+                    return (
+                      <div
+                        key={req.id}
+                        className="p-3.5 rounded-xl bg-black/45 border border-white/15 flex flex-col gap-2.5"
+                      >
+                        <div className="flex items-center justify-between gap-3 flex-wrap">
+                          <div className="flex items-center gap-3 min-w-[220px]">
+                            <span className="text-2xl">{req.listings?.emoji || '🎮'}</span>
+                            <div>
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <strong className="text-sm text-white font-display">{req.listings?.title || 'Gear Rental'}</strong>
+                                <span className="px-2 py-0.5 rounded-md bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-[11px] font-bold">
+                                  You Earn {rupee(netEarn)}
+                                </span>
+                              </div>
+                              <p className="text-xs text-white/65 mt-0.5">
+                                👤 <strong>{renterName}</strong>
+                                {req.renter?.kyc_status === 'verified' ? ' (✓ KYC Verified)' : ''} · 📅 {req.start_date} → {req.end_date} ({req.total_days}d) · {req.delivery_type === 'delivery' ? '🚚 Delivery' : '🏠 Pickup'}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2 ml-auto flex-wrap">
+                            <button
+                              type="button"
+                              onClick={() => handleHostQuickApprove(req, true)}
+                              className="px-3.5 py-2 rounded-xl bg-emerald-500 text-black font-bold text-xs hover:bg-emerald-400 transition-all shadow-md shadow-emerald-500/20"
+                            >
+                              ✓ Confirm &amp; WhatsApp
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleHostQuickApprove(req, false)}
+                              className="px-3 py-2 rounded-xl bg-cyan-500/20 text-cyan-200 border border-cyan-400/35 font-bold text-xs hover:bg-cyan-500/30 transition-all"
+                            >
+                              Confirm Only
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setBookingStatus(req, 'cancelled')}
+                              className="px-3 py-2 rounded-xl bg-red-500/15 text-red-300 border border-red-500/30 font-semibold text-xs hover:bg-red-500/25 transition-all"
+                            >
+                              Decline
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Expandable itemized payment breakup */}
+                        <BookingPaymentBreakup booking={req} role="lister" defaultExpanded={false} />
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* 2. Renter Live Active / Confirmed Session Card with Handover PIN & 1-Tap Extend */}
+            {activeRenterBooking && (
+              <div className="mb-5 p-4 rounded-2xl bg-gradient-to-r from-cyan-500/15 via-purple-500/10 to-transparent border border-cyan-500/35 flex items-center justify-between gap-4 flex-wrap">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="px-2 py-0.5 rounded-md bg-cyan-500/25 text-cyan-200 border border-cyan-400/40 text-[10px] font-extrabold uppercase tracking-wider">
+                      {activeRenterBooking.status === 'active' ? '🟢 Live Session in Progress' : '📅 Confirmed Upcoming Session'}
+                    </span>
+                    <span className="text-xs text-white/60">
+                      {activeRenterBooking.start_date} → {activeRenterBooking.end_date} ({activeRenterBooking.total_days}d)
+                    </span>
+                  </div>
+                  <h3 className="text-base font-display font-bold text-white">
+                    {activeRenterBooking.listings?.emoji || '🎮'} {activeRenterBooking.listings?.title || 'Your Rental'}
+                  </h3>
+                  <p className="text-xs text-white/65">
+                    {activeRenterBooking.status === 'confirmed'
+                      ? 'Share your 4-digit Handover OTP with the host/rider when receiving your gear.'
+                      : 'Enjoying the gear? Extend by +1 day in 1 tap or use your Return OTP when handing back.'}
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-2.5 flex-wrap ml-auto">
+                  <div className="px-3 py-1.5 rounded-xl bg-black/60 border border-cyan-400/40 text-center">
+                    <span className="text-[9px] uppercase tracking-wider text-cyan-300/80 block font-bold">
+                      {activeRenterBooking.status === 'confirmed' ? 'Handover OTP' : 'Return OTP'}
+                    </span>
+                    <strong className="font-mono text-sm tracking-[0.22em] text-cyan-300">
+                      {activeRenterBooking.status === 'confirmed'
+                        ? getHandoverPin(activeRenterBooking.id)
+                        : getReturnPin(activeRenterBooking.id)}
+                    </strong>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => handleExtendRental(activeRenterBooking)}
+                    className="px-3.5 py-2 rounded-xl bg-amber-400 text-black font-bold text-xs hover:bg-amber-300 transition-all shadow-md shadow-amber-400/20"
+                  >
+                    ⚡ +1 Day Extend
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setTab('bookings')
+                      setOpenBook(activeRenterBooking.id)
+                    }}
+                    className="px-3 py-2 rounded-xl bg-white/10 text-white font-semibold text-xs hover:bg-white/15 transition-all"
+                  >
+                    Open Pass →
+                  </button>
+                </div>
+              </div>
+            )}
+
             <div className="dash-next">
               <div>
                 <strong>NEXT UP</strong>
@@ -1228,6 +1537,7 @@ export default function Dashboard() {
                         open={openBook === booking.id}
                         onToggle={() => setOpenBook(openBook === booking.id ? null : booking.id)}
                         onStatus={setBookingStatus}
+                        onExtendRental={handleExtendRental}
                       />
                     ))
                 )}
@@ -1282,7 +1592,22 @@ export default function Dashboard() {
                   </button>
                 ))}
               </div>
-              <Link to="/list-item" className="btn-primary"><Plus size={14} /> New Listing</Link>
+              <div className="flex items-center gap-2 flex-wrap">
+                {myListings.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={toggleVacationMode}
+                    className={`px-3 py-2 rounded-xl text-xs font-display font-bold border transition-all ${
+                      allListingsPaused
+                        ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40 hover:bg-emerald-500/30'
+                        : 'bg-amber-500/15 text-amber-300 border-amber-500/35 hover:bg-amber-500/25'
+                    }`}
+                  >
+                    {allListingsPaused ? '⚡ Resume All Listings' : '🏖️ Vacation Mode (Pause All)'}
+                  </button>
+                )}
+                <Link to="/list-item" className="btn-primary"><Plus size={14} /> New Listing</Link>
+              </div>
             </div>
 
             {loadingL ? (
@@ -1381,6 +1706,7 @@ export default function Dashboard() {
                     open={openBook === booking.id}
                     onToggle={() => setOpenBook(openBook === booking.id ? null : booking.id)}
                     onStatus={setBookingStatus}
+                    onExtendRental={handleExtendRental}
                   />
                 ))}
               </div>
@@ -1401,6 +1727,48 @@ export default function Dashboard() {
 
         {tab === 'incoming' && (
           <div>
+            {pendingIncomingRows.length > 0 && (
+              <div className="mb-4 p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 space-y-2.5">
+                <span className="text-[11px] font-display font-extrabold uppercase tracking-wider text-emerald-300 block">
+                  ⚡ Fast-Approve Pending Requests ({pendingIncomingRows.length})
+                </span>
+                {pendingIncomingRows.map((req) => (
+                  <div
+                    key={`fast-${req.id}`}
+                    className="p-3 rounded-xl bg-black/45 border border-white/10 flex flex-col gap-2"
+                  >
+                    <div className="flex items-center justify-between gap-3 flex-wrap">
+                      <div>
+                        <strong className="text-xs text-white font-display">
+                          {req.listings?.emoji || '🎮'} {req.listings?.title} · <span className="text-emerald-300">You Earn {rupee(bookingEarn(req))}</span>
+                        </strong>
+                        <p className="text-[11px] text-white/60">
+                          Renter: {req.renter?.full_name || 'Renter'} · {req.start_date} → {req.end_date} ({req.total_days}d) · {req.delivery_type === 'delivery' ? '🚚 Delivery' : '🏠 Pickup'}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2 ml-auto">
+                        <button
+                          type="button"
+                          onClick={() => handleHostQuickApprove(req, true)}
+                          className="px-3 py-1.5 rounded-xl bg-emerald-500 text-black font-bold text-xs hover:bg-emerald-400 transition-all"
+                        >
+                          ✓ Confirm &amp; WhatsApp
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setBookingStatus(req, 'cancelled')}
+                          className="px-2.5 py-1.5 rounded-xl bg-red-500/15 text-red-300 border border-red-500/30 font-semibold text-xs hover:bg-red-500/25 transition-all"
+                        >
+                          Decline
+                        </button>
+                      </div>
+                    </div>
+                    <BookingPaymentBreakup booking={req} role="lister" defaultExpanded={false} />
+                  </div>
+                ))}
+              </div>
+            )}
+
             <div className="dash-toolbar">
               <p>{shownIncoming.length} on your listings{pendingIn ? ` · ${pendingIn} waiting` : ''}</p>
               <div className="dash-chips" role="group" aria-label="Filter incoming bookings">

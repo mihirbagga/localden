@@ -122,10 +122,29 @@ export default function SignatureModal({ booking, signerName, signerRole = 'rent
           </div>
         </div>
 
-        <p className="text-xs text-white/70 font-display mb-4">
-          By signing below, you legally execute the rental contract for{' '}
+        <p className="text-xs text-white/70 font-display mb-3">
+          By signing below as <strong className="text-white uppercase">{signerRole === 'lister' ? 'Owner / Host' : 'Borrower / Renter'}</strong>, you execute the LocalDen Friendly Rental Pact for{' '}
           <span className="text-emerald-400 font-bold">{booking?.listings?.title || 'this system'}</span>.
         </p>
+
+        {/* Compact Pact Terms Summary */}
+        {booking && (
+          <div className="mb-4 p-3 rounded-2xl bg-black/50 border border-white/10 grid grid-cols-2 gap-2 text-[11px]">
+            <div>
+              <span className="text-white/45 block">Rental Window</span>
+              <strong className="text-white">{booking.start_date} → {booking.end_date} ({booking.total_days || 1}d)</strong>
+            </div>
+            <div>
+              <span className="text-white/45 block">Total &amp; Escrow Deposit</span>
+              <strong className="text-emerald-300">
+                ₹{Number(booking.total_amount || 0).toLocaleString('en-IN')}{' '}
+                <span className="text-white/60 font-normal">
+                  (Dep: ₹{Number(booking.deposit || 0).toLocaleString('en-IN')})
+                </span>
+              </strong>
+            </div>
+          </div>
+        )}
 
         {/* Mode Selector */}
         <div className="grid grid-cols-2 gap-2 mb-4">

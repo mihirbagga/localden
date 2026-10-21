@@ -8,12 +8,19 @@ import { ADMIN_ROLES, KYC_LABEL, KYC_OPTIONS, ROLE_LABEL, displayName, explainAd
 export default function AdminUsers({ users, patchUser, isSuperAdmin, currentUserId }) {
   const { showToast } = useToast()
   const [query, setQuery] = useState('')
+  const [userFilter, setUserFilter] = useState('all')
   const [banTarget, setBanTarget] = useState(null)
   const [busy, setBusy] = useState(false)
 
   const filtered = useMemo(() => (
-    users.filter((u) => matchesQuery([u.full_name, u.email, u.phone, u.location], query))
-  ), [users, query])
+    users.filter((u) => {
+      if (userFilter === 'kyc_submitted' && u.kyc_status !== 'submitted') return false
+      if (userFilter === 'verified' && u.kyc_status !== 'verified') return false
+      if (userFilter === 'admins' && !(u.is_admin || u.admin_role === 'admin' || u.admin_role === 'super_admin')) return false
+      if (userFilter === 'banned' && !u.is_banned) return false
+      return matchesQuery([u.full_name, u.email, u.phone, u.location], query)
+    })
+  ), [users, query, userFilter])
 
   const updateUser = async (id, patch, okMsg) => {
     const { error } = await supabase
@@ -44,19 +51,19 @@ export default function AdminUsers({ users, patchUser, isSuperAdmin, currentUser
         })
         if (!error) {
           patchUser(user.id, { kyc_status: kycStatus })
-          showToast(`KYC set to ${KYC_LABEL[kycStatus]}`, 'success')
+          showToast(`KYC status updated to ${KYC_LABEL[kycStatus]}.`, 'success')
           return
         }
       }
     }
-    await updateUser(user.id, { kyc_status: kycStatus }, `KYC set to ${KYC_LABEL[kycStatus] || kycStatus}`)
+    await updateUser(user.id, { kyc_status: kycStatus }, `KYC status updated to ${KYC_LABEL[kycStatus] || kycStatus}.`)
     if (kycStatus === 'required') {
       await supabase.rpc('push_notification', {
         p_user_id: user.id,
         p_booking_id: null,
         p_kind: 'kyc_requested',
         p_title: 'KYC Verification Required',
-        p_body: 'Admin has requested KYC verification for your account.',
+        p_body: 'Please complete your quick ID verification in your Dashboard to continue booking and listing.',
         p_link: '/kyc',
       }).catch(() => {})
     }
@@ -64,7 +71,7 @@ export default function AdminUsers({ users, patchUser, isSuperAdmin, currentUser
 
   const handleRole = (user, adminRole) => {
     const isAdmin = adminRole === 'admin' || adminRole === 'super_admin'
-    updateUser(user.id, { admin_role: adminRole, is_admin: isAdmin }, `${displayName(user)} is now ${ROLE_LABEL[adminRole]}`)
+    updateUser(user.id, { admin_role: adminRole, is_admin: isAdmin }, `${displayName(user)} is now ${ROLE_LABEL[adminRole]}.`)
   }
 
   const confirmBan = async () => {
@@ -74,7 +81,7 @@ export default function AdminUsers({ users, patchUser, isSuperAdmin, currentUser
     await updateUser(
       banTarget.id,
       { is_banned: nextBanned },
-      nextBanned ? `${displayName(banTarget)} banned` : `${displayName(banTarget)} restored`
+      nextBanned ? `${displayName(banTarget)} has been suspended.` : `${displayName(banTarget)}'s account has been restored.`
     )
     setBusy(false)
     setBanTarget(null)
@@ -86,14 +93,36 @@ export default function AdminUsers({ users, patchUser, isSuperAdmin, currentUser
         <AdminSearch
           value={query}
           onChange={setQuery}
-          placeholder="Search name, email, phone…"
+          placeholder="Search name, email, phone, location…"
           ariaLabel="Search onboarded users"
         />
+        <div className="admin-filter-chips" role="group" aria-label="Filter users">
+          {[
+            { id: 'all', label: 'All Members' },
+            { id: 'kyc_submitted', label: 'KYC Submitted' },
+            { id: 'verified', label: 'KYC Verified' },
+            { id: 'admins', label: 'Admins' },
+            { id: 'banned', label: 'Banned' },
+          ].map((chip) => (
+            <button
+              key={chip.id}
+              type="button"
+              onClick={() => setUserFilter(chip.id)}
+              className={`admin-filter-chip${userFilter === chip.id ? ' is-on' : ''}`}
+            >
+              {chip.label}
+            </button>
+          ))}
+        </div>
         <p className="admin-muted">{filtered.length} user{filtered.length === 1 ? '' : 's'}</p>
       </div>
 
       {filtered.length === 0 ? (
-        <AdminEmpty emoji="👤" title="No users found" body="Onboarded accounts show here." />
+        <AdminEmpty
+          emoji="👤"
+          title="No matching users"
+          body={userFilter !== 'all' || query ? 'Try clearing your search or switching the filter chip above.' : 'Onboarded community accounts appear here.'}
+        />
       ) : (
         <div className="admin-table-wrap">
           <table className="admin-table">

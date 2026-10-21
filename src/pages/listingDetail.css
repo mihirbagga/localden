@@ -2,7 +2,7 @@
   --ld-accent: var(--magenta);
   position: relative;
   min-height: 100vh;
-  padding: 6.5rem 1.25rem 5.5rem;
+  padding: calc(var(--nav-height, 68px) + 1.75rem) 1.25rem 5.5rem;
   box-sizing: border-box;
 }
 
@@ -756,7 +756,7 @@
 
 @media (min-width: 768px) {
   .ld {
-    padding: 7rem 2rem 5.5rem;
+    padding: calc(var(--nav-height, 68px) + 2rem) 2rem 5.5rem;
   }
 
   .ld-wrap {
@@ -773,7 +773,7 @@
 
 @media (min-width: 1024px) {
   .ld {
-    padding: 7.25rem 2.75rem 6rem;
+    padding: calc(var(--nav-height, 68px) + 2.25rem) 2.75rem 6rem;
   }
 
   .ld-wrap {
@@ -791,7 +791,7 @@
 
 @media (min-width: 1280px) {
   .ld {
-    padding: 7.5rem 3.5rem 6rem;
+    padding: calc(var(--nav-height, 68px) + 2.5rem) 3.5rem 6rem;
   }
 }
 

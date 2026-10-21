@@ -5,7 +5,7 @@ import { POSTS } from './posts'
 
 export default function BlogIndex() {
   return (
-    <div className="relative min-h-screen pt-24 pb-20">
+    <div className="relative min-h-screen pt-nav pb-20">
       <SEOHead
         title="Blog"
         description="Tips, guides and stories about renting gaming and music gear in Bengaluru & Gurugram."

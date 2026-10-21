@@ -2,6 +2,8 @@ import { useState } from 'react'
 import { Link, useNavigate, useLocation, Navigate } from 'react-router-dom'
 import { Eye, EyeOff, Mail, Lock, AlertCircle } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
+import { useToast } from '../contexts/ToastContext'
+import { friendlyError, MESSAGES } from '../lib/messages'
 import LogoMark from '../components/LogoMark'
 import GameBackground from '../components/GameBackground'
 import './auth.css'
@@ -10,6 +12,7 @@ export default function Login() {
   const navigate  = useNavigate()
   const location  = useLocation()
   const { signIn, signInWithGoogle, isAuthenticated } = useAuth()
+  const { showToast } = useToast()
 
   const rawFrom = location.state?.from?.pathname
   const from = (rawFrom && rawFrom !== '/login' && rawFrom !== '/signup') ? rawFrom : '/'
@@ -29,9 +32,10 @@ export default function Login() {
     setLoading(true)
     try {
       await signIn({ email: form.email, password: form.password })
+      showToast(MESSAGES.auth.welcomeBack(), 'success')
       navigate(from, { replace: true })
     } catch (err) {
-      setError(err.message || 'Login failed. Check your email and password.')
+      setError(friendlyError(err, MESSAGES.auth.invalidCredentials))
     } finally {
       setLoading(false)
     }
@@ -42,12 +46,12 @@ export default function Login() {
     try {
       await signInWithGoogle()
     } catch (err) {
-      setError(err.message)
+      setError(friendlyError(err, 'Could not connect with Google. Please try again.'))
     }
   }
 
   return (
-    <div className="relative min-h-screen flex items-center justify-center px-4 pt-16 pb-10">
+    <div className="relative min-h-screen flex items-center justify-center px-4 pt-nav pb-10">
       <div className="grid-floor" />
       <GameBackground />
 
@@ -60,8 +64,8 @@ export default function Login() {
             <span style={{ color: '#ff2e6d' }}>लोकल</span>
             <span style={{ color: '#00e5ff' }}>&nbsp;Den</span>
           </h1>
-          <p className="font-display text-sm mt-1" style={{ color: 'rgba(255,255,255,0.4)' }}>
-            Sign in to your account
+          <p className="font-display text-sm mt-1" style={{ color: 'rgba(255,255,255,0.45)' }}>
+            Sign in to rent verified gear or manage your listings
           </p>
         </div>
 

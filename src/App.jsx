@@ -6,7 +6,9 @@ import { ToastProvider } from './contexts/ToastContext'
 import { NotificationProvider } from './contexts/NotificationContext'
 import { ConfirmProvider } from './contexts/ConfirmContext'
 import { ThemeProvider } from './contexts/ThemeContext'
+import LogoMark from './components/LogoMark'
 import Navbar from './components/Navbar'
+import BottomNav from './components/BottomNav'
 import Footer from './components/Footer'
 import ProtectedRoute from './components/ProtectedRoute'
 import AdminRoute from './components/AdminRoute'
@@ -30,8 +32,8 @@ const ListerProfile = lazy(() => import('./pages/ListerProfile'))
 const Dashboard = lazy(() => import('./pages/Dashboard'))
 const Kyc = lazy(() => import('./pages/Kyc'))
 const Admin = lazy(() => import('./pages/Admin'))
-const Review = lazy(() => import('./pages/Review'))
-const Dispute = lazy(() => import('./pages/Dispute'))
+import Review from './pages/Review'
+import Dispute from './pages/Dispute'
 const BlogIndex = lazy(() => import('./pages/blog/BlogIndex'))
 const BlogPost = lazy(() => import('./pages/blog/BlogPost'))
 const VerifyDelivery = lazy(() => import('./pages/VerifyDelivery'))
@@ -46,6 +48,7 @@ function AnimatedRoutes() {
   const location = useLocation()
   return (
     <motion.div key={location.pathname} variants={pageVariants} initial="initial" animate="animate">
+      <Suspense fallback={<LoadingFallback />}>
         <Routes location={location}>
           {/* Public routes */}
           <Route path="/"             element={<Home />} />
@@ -89,13 +92,17 @@ function AnimatedRoutes() {
             <AdminRoute><Admin /></AdminRoute>
           } />
         </Routes>
+      </Suspense>
     </motion.div>
   )
 }
 
 const LoadingFallback = () => (
   <div className="min-h-[60vh] flex items-center justify-center">
-    <div className="w-10 h-10 border-2 border-white/10 border-t-[var(--magenta)] rounded-full animate-spin" />
+    <div className="brand-loader" role="status" aria-label="Loading">
+      <LogoMark size={64} />
+      <span className="brand-loader__bar" />
+    </div>
   </div>
 )
 
@@ -117,6 +124,7 @@ export default function App() {
                     </Suspense>
                   </main>
                   <Footer />
+                  <BottomNav />
                   <InstallPrompt />
                 </div>
               </BrowserRouter>

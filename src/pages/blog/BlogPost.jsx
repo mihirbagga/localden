@@ -8,7 +8,7 @@ export default function BlogPost() {
   const post = POSTS.find(p => p.slug === slug)
 
   if (!post) return (
-    <div className="relative min-h-screen pt-24 flex items-center justify-center">
+    <div className="relative min-h-screen pt-nav flex items-center justify-center">
       <div className="grid-floor" /><GameBackground />
       <div className="relative z-10 text-center px-4">
         <div className="text-6xl mb-4">📝</div>
@@ -21,7 +21,7 @@ export default function BlogPost() {
   const paragraphs = post.body.trim().split('\n\n')
 
   return (
-    <div className="relative min-h-screen pt-24 pb-20">
+    <div className="relative min-h-screen pt-nav pb-20">
       <SEOHead title={post.title} description={post.excerpt} />
       <div className="grid-floor" /><GameBackground />
       <div className="relative z-10 max-w-2xl mx-auto px-4">

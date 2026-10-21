@@ -93,7 +93,7 @@ export default function DepositRefundModal({ booking, onClose, onRefundSuccess }
       })
 
       if (error) {
-        if (/does not exist/i.test(error.message || '')) {
+        if (/does not exist|could not find|schema cache|42883/i.test(error.message || '')) {
           // Direct fallback
           const depositStatus = effectiveDeduction === 0 ? 'refunded' : (refundAmount === 0 ? 'forfeited' : 'partially_refunded')
           const { error: updErr } = await supabase
@@ -107,7 +107,20 @@ export default function DepositRefundModal({ booking, onClose, onRefundSuccess }
               updated_at: new Date().toISOString(),
             })
             .eq('id', booking.id)
-          if (updErr) throw updErr
+          if (updErr) {
+            if (/column/i.test(updErr.message || '')) {
+              await supabase
+                .from('bookings')
+                .update({
+                  deposit_status: depositStatus,
+                  updated_at: new Date().toISOString(),
+                })
+                .eq('id', booking.id)
+                .catch(() => {})
+            } else {
+              throw updErr
+            }
+          }
         } else {
           throw error
         }

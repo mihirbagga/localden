@@ -10,3 +10,12 @@ ReactDOM.createRoot(document.getElementById('root')).render(
   </React.StrictMode>,
 )
 
+
+requestAnimationFrame(() => {
+  const splash = document.getElementById('splash')
+  if (!splash) return
+  setTimeout(() => {
+    splash.classList.add('hide')
+    setTimeout(() => splash.remove(), 400)
+  }, 250)
+})

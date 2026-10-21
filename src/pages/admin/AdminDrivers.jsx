@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Truck, Plus, Phone, Star, CheckCircle, XCircle, Trash2, Edit2, Shield, MapPin, X } from 'lucide-react'
+import { Truck, Plus, Phone, Star, CheckCircle, XCircle, Trash2, Edit2, Shield, MapPin, X, Building2, Save, Printer, Navigation } from 'lucide-react'
 import { useToast } from '../../contexts/ToastContext'
 import { useConfirm } from '../../contexts/ConfirmContext'
 import { useDeliveryPartners } from '../../hooks/useDeliveryPartners'
@@ -8,6 +8,11 @@ import {
   updateDeliveryPartner,
   deleteDeliveryPartner,
 } from '../../lib/driverService'
+import {
+  fetchWarehouseSettings,
+  saveWarehouseSettings,
+  DEFAULT_WAREHOUSE_SETTINGS,
+} from '../../lib/deliveryFee'
 
 export default function AdminDrivers() {
   const { showToast } = useToast()
@@ -75,10 +80,33 @@ export default function AdminDrivers() {
     if (!ok) return
     try {
       await deleteDeliveryPartner(driver.id)
-      setDrivers((prev) => prev.filter((d) => d.id !== driver.id))
+      await loadDrivers?.()
       showToast(`Driver ${driver.name} removed`, 'success')
     } catch (err) {
-      showToast(err.message || 'Failed to delete driver', 'error')
+      showToast(err.message || 'Failed to remove driver', 'error')
+    }
+  }
+
+  const [activeSubTab, setActiveSubTab] = useState('warehouse') // 'warehouse' or 'drivers'
+  const [warehouseForm, setWarehouseForm] = useState(DEFAULT_WAREHOUSE_SETTINGS)
+  const [savingWarehouse, setSavingWarehouse] = useState(false)
+
+  useEffect(() => {
+    fetchWarehouseSettings().then((res) => {
+      if (res) setWarehouseForm(res)
+    })
+  }, [])
+
+  const handleSaveWarehouse = async (e) => {
+    e.preventDefault()
+    setSavingWarehouse(true)
+    try {
+      await saveWarehouseSettings(warehouseForm)
+      showToast('🏢 Warehouse location & delivery charge settings saved!', 'success')
+    } catch (err) {
+      showToast(err.message || 'Failed to save warehouse settings.', 'error')
+    } finally {
+      setSavingWarehouse(false)
     }
   }
 
@@ -94,47 +122,262 @@ export default function AdminDrivers() {
             Manage authorized couriers and delivery personnel who handle physical system handovers. Only Admin can assign delivery partners.
           </p>
         </div>
+        {activeSubTab === 'drivers' && (
+          <button
+            type="button"
+            onClick={() => setShowAddModal(true)}
+            className="btn-primary flex items-center gap-2 text-xs py-2.5 px-4 font-bold self-start sm:self-auto"
+          >
+            <Plus size={16} /> Add Delivery Partner
+          </button>
+        )}
+      </div>
+
+      {/* Sub Tabs: Warehouse & Distance Settings VS Active Couriers */}
+      <div className="flex items-center gap-2 border-b border-white/10 pb-3">
         <button
           type="button"
-          onClick={() => setShowAddModal(true)}
-          className="btn-primary flex items-center gap-2 text-xs py-2.5 px-4 font-bold self-start sm:self-auto"
+          onClick={() => setActiveSubTab('warehouse')}
+          className={`px-4 py-2 rounded-xl text-xs font-bungee flex items-center gap-2 transition-all ${
+            activeSubTab === 'warehouse'
+              ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-400/40 shadow-lg shadow-cyan-500/10'
+              : 'text-white/60 hover:text-white hover:bg-white/5'
+          }`}
         >
-          <Plus size={16} /> Add Delivery Partner
+          <Building2 size={14} /> Warehouse Hub &amp; Delivery Pricing
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveSubTab('drivers')}
+          className={`px-4 py-2 rounded-xl text-xs font-bungee flex items-center gap-2 transition-all ${
+            activeSubTab === 'drivers'
+              ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-400/40 shadow-lg shadow-cyan-500/10'
+              : 'text-white/60 hover:text-white hover:bg-white/5'
+          }`}
+        >
+          <Truck size={14} /> Couriers &amp; Drivers ({drivers.length})
         </button>
       </div>
 
-      {/* Quick Stats */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-        <div className="admin-card p-4 flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center text-cyan-400">
-            <Truck size={20} />
+      {activeSubTab === 'warehouse' ? (
+        /* WAREHOUSE LOCATION & DISTANCE DELIVERY FORM */
+        <div className="admin-card p-6 rounded-2xl bg-white/[0.03] border border-white/10 space-y-6">
+          <div className="flex items-center justify-between gap-3 flex-wrap">
+            <div>
+              <span className="text-[11px] font-bungee uppercase tracking-wider text-cyan-300 flex items-center gap-1.5">
+                <Building2 size={15} /> Central Warehouse &amp; Hub Dispatch Location
+              </span>
+              <p className="text-xs text-white/60 mt-0.5">
+                Doorstep delivery fees for buyers are calculated dynamically based on driving distance from this warehouse hub.
+              </p>
+            </div>
+            <div className="px-3 py-1.5 rounded-xl bg-cyan-500/10 border border-cyan-500/30 font-mono text-xs text-cyan-300">
+              ⚡ Live Auto-Calculator Active
+            </div>
           </div>
-          <div>
-            <span className="text-[10px] text-white/50 uppercase font-bold block">Total Drivers</span>
-            <span className="font-bungee text-xl text-white">{drivers.length}</span>
-          </div>
+
+          <form onSubmit={handleSaveWarehouse} className="space-y-5">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="text-xs text-white/70 font-bold block mb-1">Warehouse Hub Name</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. LocalDen Koramangala Hub"
+                  className="input-dark text-xs"
+                  value={warehouseForm.warehouse_name || ''}
+                  onChange={(e) => setWarehouseForm({ ...warehouseForm, warehouse_name: e.target.value })}
+                />
+              </div>
+
+              <div>
+                <label className="text-xs text-white/70 font-bold block mb-1">Warehouse Physical Address</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. 4th Block, Koramangala, Bengaluru, Karnataka 560034"
+                  className="input-dark text-xs"
+                  value={warehouseForm.warehouse_address || ''}
+                  onChange={(e) => setWarehouseForm({ ...warehouseForm, warehouse_address: e.target.value })}
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
+              <div>
+                <label className="text-xs text-white/70 font-bold block mb-1">Warehouse Latitude</label>
+                <input
+                  type="number"
+                  step="0.0001"
+                  required
+                  placeholder="12.9352"
+                  className="input-dark text-xs font-mono"
+                  value={warehouseForm.warehouse_lat || ''}
+                  onChange={(e) => setWarehouseForm({ ...warehouseForm, warehouse_lat: parseFloat(e.target.value) || 0 })}
+                />
+              </div>
+
+              <div>
+                <label className="text-xs text-white/70 font-bold block mb-1">Warehouse Longitude</label>
+                <input
+                  type="number"
+                  step="0.0001"
+                  required
+                  placeholder="77.6245"
+                  className="input-dark text-xs font-mono"
+                  value={warehouseForm.warehouse_lng || ''}
+                  onChange={(e) => setWarehouseForm({ ...warehouseForm, warehouse_lng: parseFloat(e.target.value) || 0 })}
+                />
+              </div>
+
+              <div>
+                <label className="text-xs text-white/70 font-bold block mb-1">Base Delivery Fee (₹)</label>
+                <input
+                  type="number"
+                  min="0"
+                  required
+                  placeholder="99"
+                  className="input-dark text-xs font-mono"
+                  value={warehouseForm.base_fee ?? ''}
+                  onChange={(e) => setWarehouseForm({ ...warehouseForm, base_fee: Number(e.target.value) })}
+                />
+                <span className="text-[10px] text-white/40 block mt-0.5">Fixed rate for near orders</span>
+              </div>
+
+              <div>
+                <label className="text-xs text-white/70 font-bold block mb-1">Base Km Included</label>
+                <input
+                  type="number"
+                  min="0"
+                  required
+                  placeholder="3"
+                  className="input-dark text-xs font-mono"
+                  value={warehouseForm.base_km_included ?? ''}
+                  onChange={(e) => setWarehouseForm({ ...warehouseForm, base_km_included: Number(e.target.value) })}
+                />
+                <span className="text-[10px] text-white/40 block mt-0.5">Covered in base fee</span>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div>
+                <label className="text-xs text-white/70 font-bold block mb-1">Rate per Extra Km (₹/km)</label>
+                <input
+                  type="number"
+                  min="0"
+                  required
+                  placeholder="15"
+                  className="input-dark text-xs font-mono"
+                  value={warehouseForm.per_km_rate ?? ''}
+                  onChange={(e) => setWarehouseForm({ ...warehouseForm, per_km_rate: Number(e.target.value) })}
+                />
+                <span className="text-[10px] text-white/40 block mt-0.5">Charged for km beyond base</span>
+              </div>
+
+              <div>
+                <label className="text-xs text-white/70 font-bold block mb-1">Max Cap Fee (₹)</label>
+                <input
+                  type="number"
+                  min="0"
+                  required
+                  placeholder="499"
+                  className="input-dark text-xs font-mono"
+                  value={warehouseForm.max_fee ?? ''}
+                  onChange={(e) => setWarehouseForm({ ...warehouseForm, max_fee: Number(e.target.value) })}
+                />
+                <span className="text-[10px] text-white/40 block mt-0.5">Maximum possible delivery charge</span>
+              </div>
+
+              <div>
+                <label className="text-xs text-white/70 font-bold block mb-1">Free Delivery Above (₹)</label>
+                <input
+                  type="number"
+                  min="0"
+                  placeholder="3500 (0 to disable)"
+                  className="input-dark text-xs font-mono"
+                  value={warehouseForm.free_delivery_above ?? ''}
+                  onChange={(e) => setWarehouseForm({ ...warehouseForm, free_delivery_above: Number(e.target.value) })}
+                />
+                <span className="text-[10px] text-white/40 block mt-0.5">0 = no free delivery threshold</span>
+              </div>
+            </div>
+
+            <div>
+              <label className="text-xs text-white/70 font-bold block mb-1 flex items-center gap-1.5">
+                <Printer size={13} className="text-cyan-400" /> Warehouse Print Note / Dispatch Slip Note
+              </label>
+              <textarea
+                rows={2}
+                placeholder="Dispatched from Koramangala Hub · Verified & Sanitized with Anti-Static Packaging · Tested Before Dispatch"
+                className="input-dark text-xs"
+                value={warehouseForm.print_note || ''}
+                onChange={(e) => setWarehouseForm({ ...warehouseForm, print_note: e.target.value })}
+              />
+              <span className="text-[10px] text-white/40 block mt-1">
+                Printed on customer invoice, delivery tracking slip, and included in WhatsApp dispatch notifications.
+              </span>
+            </div>
+
+            {/* Live Pricing Preview Simulation */}
+            <div className="p-3.5 rounded-xl bg-cyan-500/10 border border-cyan-500/20 text-xs space-y-1">
+              <span className="font-bold text-cyan-300">💡 Formula Preview:</span>
+              <p className="text-white/80">
+                A delivery destination <strong>8.0 km</strong> away will cost:{' '}
+                <strong className="text-cyan-300">
+                  ₹{warehouseForm.base_fee} (first {warehouseForm.base_km_included} km) + {Math.max(0, 8 - (warehouseForm.base_km_included || 0))} km × ₹{warehouseForm.per_km_rate} = ₹
+                  {Math.min(
+                    warehouseForm.max_fee || 999,
+                    (warehouseForm.base_fee || 0) + Math.max(0, 8 - (warehouseForm.base_km_included || 0)) * (warehouseForm.per_km_rate || 0)
+                  )}
+                </strong>
+              </p>
+            </div>
+
+            <div className="flex justify-end">
+              <button
+                type="submit"
+                disabled={savingWarehouse}
+                className="btn-primary py-2.5 px-6 text-xs font-bold flex items-center gap-1.5"
+              >
+                <Save size={14} /> {savingWarehouse ? 'Saving Settings...' : 'Save Warehouse & Delivery Settings'}
+              </button>
+            </div>
+          </form>
         </div>
-        <div className="admin-card p-4 flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400">
-            <CheckCircle size={20} />
+      ) : (
+        <>
+          {/* Quick Stats */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div className="admin-card p-4 flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center text-cyan-400">
+                <Truck size={20} />
+              </div>
+              <div>
+                <span className="text-[10px] text-white/50 uppercase font-bold block">Total Drivers</span>
+                <span className="font-bungee text-xl text-white">{drivers.length}</span>
+              </div>
+            </div>
+            <div className="admin-card p-4 flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400">
+                <CheckCircle size={20} />
+              </div>
+              <div>
+                <span className="text-[10px] text-white/50 uppercase font-bold block">Active On Duty</span>
+                <span className="font-bungee text-xl text-emerald-400">
+                  {drivers.filter((d) => d.is_active).length}
+                </span>
+              </div>
+            </div>
+            <div className="admin-card p-4 flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-pink-500/10 border border-pink-500/30 flex items-center justify-center text-pink-400">
+                <Shield size={20} />
+              </div>
+              <div>
+                <span className="text-[10px] text-white/50 uppercase font-bold block">Security Standard</span>
+                <span className="font-bungee text-sm text-pink-400">Dual OTP Handover</span>
+              </div>
+            </div>
           </div>
-          <div>
-            <span className="text-[10px] text-white/50 uppercase font-bold block">Active On Duty</span>
-            <span className="font-bungee text-xl text-emerald-400">
-              {drivers.filter((d) => d.is_active).length}
-            </span>
-          </div>
-        </div>
-        <div className="admin-card p-4 flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-pink-500/10 border border-pink-500/30 flex items-center justify-center text-pink-400">
-            <Shield size={20} />
-          </div>
-          <div>
-            <span className="text-[10px] text-white/50 uppercase font-bold block">Security Standard</span>
-            <span className="font-bungee text-sm text-pink-400">Dual OTP Handover</span>
-          </div>
-        </div>
-      </div>
 
       {/* Drivers List */}
       {loading ? (
@@ -238,6 +481,8 @@ export default function AdminDrivers() {
           ))}
         </div>
       )}
+    </>
+  )}
 
       {/* Add Driver Modal */}
       {showAddModal && (

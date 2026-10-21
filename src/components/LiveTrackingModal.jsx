@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import {
-  X, Navigation, Phone, MapPin, CheckCircle2, Clock, Shield, Lock,
-  Copy, Check, Truck, MessageCircle, ArrowUpRight, KeyRound, Star
+  X, Navigation, Phone, MapPin, CheckCircle2, Clock, Shield,
+  Copy, Check, Truck, MessageCircle, ArrowUpRight, KeyRound, Star, FileSignature
 } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import { useToast } from '../contexts/ToastContext'
@@ -14,6 +14,11 @@ import {
 } from '../lib/trackingService'
 import { useDeliveryPartners } from '../hooks/useDeliveryPartners'
 import { parseDeliveryAddress } from '../lib/deliveryAddress'
+import {
+  buildWhatsAppLink,
+  formatDriverDispatchMessage,
+  formatRenterOutForDeliveryMessage,
+} from '../lib/whatsappSmsService'
 
 export default function LiveTrackingModal({ booking, onClose, isAdmin = false }) {
   const { user } = useAuth()
@@ -22,7 +27,7 @@ export default function LiveTrackingModal({ booking, onClose, isAdmin = false })
   const isUserAdmin = isAdmin || Boolean(user?.is_admin) || user?.user_metadata?.role === 'admin'
   const isLister = user?.id === (booking?.lister_id || booking?.listings?.user_id)
   const isHubStored = booking?.listings?.fulfillment_type === 'warehouse'
-  const canManageEta = isUserAdmin || (isLister && !isHubStored)
+  const canManageTracking = isUserAdmin || (isLister && !isHubStored)
 
   const { drivers: availableDrivers } = useDeliveryPartners()
   const [tracking, setTracking] = useState(null)
@@ -35,7 +40,9 @@ export default function LiveTrackingModal({ booking, onClose, isAdmin = false })
 
   const bookingId = booking?.id
   const listingTitle = booking?.listings?.title || 'Gaming Hardware'
-  const deliveryAddress = booking?.delivery_address || 'Delivery Address'
+  const deliveryAddress = booking?.delivery_address || 'Pickup / Delivery Location'
+  const bothSigned = Boolean(booking?.renter_signature && booking?.lister_signature)
+  const oneSigned = Boolean(booking?.renter_signature || booking?.lister_signature)
 
   useEffect(() => {
     let isMounted = true
@@ -52,14 +59,14 @@ export default function LiveTrackingModal({ booking, onClose, isAdmin = false })
     return () => { isMounted = false }
   }, [bookingId, booking])
 
-  // Live countdown timer: recalculates ETA every 5 seconds
+  // Live countdown timer: recalculates ETA every 1 second when countdown active
   useEffect(() => {
     if (!tracking) return
     const update = () => {
       setLiveEta(calculateRemainingEta(tracking))
     }
     update()
-    const timer = setInterval(update, 5000)
+    const timer = setInterval(update, 1000)
     return () => clearInterval(timer)
   }, [tracking])
 
@@ -124,14 +131,41 @@ export default function LiveTrackingModal({ booking, onClose, isAdmin = false })
     }
   }
 
-  const handleCopyOtp = (code) => {
+  const handleCopyOtp = (code, label = 'OTP') => {
+    if (!code) return
     navigator.clipboard.writeText(code)
     setCopiedOtp(true)
-    showToast('Delivery OTP copied!', 'success')
+    showToast(`${label} copied!`, 'success')
     setTimeout(() => setCopiedOtp(false), 2000)
   }
 
+  const handleWhatsAppDriverDispatch = () => {
+    const driver = tracking?.driver
+    if (!driver?.phone) {
+      showToast('Assign a delivery partner with a phone number first.', 'info')
+      return
+    }
+    const parsed = parseDeliveryAddress(deliveryAddress)
+    const msg = formatDriverDispatchMessage({
+      booking,
+      tracking,
+      parsedAddress: parsed,
+    })
+    window.open(buildWhatsAppLink(driver.phone, msg), '_blank', 'noopener,noreferrer')
+  }
+
+  const handleWhatsAppRenterTracking = () => {
+    const renterPhone = booking?.renter?.phone || ''
+    const msg = formatRenterOutForDeliveryMessage({
+      booking,
+      tracking,
+      handoverPin: tracking?.renter_otp,
+    })
+    window.open(buildWhatsAppLink(renterPhone, msg), '_blank', 'noopener,noreferrer')
+  }
+
   const driver = tracking?.driver
+  const allSteps = Object.values(TRACKING_STATUS_CONFIG)
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-black/80 backdrop-blur-md animate-fade-in overflow-y-auto">
@@ -143,7 +177,7 @@ export default function LiveTrackingModal({ booking, onClose, isAdmin = false })
               <Truck size={20} />
             </div>
             <div className="min-w-0">
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 <h2 className="font-bungee text-base sm:text-lg text-white truncate leading-tight">
                   {listingTitle}
                 </h2>
@@ -152,9 +186,19 @@ export default function LiveTrackingModal({ booking, onClose, isAdmin = false })
                     <Shield size={10} /> Hub
                   </span>
                 )}
+                <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold flex items-center gap-1 border ${
+                  bothSigned
+                    ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30'
+                    : oneSigned
+                      ? 'bg-purple-500/15 text-purple-300 border-purple-500/30'
+                      : 'bg-white/10 text-white/50 border-white/15'
+                }`}>
+                  <FileSignature size={10} />
+                  {bothSigned ? 'Pact Signed (2/2)' : oneSigned ? 'Pact Signed (1/2)' : 'Pact Unsigned'}
+                </span>
               </div>
               <p className="text-[11px] text-white/50 font-display">
-                Order #{bookingId?.slice(0, 8)} · Handover Delivery
+                Order #{bookingId?.slice(0, 8)} · {booking?.delivery_type === 'delivery' ? 'Doorstep Delivery' : 'Self Pickup Handover'}
               </p>
             </div>
           </div>
@@ -181,7 +225,7 @@ export default function LiveTrackingModal({ booking, onClose, isAdmin = false })
           <div className="flex items-center justify-between gap-2 flex-wrap">
             <div>
               <div className="flex items-center gap-2">
-                <span className="text-[10px] uppercase font-bold tracking-wider text-white/50">Current Status:</span>
+                <span className="text-[10px] uppercase font-bold tracking-wider text-white/50">Current Stage:</span>
                 <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase border ${currentConfig.badgeClass}`}>
                   {currentConfig.badge}
                 </span>
@@ -196,23 +240,23 @@ export default function LiveTrackingModal({ booking, onClose, isAdmin = false })
               <div className="flex items-center gap-1.5">
                 <Clock size={13} className="text-cyan-400 animate-pulse" />
                 <span className="text-white/50 text-[11px] font-medium">ETA:</span>
-                <strong className={`font-bold text-xs ${
+                <strong className={`font-bold text-xs font-mono ${
                   liveEta.includes('moment') ? 'text-amber-300 animate-bounce' : 'text-emerald-400'
                 }`}>
                   {liveEta || calculateRemainingEta(tracking)}
                 </strong>
-                {canManageEta && !editingEta && (
+                {canManageTracking && !editingEta && (
                   <button
                     type="button"
                     onClick={() => setEditingEta(true)}
-                    className="text-[10px] text-cyan-400 font-semibold underline hover:text-cyan-300 ml-1"
+                    className="text-[10px] text-cyan-400 font-semibold underline hover:text-cyan-300 ml-1 font-sans"
                   >
                     Adjust
                   </button>
                 )}
               </div>
 
-              {canManageEta && editingEta && (
+              {canManageTracking && editingEta && (
                 <div className="flex items-center gap-1.5 pt-1 sm:pt-0 sm:pl-2 sm:border-l sm:border-white/10 flex-wrap">
                   <div className="flex items-center gap-1">
                     {[15, 25, 35, 45, 60].map((preset) => (
@@ -257,23 +301,20 @@ export default function LiveTrackingModal({ booking, onClose, isAdmin = false })
             </div>
           </div>
 
-          {/* Connected 4-Step Stepper with Integrated Transit Bar */}
+          {/* Connected 5-Step Stepper with Integrated Transit Bar */}
           <div className="pt-1">
             <div className="relative flex items-center justify-between">
               {/* Background Line */}
               <div className="absolute left-4 right-4 top-3.5 h-1 bg-white/10 rounded-full z-0" />
               {/* Animated Progress Line */}
               <div
-                className="absolute left-4 top-3.5 h-1 bg-gradient-to-r from-cyan-500 via-emerald-400 to-pink-500 rounded-full transition-all duration-500 z-0"
+                className="absolute left-4 top-3.5 h-1 bg-gradient-to-r from-cyan-500 via-emerald-400 to-purple-500 rounded-full transition-all duration-500 z-0"
                 style={{
-                  width:
-                    activeStep === 0 ? '5%' :
-                    activeStep === 1 ? '33%' :
-                    activeStep === 2 ? '66%' : '90%',
+                  width: `${Math.min(92, Math.max(5, (activeStep / (allSteps.length - 1)) * 92))}%`,
                 }}
               />
 
-              {Object.values(TRACKING_STATUS_CONFIG).slice(0, 4).map((step, idx) => {
+              {allSteps.map((step, idx) => {
                 const isPast = idx < activeStep
                 const isCurrent = idx === activeStep
                 return (
@@ -307,7 +348,7 @@ export default function LiveTrackingModal({ booking, onClose, isAdmin = false })
           </p>
         </div>
 
-        {/* 2-Column Grid: Delivery Partner & Dual OTP Handshake (Saves huge vertical space) */}
+        {/* 2-Column Grid: Delivery Partner & Dual OTP Handshake */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
           {/* Card 1: Assigned Delivery Partner */}
           <div className="p-4 rounded-2xl border border-cyan-500/30 bg-slate-950/80 flex flex-col justify-between space-y-3">
@@ -317,7 +358,7 @@ export default function LiveTrackingModal({ booking, onClose, isAdmin = false })
               </span>
               {driver && (
                 <span className="px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-300 text-[9px] font-bold uppercase">
-                  Verified
+                  Assigned
                 </span>
               )}
             </div>
@@ -351,10 +392,10 @@ export default function LiveTrackingModal({ booking, onClose, isAdmin = false })
                     className="py-1.5 px-2 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-white text-[11px] font-display font-semibold flex items-center justify-center gap-1.5 transition-all"
                   >
                     <Phone size={11} className="text-emerald-400" />
-                    <span>Call Driver</span>
+                    <span>Call Rider</span>
                   </a>
                   <a
-                    href={`https://wa.me/${driver.phone?.replace(/[^0-9]/g, '')}?text=Hi%20${encodeURIComponent(driver.name)},%20inquiring%20about%20order%20${bookingId?.slice(0, 8)}`}
+                    href={`https://wa.me/${driver.phone?.replace(/[^0-9]/g, '')}?text=Hi%20${encodeURIComponent(driver.name)},%20inquiring%20about%20LocalDen%20order%20${bookingId?.slice(0, 8)}`}
                     target="_blank"
                     rel="noreferrer"
                     className="py-1.5 px-2 rounded-lg bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/30 text-emerald-300 text-[11px] font-display font-semibold flex items-center justify-center gap-1.5 transition-all"
@@ -363,6 +404,28 @@ export default function LiveTrackingModal({ booking, onClose, isAdmin = false })
                     <span>WhatsApp</span>
                   </a>
                 </div>
+
+                {/* Admin / Host Dispatch WhatsApp Macro */}
+                {canManageTracking && (
+                  <div className="grid grid-cols-2 gap-1.5 pt-1">
+                    <button
+                      type="button"
+                      onClick={handleWhatsAppDriverDispatch}
+                      className="py-1.5 px-2 rounded-lg bg-cyan-500/15 hover:bg-cyan-500/25 border border-cyan-500/30 text-cyan-200 text-[10px] font-bold flex items-center justify-center gap-1 transition-all"
+                      title="Send Google Maps, Address & Verify Link to Driver"
+                    >
+                      🛵 WA Dispatch to Rider
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleWhatsAppRenterTracking}
+                      className="py-1.5 px-2 rounded-lg bg-purple-500/15 hover:bg-purple-500/25 border border-purple-500/30 text-purple-200 text-[10px] font-bold flex items-center justify-center gap-1 transition-all"
+                      title="Send Rider Name, ETA & Handover PIN to Renter"
+                    >
+                      📲 WA ETA to Renter
+                    </button>
+                  </div>
+                )}
               </div>
             ) : (
               <div className="py-4 text-center space-y-1">
@@ -370,19 +433,21 @@ export default function LiveTrackingModal({ booking, onClose, isAdmin = false })
                   No delivery partner assigned yet.
                 </p>
                 <p className="text-[10px] text-white/40">
-                  {isUserAdmin ? 'Select partner below to dispatch.' : 'Admin assigns courier upon packaging.'}
+                  {canManageTracking ? 'Select partner below to dispatch.' : 'Courier assigned upon packaging.'}
                 </p>
               </div>
             )}
 
-            {/* Admin Driver Dispatch Selector */}
-            {isUserAdmin && (
+            {/* Driver Dispatch Selector */}
+            {canManageTracking && (
               <div className="pt-2 border-t border-white/10">
                 <div className="flex items-center justify-between text-[10px] text-white/50 mb-1">
-                  <span>Assign Courier:</span>
-                  <Link to="/admin" className="text-cyan-400 hover:underline flex items-center gap-0.5">
-                    Drivers Portal <ArrowUpRight size={9} />
-                  </Link>
+                  <span>Assign Courier Partner:</span>
+                  {isUserAdmin && (
+                    <Link to="/admin" className="text-cyan-400 hover:underline flex items-center gap-0.5">
+                      Drivers Portal <ArrowUpRight size={9} />
+                    </Link>
+                  )}
                 </div>
                 <select
                   className="select-dark text-[11px] w-full py-1"
@@ -401,15 +466,19 @@ export default function LiveTrackingModal({ booking, onClose, isAdmin = false })
             )}
           </div>
 
-          {/* Card 2: Dual OTP Handshake */}
+          {/* Card 2: Dual OTP Handshake (Handover & Return PINs) */}
           <div className="p-4 rounded-2xl border border-pink-500/30 bg-slate-950/80 flex flex-col justify-between space-y-3">
             <div className="flex items-center justify-between">
               <span className="text-[10px] font-bold uppercase tracking-wider text-pink-400 flex items-center gap-1.5">
-                <KeyRound size={12} /> Delivery OTP Handshake
+                <KeyRound size={12} /> Security OTP Handshake
               </span>
-              {tracking?.verified ? (
+              {tracking?.return_verified ? (
+                <span className="px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-300 text-[10px] font-bold flex items-center gap-1 border border-purple-500/40">
+                  <CheckCircle2 size={10} /> Return Verified
+                </span>
+              ) : tracking?.verified ? (
                 <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 text-[10px] font-bold flex items-center gap-1 border border-emerald-500/40">
-                  <CheckCircle2 size={10} /> Verified
+                  <CheckCircle2 size={10} /> Handover Verified
                 </span>
               ) : (
                 <span className="px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 text-[10px] font-bold">
@@ -418,144 +487,174 @@ export default function LiveTrackingModal({ booking, onClose, isAdmin = false })
               )}
             </div>
 
-            {/* Renter PIN Box */}
-            <div className="p-3 rounded-xl bg-black/60 border border-white/10 flex items-center justify-between">
-              <div>
-                <span className="text-[10px] text-white/50 uppercase font-semibold block">
-                  Customer Handover PIN
-                </span>
-                <span className="font-mono text-xl sm:text-2xl font-black text-cyan-300 tracking-wider">
-                  {tracking?.renter_otp || '----'}
-                </span>
+            {/* Dual PIN Boxes: Handover PIN & Return PIN */}
+            <div className="grid grid-cols-2 gap-2">
+              <div className="p-2.5 rounded-xl bg-black/60 border border-cyan-500/30 flex items-center justify-between">
+                <div>
+                  <span className="text-[9px] text-cyan-300/80 uppercase font-bold block">
+                    1. Handover PIN
+                  </span>
+                  <span className="font-mono text-lg font-black text-cyan-300 tracking-wider">
+                    {tracking?.renter_otp || '----'}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => handleCopyOtp(tracking?.renter_otp, 'Handover PIN')}
+                  className="p-1.5 rounded-lg bg-cyan-500/15 hover:bg-cyan-500/25 text-cyan-300 border border-cyan-500/30 transition-all"
+                  title="Copy Handover PIN"
+                >
+                  {copiedOtp ? <Check size={12} className="text-emerald-400" /> : <Copy size={12} />}
+                </button>
               </div>
-              <button
-                type="button"
-                onClick={() => handleCopyOtp(tracking?.renter_otp)}
-                className="px-2.5 py-1.5 rounded-lg bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-300 text-xs font-bold flex items-center gap-1 border border-cyan-500/30 transition-all"
-              >
-                {copiedOtp ? <Check size={12} className="text-emerald-400" /> : <Copy size={12} />}
-                <span>{copiedOtp ? 'Copied' : 'Copy'}</span>
-              </button>
+
+              <div className="p-2.5 rounded-xl bg-black/60 border border-purple-500/30 flex items-center justify-between">
+                <div>
+                  <span className="text-[9px] text-purple-300/80 uppercase font-bold block">
+                    2. Return PIN
+                  </span>
+                  <span className="font-mono text-lg font-black text-purple-300 tracking-wider">
+                    {tracking?.return_otp || '----'}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => handleCopyOtp(tracking?.return_otp, 'Return PIN')}
+                  className="p-1.5 rounded-lg bg-purple-500/15 hover:bg-purple-500/25 text-purple-300 border border-purple-500/30 transition-all"
+                  title="Copy Return PIN"
+                >
+                  <Copy size={12} />
+                </button>
+              </div>
             </div>
 
             <p className="text-[10px] text-white/50 font-display leading-tight">
-              🛡️ Share this PIN with the driver <em>only</em> after inspecting the gear at your doorstep.
+              🛡️ Share <strong>Handover PIN</strong> only after inspecting gear at arrival. Match <strong>Return PIN</strong> when handing back gear.
             </p>
 
-            {/* Admin / Driver Portal Link */}
+            {/* Admin / Host / Driver Portal Link */}
             {(isUserAdmin || isLister) && (
               <div className="pt-2 border-t border-white/10 flex items-center justify-between text-[11px]">
                 <span className="text-white/40">
                   Driver OTP: <strong className="text-pink-300 font-mono">{tracking?.driver_otp}</strong>
                 </span>
-                <Link
-                  to={`/verify-delivery?id=${bookingId}`}
-                  target="_blank"
-                  className="px-2 py-0.5 rounded bg-pink-500/20 text-pink-300 hover:bg-pink-500/30 text-[10px] font-bold flex items-center gap-1"
-                >
-                  Verify Portal <ArrowUpRight size={10} />
-                </Link>
+                <div className="flex items-center gap-1.5">
+                  <Link
+                    to={`/verify-delivery?id=${bookingId}&phase=${activeStep >= 3 ? 'checkout' : 'checkin'}`}
+                    target="_blank"
+                    className="px-2 py-0.5 rounded bg-pink-500/20 text-pink-300 hover:bg-pink-500/30 text-[10px] font-bold flex items-center gap-1"
+                  >
+                    Handshake Portal <ArrowUpRight size={10} />
+                  </Link>
+                </div>
               </div>
             )}
           </div>
         </div>
 
-        {/* Compact Delivery Address Row */}
+        {/* Compact Delivery Address + Slot + Rider Instructions Row */}
         {(() => {
           const parsed = parseDeliveryAddress(deliveryAddress)
           const targetMapLink = parsed.mapsUrl || `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(parsed.cleanAddress)}`
           return (
-            <div className="p-3 rounded-xl bg-white/[0.03] border border-white/10 flex items-center justify-between gap-3 text-xs">
-              <div className="flex items-center gap-2 min-w-0">
-                <MapPin size={14} className="text-pink-400 flex-shrink-0" />
-                <span className="text-[11px] text-white/50 truncate">
-                  Destination: <strong className="text-white/80">{parsed.cleanAddress}</strong>
-                  {parsed.coordsLabel && (
-                    <span className="text-[10px] text-white/40 font-mono ml-1.5">
-                      ({parsed.coordsLabel})
+            <div className="p-3 rounded-xl bg-white/[0.03] border border-white/10 space-y-1.5 text-xs">
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2 min-w-0">
+                  <MapPin size={14} className="text-pink-400 flex-shrink-0" />
+                  <span className="text-[11px] text-white/50 truncate">
+                    Destination: <strong className="text-white/85">{parsed.cleanAddress}</strong>
+                    {parsed.coordsLabel && (
+                      <span className="text-[10px] text-white/40 font-mono ml-1.5">
+                        ({parsed.coordsLabel})
+                      </span>
+                    )}
+                  </span>
+                </div>
+                <a
+                  href={targetMapLink}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="px-2 py-1 rounded bg-cyan-500/15 hover:bg-cyan-500/25 text-cyan-300 text-[11px] font-display flex items-center gap-1 border border-cyan-500/30 flex-shrink-0"
+                  title="Open location in Google Maps"
+                >
+                  <Navigation size={10} /> Maps
+                </a>
+              </div>
+              {(parsed.slot || parsed.instructions || parsed.hubName) && (
+                <div className="flex items-center gap-2 flex-wrap pl-5 text-[10px]">
+                  {parsed.hubName && (
+                    <span className="px-2 py-0.5 rounded bg-cyan-500/10 text-cyan-300 border border-cyan-500/25 font-semibold">
+                      🏢 {parsed.hubName}
                     </span>
                   )}
-                </span>
-              </div>
-              <a
-                href={targetMapLink}
-                target="_blank"
-                rel="noreferrer"
-                className="px-2 py-1 rounded bg-cyan-500/15 hover:bg-cyan-500/25 text-cyan-300 text-[11px] font-display flex items-center gap-1 border border-cyan-500/30 flex-shrink-0"
-                title="Open location in Google Maps"
-              >
-                <Navigation size={10} /> Maps
-              </a>
+                  {parsed.slot && (
+                    <span className="px-2 py-0.5 rounded bg-purple-500/15 text-purple-300 border border-purple-500/30 font-semibold">
+                      🕐 Slot: {parsed.slot}
+                    </span>
+                  )}
+                  {parsed.instructions && (
+                    <span className="px-2 py-0.5 rounded bg-amber-500/10 text-amber-200 border border-amber-500/25">
+                      📝 Note: {parsed.instructions}
+                    </span>
+                  )}
+                </div>
+              )}
             </div>
           )
         })()}
 
-        {/* Role-Specific Controls */}
-        {/* 1. Lister Confirm Button (if awaiting) */}
-        {isLister && !isUserAdmin && currentStatusKey === 'awaiting_confirmation' && !isHubStored && (
-          <div className="p-3 rounded-xl bg-white/[0.03] border border-white/10 flex items-center justify-between gap-3">
-            <span className="text-xs text-white/70">Ready to fulfill this booking?</span>
-            <button
-              type="button"
-              onClick={() => handleUpdateStatus('confirmed')}
-              className="btn-primary text-xs py-1.5 px-4 font-bold"
-            >
-              ✓ Confirm Booking
-            </button>
+        {/* Timestamped Live Activity Timeline */}
+        {Array.isArray(tracking?.timeline) && tracking.timeline.length > 0 && (
+          <div className="p-3 rounded-xl bg-black/40 border border-white/10 space-y-1.5">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-white/45 block">
+              Live Dispatch &amp; Handover Log
+            </span>
+            <div className="space-y-1 max-h-24 overflow-y-auto pr-1">
+              {tracking.timeline.slice().reverse().map((entry, idx) => (
+                <div key={idx} className="flex items-center justify-between text-[11px] text-white/70">
+                  <span className="flex items-center gap-1.5 truncate">
+                    <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 shrink-0" />
+                    <strong>{entry.label}</strong>
+                    {entry.note ? <span className="text-white/45">· {entry.note}</span> : null}
+                  </span>
+                  <span className="text-[10px] font-mono text-white/40 shrink-0 ml-2">
+                    {entry.timestamp
+                      ? new Date(entry.timestamp).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })
+                      : ''}
+                  </span>
+                </div>
+              ))}
+            </div>
           </div>
         )}
 
-        {/* 2. Admin Quick Control Deck */}
-        {isUserAdmin && (
+        {/* Role-Specific Stage Control Deck (Admin & Self-Fulfilling Host) */}
+        {canManageTracking && (
           <div className="p-3 rounded-xl bg-cyan-950/30 border border-cyan-500/20 flex items-center justify-between gap-2 flex-wrap text-xs">
             <span className="text-[10px] font-bold uppercase tracking-wider text-cyan-300">
-              Admin Status Override:
+              {isUserAdmin ? 'Admin Stage Control:' : 'Host Stage Control:'}
             </span>
-            <div className="flex items-center gap-1.5">
-              <button
-                type="button"
-                onClick={() => handleUpdateStatus('awaiting_confirmation')}
-                className={`px-2 py-1 rounded-lg text-[10px] font-bold transition-all border ${
-                  currentStatusKey === 'awaiting_confirmation'
-                    ? 'bg-amber-500 text-black border-amber-400'
-                    : 'bg-white/5 text-white/60 border-white/10 hover:bg-white/10'
-                }`}
-              >
-                1. Awaiting
-              </button>
-              <button
-                type="button"
-                onClick={() => handleUpdateStatus('confirmed')}
-                className={`px-2 py-1 rounded-lg text-[10px] font-bold transition-all border ${
-                  currentStatusKey === 'confirmed'
-                    ? 'bg-blue-500 text-white border-blue-400'
-                    : 'bg-white/5 text-white/60 border-white/10 hover:bg-white/10'
-                }`}
-              >
-                2. Confirmed
-              </button>
-              <button
-                type="button"
-                onClick={() => handleUpdateStatus('on_the_way')}
-                className={`px-2 py-1 rounded-lg text-[10px] font-bold transition-all border ${
-                  currentStatusKey === 'on_the_way'
-                    ? 'bg-cyan-500 text-black border-cyan-400'
-                    : 'bg-white/5 text-white/60 border-white/10 hover:bg-white/10'
-                }`}
-              >
-                3. On The Way
-              </button>
-              <button
-                type="button"
-                onClick={() => handleUpdateStatus('delivered')}
-                className={`px-2 py-1 rounded-lg text-[10px] font-bold transition-all border ${
-                  currentStatusKey === 'delivered'
-                    ? 'bg-emerald-500 text-black border-emerald-400'
-                    : 'bg-white/5 text-white/60 border-white/10 hover:bg-white/10'
-                }`}
-              >
-                4. Delivered
-              </button>
+            <div className="flex items-center gap-1.5 flex-wrap">
+              {[
+                { key: 'awaiting_confirmation', label: '1. Awaiting', activeCls: 'bg-amber-500 text-black border-amber-400' },
+                { key: 'confirmed', label: '2. Confirmed', activeCls: 'bg-blue-500 text-white border-blue-400' },
+                { key: 'on_the_way', label: '3. On The Way', activeCls: 'bg-cyan-500 text-black border-cyan-400' },
+                { key: 'delivered', label: '4. Delivered', activeCls: 'bg-emerald-500 text-black border-emerald-400' },
+                { key: 'completed', label: '5. Returned', activeCls: 'bg-purple-500 text-white border-purple-400' },
+              ].map((btn) => (
+                <button
+                  key={btn.key}
+                  type="button"
+                  onClick={() => handleUpdateStatus(btn.key)}
+                  className={`px-2 py-1 rounded-lg text-[10px] font-bold transition-all border ${
+                    currentStatusKey === btn.key
+                      ? btn.activeCls
+                      : 'bg-white/5 text-white/60 border-white/10 hover:bg-white/10'
+                  }`}
+                >
+                  {btn.label}
+                </button>
+              ))}
             </div>
           </div>
         )}
@@ -563,3 +662,4 @@ export default function LiveTrackingModal({ booking, onClose, isAdmin = false })
     </div>
   )
 }
+

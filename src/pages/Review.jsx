@@ -22,18 +22,44 @@ export default function Review() {
 
   useEffect(() => {
     if (!bookingId || !user) return
-    supabase
-      .from('bookings')
-      .select('*, listings(title, photos, category), profiles!bookings_lister_id_fkey(full_name)')
-      .eq('id', bookingId)
-      .single()
-      .then(({ data, error }) => {
-        if (error || !data) { showToast('Booking not found', 'error'); navigate('/dashboard'); return }
-        if (data.status !== 'completed') { showToast('Can only review completed bookings', 'error'); navigate('/dashboard'); return }
-        if (data.renter_id !== user.id && data.lister_id !== user.id) { navigate('/dashboard'); return }
-        setBooking(data)
-        setLoading(false)
-      })
+    let cancelled = false
+    async function loadBooking() {
+      let { data, error } = await supabase
+        .from('bookings')
+        .select('*, listings(title, photos, category)')
+        .eq('id', bookingId)
+        .maybeSingle()
+
+      if (error || !data) {
+        const fallback = await supabase
+          .from('bookings')
+          .select('*')
+          .eq('id', bookingId)
+          .maybeSingle()
+        data = fallback.data
+        error = fallback.error
+      }
+
+      if (cancelled) return
+      if (error || !data) {
+        showToast('Booking not found', 'error')
+        navigate('/dashboard')
+        return
+      }
+      if (data.status !== 'completed') {
+        showToast('Can only review completed bookings', 'error')
+        navigate('/dashboard')
+        return
+      }
+      if (data.renter_id !== user.id && data.lister_id !== user.id) {
+        navigate('/dashboard')
+        return
+      }
+      setBooking(data)
+      setLoading(false)
+    }
+    loadBooking()
+    return () => { cancelled = true }
   }, [bookingId, user])
 
   const handleSubmit = async (e) => {
@@ -51,14 +77,14 @@ export default function Review() {
   }
 
   if (loading) return (
-    <div className="relative min-h-screen pt-24 flex items-center justify-center">
+    <div className="relative min-h-screen pt-nav flex items-center justify-center">
       <div className="grid-floor" /><GameBackground />
       <div className="w-8 h-8 border-2 border-white/20 border-t-white rounded-full animate-spin" />
     </div>
   )
 
   if (done) return (
-    <div className="relative min-h-screen pt-24 flex items-center justify-center">
+    <div className="relative min-h-screen pt-nav flex items-center justify-center">
       <div className="grid-floor" /><GameBackground />
       <div className="relative z-10 text-center px-4">
         <div className="text-6xl mb-4">⭐</div>
@@ -73,7 +99,7 @@ export default function Review() {
   const accent  = listing?.category === 'gaming' ? '#ff2e6d' : '#00e5ff'
 
   return (
-    <div className="relative min-h-screen pt-24 pb-20">
+    <div className="relative min-h-screen pt-nav pb-20">
       <div className="grid-floor" /><GameBackground />
       <div className="relative z-10 max-w-lg mx-auto px-4">
         <div className="glass rounded-3xl p-8">

@@ -369,3 +369,25 @@ $$;
 
 grant execute on function public.admin_process_payout(uuid, text, text, text) to authenticated, service_role;
 
+-- 7. Backfill any legacy wallet_entries (kind = 'payout_request') into payout_requests
+insert into public.payout_requests (id, user_id, amount, payout_method, upi_id, status, admin_notes, created_at, updated_at)
+select
+  we.id,
+  we.user_id,
+  greatest(abs(we.amount), 100),
+  case when we.note ilike '%bank%' then 'bank' else 'upi' end,
+  substring(we.note from 'UPI\s*\(([^)]+)\)'),
+  'pending',
+  we.note,
+  we.created_at,
+  we.created_at
+from public.wallet_entries we
+where we.kind = 'payout_request'
+  and not exists (
+    select 1 from public.payout_requests pr
+    where pr.id = we.id
+       or (pr.user_id = we.user_id and pr.amount = abs(we.amount) and abs(extract(epoch from (pr.created_at - we.created_at))) < 120)
+  )
+on conflict (id) do nothing;
+
+
