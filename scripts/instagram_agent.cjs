@@ -421,12 +421,19 @@ class InstagramPublisher {
 
     // Step 1: Create Media Container
     console.log('📡 Step 1/2: Creating Instagram Media Container...');
-    const containerUrl = new URL(`${this.baseUrl}/${this.accountId}/media`);
-    containerUrl.searchParams.append('image_url', publicImageUrl);
-    containerUrl.searchParams.append('caption', caption);
-    containerUrl.searchParams.append('access_token', this.accessToken);
+    const containerUrl = `${this.baseUrl}/${this.accountId}/media`;
+    const formParams = new URLSearchParams();
+    formParams.append('image_url', publicImageUrl);
+    if (caption) {
+      formParams.append('caption', caption);
+    }
+    formParams.append('access_token', this.accessToken);
 
-    const containerRes = await fetch(containerUrl.toString(), { method: 'POST' });
+    const containerRes = await fetch(containerUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: formParams.toString(),
+    });
     const containerData = await containerRes.json();
 
     if (!containerRes.ok || !containerData.id) {
@@ -462,11 +469,16 @@ class InstagramPublisher {
 
     // Step 2: Publish the Container
     console.log('🚀 Step 2/2: Publishing Media Container to Instagram Feed...');
-    const publishUrl = new URL(`${this.baseUrl}/${this.accountId}/media_publish`);
-    publishUrl.searchParams.append('creation_id', creationId);
-    publishUrl.searchParams.append('access_token', this.accessToken);
+    const publishUrl = `${this.baseUrl}/${this.accountId}/media_publish`;
+    const pubParams = new URLSearchParams();
+    pubParams.append('creation_id', creationId);
+    pubParams.append('access_token', this.accessToken);
 
-    const publishRes = await fetch(publishUrl.toString(), { method: 'POST' });
+    const publishRes = await fetch(publishUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: pubParams.toString(),
+    });
     const publishData = await publishRes.json();
 
     if (!publishRes.ok || !publishData.id) {
@@ -484,12 +496,17 @@ class InstagramPublisher {
 
     // Step 1: Create Story Media Container
     console.log('📡 Step 1/2: Creating Instagram STORY Media Container...');
-    const containerUrl = new URL(`${this.baseUrl}/${this.accountId}/media`);
-    containerUrl.searchParams.append('image_url', publicImageUrl);
-    containerUrl.searchParams.append('media_type', 'STORIES');
-    containerUrl.searchParams.append('access_token', this.accessToken);
+    const containerUrl = `${this.baseUrl}/${this.accountId}/media`;
+    const formParams = new URLSearchParams();
+    formParams.append('image_url', publicImageUrl);
+    formParams.append('media_type', 'STORIES');
+    formParams.append('access_token', this.accessToken);
 
-    const containerRes = await fetch(containerUrl.toString(), { method: 'POST' });
+    const containerRes = await fetch(containerUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: formParams.toString(),
+    });
     const containerData = await containerRes.json();
 
     if (!containerRes.ok || !containerData.id) {
@@ -524,11 +541,16 @@ class InstagramPublisher {
 
     // Step 2: Publish Story
     console.log('🚀 Step 2/2: Publishing Story to Instagram...');
-    const publishUrl = new URL(`${this.baseUrl}/${this.accountId}/media_publish`);
-    publishUrl.searchParams.append('creation_id', creationId);
-    publishUrl.searchParams.append('access_token', this.accessToken);
+    const publishUrl = `${this.baseUrl}/${this.accountId}/media_publish`;
+    const pubParams = new URLSearchParams();
+    pubParams.append('creation_id', creationId);
+    pubParams.append('access_token', this.accessToken);
 
-    const publishRes = await fetch(publishUrl.toString(), { method: 'POST' });
+    const publishRes = await fetch(publishUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: pubParams.toString(),
+    });
     const publishData = await publishRes.json();
 
     if (!publishRes.ok || !publishData.id) {

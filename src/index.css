@@ -10,6 +10,15 @@ body { overflow-x: hidden; }
   .font-bungee { letter-spacing: -0.01em; }
   .btn-primary, .btn-secondary, .btn-outline { min-height: 44px; }
   .input-dark, .select-dark { min-height: 44px; font-size: 16px; } /* prevents iOS zoom */
+  input[type="date"].input-dark,
+  input[type="date"] {
+    max-width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+  }
 }
 
 @media (max-width: 480px) {

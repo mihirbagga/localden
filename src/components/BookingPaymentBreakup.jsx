@@ -88,6 +88,7 @@ export function parseBookingFinancials(booking) {
     paidAmount,
     platformFee,
     hostEarnings,
+    listerNetEarnings: hostEarnings,
     couponCode: booking.coupon_code || null,
     paymentMethod: booking.payment_method || 'upi',
     paymentStatus: booking.payment_status || 'pending',

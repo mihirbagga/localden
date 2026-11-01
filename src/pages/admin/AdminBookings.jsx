@@ -285,9 +285,10 @@ export default function AdminBookings({ bookings, patchBooking }) {
     const renterName = displayName(booking.renter, 'Verified Renter')
     const gearTitle = booking.listings?.title || 'your gear'
     const fin = parseBookingFinancials(booking)
+    const netEarningsVal = fin.listerNetEarnings ?? fin.hostEarnings ?? 0
     const handoverPin = getHandoverPin(booking.id)
     const returnPin = getReturnPin(booking.id)
-    const msg = `Hi ${hostName}! LocalDen Admin here regarding Booking #${shortId(booking.id)} for *${gearTitle}*.\n\n👤 Renter: *${renterName}*\n📅 Dates: ${booking.start_date} → ${booking.end_date} (${booking.total_days}d · ${booking.delivery_type || 'pickup'})\n💵 Your Net Earnings: *₹${fin.listerNetEarnings}*\n🔐 *Handover PIN:* *${handoverPin}* · *Return PIN:* *${returnPin}*\n\nPlease confirm readiness or verify the PIN on handover in your Host Dashboard! ⚡`
+    const msg = `Hi ${hostName}! LocalDen Admin here regarding Booking #${shortId(booking.id)} for *${gearTitle}*.\n\n👤 Renter: *${renterName}*\n📅 Dates: ${booking.start_date} → ${booking.end_date} (${booking.total_days}d · ${booking.delivery_type || 'pickup'})\n💵 Your Net Earnings: *₹${Number(netEarningsVal).toLocaleString('en-IN')}*\n🔐 *Handover PIN:* *${handoverPin}* · *Return PIN:* *${returnPin}*\n\nPlease confirm readiness or verify the PIN on handover in your Host Dashboard! ⚡`
     window.open(buildWhatsAppLink(hostPhone, msg), '_blank')
   }
 
