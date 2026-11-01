@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { Upload, X, AlertCircle, Gamepad2, Music, ChevronRight, Shield } from 'lucide-react'
+import { Upload, X, AlertCircle, Gamepad2, Music, ChevronRight, Shield, MessageSquare, ExternalLink } from 'lucide-react'
 import GameBackground from '../components/GameBackground'
 import { useAuth } from '../contexts/AuthContext'
 import { useToast } from '../contexts/ToastContext'
@@ -13,6 +13,7 @@ import { fetchListingGames, saveListingGames } from '../lib/gamesService'
 import { computePlatformFee, platformFeeCopy } from '../lib/platformFee'
 import { calculateSuggestedPricing } from '../lib/dynamicPricing'
 import { MESSAGES, friendlyError } from '../lib/messages'
+import { buildWhatsAppLink, formatListingLiveMessage, sendListingLiveNotification } from '../lib/whatsappSmsService'
 import './couponApply.css'
 import './listItem.css'
 import {
@@ -186,7 +187,7 @@ export default function ListItem() {
   const navigate = useNavigate()
   const { id: editId } = useParams()
   const isEdit = Boolean(editId)
-  const { user, profile, isBanned, loading: authLoading } = useAuth()
+  const { user, profile, isAdmin, isBanned, loading: authLoading } = useAuth()
   const { showToast } = useToast()
   const { fee: platformFeeSetting } = usePlatformFee()
 
@@ -198,6 +199,7 @@ export default function ListItem() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [games, setGames] = useState([])
+  const [createdListing, setCreatedListing] = useState(null)
   const [form, setForm] = useState({
     ...EMPTY_FORM,
     phone: profile?.phone || '',
@@ -219,7 +221,9 @@ export default function ListItem() {
   // Load existing listing data in edit mode
   useEffect(() => {
     if (!editId || !user) return
-    supabase.from('listings').select('*').eq('id', editId).eq('user_id', user.id).single()
+    let q = supabase.from('listings').select('*').eq('id', editId)
+    if (!isAdmin) q = q.eq('user_id', user.id)
+    q.single()
       .then(({ data, error: err }) => {
         if (err || !data) { showToast('Could not find that listing on your shelf.', 'error'); navigate('/dashboard'); return }
         setCategory(data.category)
@@ -251,7 +255,7 @@ export default function ListItem() {
           }
         })
       })
-  }, [editId, user])
+  }, [editId, user, isAdmin])
 
   const addFiles = (fileList) => {
     const incoming = Array.from(fileList || []).filter((f) => f.type.startsWith('image/'))
@@ -356,7 +360,7 @@ export default function ListItem() {
           ? `${form.location.trim()}, Gurugram`
           : form.location.trim()
 
-        const { error: updErr } = await supabase.from('listings').update({
+        let updQuery = supabase.from('listings').update({
           title:          form.title.trim(),
           description:    finalDescription,
           subcategory:    form.itemType,
@@ -373,7 +377,9 @@ export default function ListItem() {
           stock_qty:      parseInt(form.stockQty, 10) || 1,
           fulfillment_type: form.fulfillmentType || 'direct',
           updated_at:     new Date().toISOString(),
-        }).eq('id', editId).eq('user_id', user.id)
+        }).eq('id', editId)
+        if (!isAdmin) updQuery = updQuery.eq('user_id', user.id)
+        const { error: updErr } = await updQuery
         if (updErr) throw updErr
 
         if (category === 'gaming') {
@@ -424,6 +430,22 @@ export default function ListItem() {
           await saveListingGames(listingId, games)
         }
 
+        const newListingObj = {
+          id: listingId,
+          user_id: user.id,
+          title: form.title.trim(),
+          price_day: parseInt(form.priceDay, 10),
+          location: savedLocation,
+          contact_phone: form.phone || profile?.phone || null,
+          emoji: CATEGORY_EMOJI[form.itemType] || (category === 'gaming' ? '🎮' : '🎵'),
+        }
+        setCreatedListing(newListingObj)
+
+        sendListingLiveNotification({
+          listing: newListingObj,
+          lister: { ...profile, ...user },
+        }).catch((err) => console.warn('Listing live notification dispatch failed:', err?.message))
+
         showToast(MESSAGES.listing.published, 'success')
         setStep(3)
       }
@@ -473,6 +495,10 @@ export default function ListItem() {
   }
 
   if (step === 3) {
+    const liveListing = createdListing || { id: editId, title: form.title, price_day: form.priceDay, location: form.location }
+    const waShareMsg = formatListingLiveMessage({ listing: liveListing, lister: profile || user })
+    const waShareLink = buildWhatsAppLink('', waShareMsg)
+
     return (
       <div className="list-page">
         <div className="grid-floor" />
@@ -481,6 +507,43 @@ export default function ListItem() {
           <div className="text-6xl" aria-hidden="true">🎉</div>
           <h2>Your Gear is Live in the Den!</h2>
           <p>Renters across Bengaluru and Gurugram can now discover, reserve, and book your gear.</p>
+
+          <div style={{ margin: '1.2rem auto', maxWidth: '30rem', padding: '1rem 1.25rem', background: 'rgba(0, 229, 255, 0.08)', borderRadius: '1rem', border: '1px solid rgba(0, 229, 255, 0.25)', textAlign: 'left' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.6rem', flexWrap: 'wrap' }}>
+              <div>
+                <span style={{ fontSize: '0.72rem', textTransform: 'uppercase', color: '#00e5ff', fontWeight: 800, letterSpacing: '0.05em' }}>
+                  ⚡ Live Link Active
+                </span>
+                <h3 style={{ fontSize: '1rem', fontWeight: 700, margin: '0.2rem 0', color: '#fff' }}>
+                  {liveListing.title}
+                </h3>
+                <span style={{ fontSize: '0.78rem', color: 'rgba(255,255,255,0.6)' }}>
+                  ₹{Number(liveListing.price_day || form.priceDay).toLocaleString('en-IN')}/day · {liveListing.location || form.location}
+                </span>
+              </div>
+              <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                <button
+                  type="button"
+                  className="btn-primary"
+                  style={{ fontSize: '0.8rem', padding: '0.5rem 0.85rem', display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}
+                  onClick={() => window.open(waShareLink, '_blank')}
+                  title="Share announcement on WhatsApp"
+                >
+                  <MessageSquare size={14} /> Share on WhatsApp
+                </button>
+                {liveListing.id ? (
+                  <Link
+                    to={`/listing/${liveListing.id}`}
+                    className="btn-outline"
+                    style={{ fontSize: '0.8rem', padding: '0.5rem 0.85rem', display: 'inline-flex', alignItems: 'center', gap: '0.4rem', textDecoration: 'none' }}
+                  >
+                    <ExternalLink size={14} /> View
+                  </Link>
+                ) : null}
+              </div>
+            </div>
+          </div>
+
           <div className="list-success__actions">
             <button type="button" className="btn-primary" onClick={() => navigate('/dashboard?tab=listings')} aria-label="Manage in Dashboard">
               Manage in My Dashboard
@@ -879,13 +942,16 @@ export default function ListItem() {
                     type="button"
                     onClick={() => {
                       const rec = calculateSuggestedPricing({ gpu: form.title, cpu: form.model, category })
+                      const wknd = Math.round(rec.suggestedDaily * 2 * 0.9)
+                      const wk = Math.round(rec.suggestedDaily * 7 * (1 - (rec.weeklyDiscountPercent || 15) / 100))
                       setForm((f) => ({
                         ...f,
                         priceDay: String(rec.suggestedDaily),
-                        priceWeekend: String(rec.weekendPrice),
+                        priceWeekend: String(wknd),
+                        priceWeek: String(wk),
                         deposit: String(rec.recommendedDeposit),
                       }))
-                      showToast(`Applied smart rate ₹${rec.suggestedDaily}/day`, 'success')
+                      showToast(`Applied smart rate ₹${rec.suggestedDaily}/day + multi-day discounts`, 'success')
                     }}
                     className="px-3 py-1.5 rounded-xl bg-cyan-500/20 border border-cyan-500/50 text-cyan-300 font-bold hover:bg-cyan-500/30 transition-all flex-shrink-0"
                   >
@@ -901,7 +967,12 @@ export default function ListItem() {
                         key={n}
                         type="button"
                         className={`list-chip${String(form.priceDay) === String(n) ? ' is-on' : ''}`}
-                        onClick={() => setForm((f) => ({ ...f, priceDay: String(n) }))}
+                        onClick={() => setForm((f) => ({
+                          ...f,
+                          priceDay: String(n),
+                          priceWeekend: f.priceWeekend || String(Math.round(n * 2 * 0.9)),
+                          priceWeek: f.priceWeek || String(Math.round(n * 7 * 0.85)),
+                        }))}
                         aria-label={`Set day price ${n}`}
                       >
                         ₹{n}
@@ -916,24 +987,90 @@ export default function ListItem() {
                     <div className="list-rupee">
                       <span aria-hidden="true">₹</span>
                       <input id="price-day" type="number" value={form.priceDay} onChange={set('priceDay')}
-                        required min={50} max={5000} placeholder="499" className="input-dark" aria-label="Price per day" />
+                        required min={50} max={50000} placeholder="499" className="input-dark" aria-label="Price per day" />
                     </div>
                   </div>
                   <div className="list-field">
-                    <label className="field-label" htmlFor="price-weekend">Weekend</label>
+                    <div className="flex items-center justify-between">
+                      <label className="field-label" htmlFor="price-weekend">Weekend (2d)</label>
+                      {Number(form.priceDay) > 0 && Number(form.priceWeekend) > 0 && Number(form.priceWeekend) < Number(form.priceDay) * 2 && (
+                        <span className="text-[10px] font-mono font-bold text-emerald-400">
+                          {Math.round((1 - Number(form.priceWeekend) / (Number(form.priceDay) * 2)) * 100)}% OFF
+                        </span>
+                      )}
+                    </div>
                     <div className="list-rupee">
                       <span aria-hidden="true">₹</span>
                       <input id="price-weekend" type="number" value={form.priceWeekend} onChange={set('priceWeekend')}
-                        min={50} placeholder="799" className="input-dark" aria-label="Weekend price" />
+                        min={50} placeholder="899" className="input-dark" aria-label="Weekend price" />
                     </div>
                   </div>
                   <div className="list-field">
-                    <label className="field-label" htmlFor="price-week">Per week</label>
+                    <div className="flex items-center justify-between">
+                      <label className="field-label" htmlFor="price-week">Per week (7d)</label>
+                      {Number(form.priceDay) > 0 && Number(form.priceWeek) > 0 && Number(form.priceWeek) < Number(form.priceDay) * 7 && (
+                        <span className="text-[10px] font-mono font-bold text-emerald-400">
+                          {Math.round((1 - Number(form.priceWeek) / (Number(form.priceDay) * 7)) * 100)}% OFF
+                        </span>
+                      )}
+                    </div>
                     <div className="list-rupee">
                       <span aria-hidden="true">₹</span>
                       <input id="price-week" type="number" value={form.priceWeek} onChange={set('priceWeek')}
-                        min={50} placeholder="2499" className="input-dark" aria-label="Price per week" />
+                        min={50} placeholder="2999" className="input-dark" aria-label="Price per week" />
                     </div>
+                  </div>
+                </div>
+
+                {/* Multi-Day Discount Quick Editor */}
+                <div className="p-3.5 rounded-2xl bg-white/[0.03] border border-white/10 space-y-2.5">
+                  <div className="flex items-center justify-between flex-wrap gap-2">
+                    <span className="text-xs font-bold text-cyan-300">
+                      🏷️ Multi-Day Bundle Discounts (Auto-Calculate Weekend &amp; Weekly Rates)
+                    </span>
+                    <span className="text-[11px] text-white/45">
+                      {Number(form.priceDay) > 0
+                        ? `Base: ₹${form.priceDay}/day (2d = ₹${Number(form.priceDay) * 2}, 7d = ₹${Number(form.priceDay) * 7})`
+                        : 'Enter a Per Day price first to use % presets'}
+                    </span>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {[
+                      { label: '5% Wknd · 10% Week', wkndOff: 5, weekOff: 10 },
+                      { label: '10% Wknd · 15% Week', wkndOff: 10, weekOff: 15 },
+                      { label: '15% Wknd · 20% Week', wkndOff: 15, weekOff: 20 },
+                      { label: '20% Wknd · 30% Week', wkndOff: 20, weekOff: 30 },
+                    ].map((preset) => {
+                      const base = Number(form.priceDay) || 0
+                      const targetWknd = base > 0 ? String(Math.max(50, Math.round(base * 2 * (1 - preset.wkndOff / 100)))) : ''
+                      const targetWeek = base > 0 ? String(Math.max(50, Math.round(base * 7 * (1 - preset.weekOff / 100)))) : ''
+                      const isPicked = base > 0 && form.priceWeekend === targetWknd && form.priceWeek === targetWeek
+                      return (
+                        <button
+                          key={preset.label}
+                          type="button"
+                          onClick={() => {
+                            if (base <= 0) {
+                              showToast('Enter a Per Day price first to calculate multi-day discounts.', 'info')
+                              return
+                            }
+                            setForm((f) => ({
+                              ...f,
+                              priceWeekend: targetWknd,
+                              priceWeek: targetWeek,
+                            }))
+                            showToast(`Applied ${preset.label} discount (Wknd ₹${targetWknd} · Week ₹${targetWeek})`, 'success')
+                          }}
+                          className={`px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all ${
+                            isPicked
+                              ? 'bg-emerald-500/20 border-emerald-400 text-emerald-200'
+                              : 'bg-black/40 border-white/10 text-white/75 hover:border-cyan-400/50 hover:text-cyan-200'
+                          }`}
+                        >
+                          {preset.label}
+                        </button>
+                      )
+                    })}
                   </div>
                 </div>
 

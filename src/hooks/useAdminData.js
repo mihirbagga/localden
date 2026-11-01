@@ -45,7 +45,7 @@ async function loadRows(table, select, orderCol = 'created_at') {
 async function fetchAll() {
   const settled = await Promise.allSettled([
     loadRows('profiles', '*'),
-    loadRows('listings', '*, profiles(id, full_name, email, kyc_status)'),
+    loadRows('listings', '*, profiles(id, full_name, email, phone, kyc_status)'),
     loadRows('bookings', '*, listings(id, title, emoji, category)'),
     loadRows('reviews', '*, listings(id, title, emoji)'),
     loadRows('coupons', '*'),

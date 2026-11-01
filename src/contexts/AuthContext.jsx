@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useState, useRef } from 'react'
 import { supabase } from '../lib/supabase'
 import { applyStoredReferral, captureReferralFromSearch, storeReferralCode } from '../lib/referrals'
 import { issueWelcomeCouponForUser } from '../lib/signupCouponSetting'
+import { sendWelcomeUserNotification } from '../lib/whatsappSmsService'
 
 const AuthContext = createContext(null)
 
@@ -18,6 +19,37 @@ export function AuthProvider({ children }) {
       await issueWelcomeCouponForUser(supabase, targetId, fullName)
     } catch (err) {
       console.warn('Welcome coupon error:', err?.message)
+    }
+  }
+
+  const ensureWelcomeNotification = async (fullName, userId, phone = '') => {
+    const targetId = userId || user?.id
+    if (!targetId) return
+    try {
+      const { data: existing } = await supabase
+        .from('notifications')
+        .select('id')
+        .eq('user_id', targetId)
+        .eq('kind', 'welcome')
+        .maybeSingle()
+      if (!existing) {
+        await supabase.from('notifications').insert({
+          user_id: targetId,
+          kind: 'welcome',
+          title: '🎉 Welcome to LocalDen!',
+          body: `Hey ${fullName || 'there'}, your account is all set! Use promo code WELCOME10 for 10% off your first gaming or audio setup rental.`,
+          link: '/browse',
+        })
+
+        // Also trigger background webhook dispatch if configured
+        sendWelcomeUserNotification({
+          user: { id: targetId, full_name: fullName, phone },
+          couponCode: 'WELCOME10',
+          discountPercent: 10,
+        }).catch(() => {})
+      }
+    } catch (err) {
+      console.warn('Welcome notification error:', err?.message)
     }
   }
 
@@ -108,6 +140,11 @@ export function AuthProvider({ children }) {
               await ensureWelcomeCoupon(
                 currentUser.user_metadata?.full_name || currentUser.user_metadata?.name || '',
                 currentUser.id
+              )
+              await ensureWelcomeNotification(
+                currentUser.user_metadata?.full_name || currentUser.user_metadata?.name || '',
+                currentUser.id,
+                currentUser.phone || currentUser.user_metadata?.phone || ''
               )
               await applyStoredReferral(supabase)
               await ensureReferralCode()

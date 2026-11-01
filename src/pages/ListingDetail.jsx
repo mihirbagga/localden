@@ -21,6 +21,7 @@ import { useAvailableCoupons } from '../hooks/useAvailableCoupons'
 import { usePlatformFee } from '../hooks/usePlatformFee'
 import { supabase } from '../lib/supabase'
 import { normalizeCouponCode, priceWithCoupon, validateCoupon } from '../lib/coupons'
+import { useDiscountCampaigns } from '../lib/discountCampaignService'
 import { platformFeeLabel } from '../lib/platformFee'
 import { isOnlineMethod, methodConfig, payButtonLabel } from '../lib/payments'
 import { listingUnits, rangeHasBusy, shiftIso, todayIso } from '../lib/bookingDates'
@@ -305,6 +306,9 @@ function BookingWidget({ listing, mobile = false, forceOpen = false }) {
     return `LD${Array.from(bytes, (b) => chars[b % chars.length]).join('')}`
   })
 
+  const { settings: campaignSettings } = useDiscountCampaigns()
+  const durationDiscounts = campaignSettings?.duration_discounts
+
   const days = startDate && endDate
     ? Math.max(1, Math.ceil((new Date(endDate) - new Date(startDate)) / 86400000))
     : 0
@@ -313,10 +317,13 @@ function BookingWidget({ listing, mobile = false, forceOpen = false }) {
   const priced = priceWithCoupon({
     days,
     priceDay: listing.price_day,
+    priceWeekend: listing.price_weekend,
+    priceWeek: listing.price_week,
     deposit,
     coupon: appliedCoupon,
     fee: platformFeeSetting,
     protectionCost,
+    durationDiscounts,
   })
 
   // Proactively fetch official server quote so client is always 100% in sync with database
@@ -342,12 +349,13 @@ function BookingWidget({ listing, mobile = false, forceOpen = false }) {
     return () => { cancelled = true }
   }, [listing?.id, startDate, endDate, appliedCoupon?.code, protectionPlan, days])
 
+  const hasCustomDurationDiscount = serverQuote && priced.durationDiscount !== serverQuote.duration_discount
   const subtotal = serverQuote?.subtotal ?? priced.subtotal
-  const durationDiscount = serverQuote?.duration_discount ?? priced.durationDiscount
-  const couponDiscount = serverQuote?.coupon_discount ?? priced.couponDiscount
-  const totalDiscount = serverQuote?.discount_total ?? priced.totalDiscount
-  const platformFee = serverQuote?.platform_fee ?? priced.platformFee
-  const baseOrderTotal = serverQuote?.total ?? priced.total
+  const durationDiscount = hasCustomDurationDiscount ? priced.durationDiscount : (serverQuote?.duration_discount ?? priced.durationDiscount)
+  const couponDiscount = hasCustomDurationDiscount ? priced.couponDiscount : (serverQuote?.coupon_discount ?? priced.couponDiscount)
+  const totalDiscount = hasCustomDurationDiscount ? priced.totalDiscount : (serverQuote?.discount_total ?? priced.totalDiscount)
+  const platformFee = hasCustomDurationDiscount ? priced.platformFee : (serverQuote?.platform_fee ?? priced.platformFee)
+  const baseOrderTotal = hasCustomDurationDiscount ? priced.total : (serverQuote?.total ?? priced.total)
 
   // Dynamic distance delivery calculation from warehouse hub
   const deliveryCalc = useMemo(() => {

@@ -10,6 +10,8 @@ export const DEFAULT_WHATSAPP_SETTINGS = {
   notify_on_new_order: true,
   notify_on_payment_verified: true,
   notify_on_kyc_submit: false,
+  notify_on_user_signup: true,
+  notify_on_listing_live: true,
   webhook_url: '',
   auto_open_tab: false, // optionally open wa.me link directly on checkout
   template_header: '🚀 *NEW ORDER RECEIVED on LocalDen!*',
@@ -343,6 +345,132 @@ export function formatAgreementSignReminderMessage({
   return `✍️ *Digital Rental Pact Signature Request (#${shortId})*\n\nHi *${recipientName || 'there'}*! *${senderName || 'Your rental partner'}* has signed the LocalDen Friendly Rental Pact for *${gearTitle}* (${booking?.start_date} → ${booking?.end_date}).\n\nPlease tap "E-Sign Pact" in your Dashboard (takes 10 seconds) so both signatures are locked in before handover${handoverPin ? ` (Handover PIN: *${handoverPin}*)` : ''}:\n👉 ${origin}/dashboard`
 }
 
+/**
+ * Formats a Welcome Message for new users & community members
+ */
+export function formatWelcomeUserMessage({ user, couponCode = 'WELCOME10', discountPercent = 10 }) {
+  const name = user?.full_name || user?.user_metadata?.full_name || 'Friend'
+  const origin = typeof window !== 'undefined' ? window.location.origin : 'https://localden.online'
+
+  return `━━━━━━━━━━━━━━━━━━━━━
+🎉 *WELCOME TO LOCALDEN!* ⚡
+━━━━━━━━━━━━━━━━━━━━━
+Hey *${name}*, welcome to India's premier community for renting gaming gear, sound systems & creator setups!
+
+🎮 *Rent Flagship Gear:* PS5, VR headsets, DJ rigs, sim wheels & RTX rigs delivered to your doorstep.
+🎟️ *Your Welcome Gift:* Use promo code *${couponCode}* at checkout to get *${discountPercent}% OFF* your first rental!
+⚡ *Zero Hassle:* Free doorstep delivery, instant KYC verification, and 100% friendly escrow protection.
+
+Ready for your next gaming session?
+👉 Browse Gear Now: ${origin}/browse
+
+Have questions or need custom hardware? Just reply right here on WhatsApp!
+— Team LocalDen 🚀`
+}
+
+/**
+ * Formats a "Your Listing is Live" notification message for listers/hosts
+ */
+export function formatListingLiveMessage({ listing, lister }) {
+  const name = lister?.full_name || lister?.user_metadata?.full_name || listing?.profiles?.full_name || 'Host'
+  const gearTitle = listing?.title || 'Your Gear'
+  const gearEmoji = listing?.emoji || '🎮'
+  const origin = typeof window !== 'undefined' ? window.location.origin : 'https://localden.online'
+  const listingUrl = `${origin}/listing/${listing?.id || ''}`
+  const dailyPrice = listing?.price_day ? `₹${Number(listing.price_day).toLocaleString('en-IN')}/day` : 'Set daily'
+  const loc = listing?.location || 'LocalDen Marketplace'
+
+  return `━━━━━━━━━━━━━━━━━━━━━
+🚀 *YOUR LISTING IS LIVE ON LOCALDEN!*
+━━━━━━━━━━━━━━━━━━━━━
+Hi *${name}*! Great news — *${gearTitle}* ${gearEmoji} is now officially approved, live, and bookable by gamers in your city!
+
+📦 *Gear:* ${gearTitle}
+💰 *Daily Rate:* ${dailyPrice}
+📍 *Location:* ${loc}
+
+🔗 *View & Share Your Listing:*
+👉 ${listingUrl}
+
+💡 *Pro Host Tips to Get Booked Fast:*
+• Share your listing link with friends & social groups
+• Keep your WhatsApp notifications active to accept bookings quickly
+• Ensure accessories & cables are packed for swift handover
+
+Need any assistance? We're here to help you earn!
+— Team LocalDen Hosts ⚡`
+}
+
+/**
+ * Sends or prepares an in-app notification + WhatsApp alert when a listing goes live
+ */
+export async function sendListingLiveNotification({ listing, lister, customPhone = null }) {
+  const targetUserId = listing?.user_id || lister?.id
+  const gearTitle = listing?.title || 'Gear'
+  const phone = customPhone || listing?.contact_phone || lister?.phone || listing?.profiles?.phone || ''
+  const message = formatListingLiveMessage({ listing, lister })
+
+  // 1. In-app notification
+  if (targetUserId) {
+    try {
+      await supabase.from('notifications').insert({
+        user_id: targetUserId,
+        kind: `listing_live_${listing?.id || Date.now()}`,
+        title: `🚀 Your listing "${gearTitle}" is live!`,
+        body: `Your gear is published and ready for bookings in ${listing?.location || 'your area'}. View and share your listing link with friends!`,
+        link: `/listing/${listing?.id || ''}`,
+      })
+    } catch (err) {
+      console.warn('In-app notification for listing live failed:', err?.message)
+    }
+  }
+
+  // 2. Dispatch WhatsApp notification / Webhook
+  const result = await sendWhatsAppNotification({
+    phone,
+    message,
+    event: 'listing_live',
+    payload: { listing_id: listing?.id, lister_id: targetUserId },
+  })
+
+  return { ...result, phone, message }
+}
+
+/**
+ * Sends or prepares an in-app notification + WhatsApp alert to welcome a user
+ */
+export async function sendWelcomeUserNotification({ user, couponCode = 'WELCOME10', discountPercent = 10, customPhone = null }) {
+  const targetUserId = user?.id
+  const name = user?.full_name || user?.user_metadata?.full_name || 'there'
+  const phone = customPhone || user?.phone || user?.user_metadata?.phone || ''
+  const message = formatWelcomeUserMessage({ user, couponCode, discountPercent })
+
+  // 1. In-app notification
+  if (targetUserId) {
+    try {
+      await supabase.from('notifications').insert({
+        user_id: targetUserId,
+        kind: 'welcome',
+        title: '🎉 Welcome to LocalDen!',
+        body: `Hey ${name}, your account is ready! Use code ${couponCode} for ${discountPercent}% off your first rental.`,
+        link: '/browse',
+      })
+    } catch (err) {
+      console.warn('In-app welcome notification failed:', err?.message)
+    }
+  }
+
+  // 2. Dispatch WhatsApp notification / Webhook
+  const result = await sendWhatsAppNotification({
+    phone,
+    message,
+    event: 'user_welcome',
+    payload: { user_id: targetUserId, email: user?.email },
+  })
+
+  return { ...result, phone, message }
+}
+
 
 /**
  * Fetch WhatsApp settings from site_settings table
@@ -399,17 +527,29 @@ export async function sendWhatsAppNotification({ phone, message, event = 'new_or
   let webhookSuccess = false
   let webhookError = null
 
-  // If webhook is provided, attempt background dispatch
-  if (payload?.webhook_url) {
+  // If webhook is configured, attempt background dispatch
+  let hookUrl = payload?.webhook_url
+  if (!hookUrl) {
     try {
-      const res = await fetch(payload.webhook_url, {
+      const cfg = await fetchWhatsAppSettings()
+      if (cfg?.enabled && cfg?.webhook_url) {
+        hookUrl = cfg.webhook_url
+      }
+    } catch {
+      // fallback
+    }
+  }
+
+  if (hookUrl && cleanPhone) {
+    try {
+      const res = await fetch(hookUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           event,
           recipient_phone: cleanPhone,
           message,
-          data: payload.data || {},
+          data: payload.data || payload || {},
           timestamp: new Date().toISOString(),
         }),
       })

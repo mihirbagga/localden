@@ -477,6 +477,68 @@ class InstagramPublisher {
     return publishData;
   }
 
+  async publishStory(publicImageUrl) {
+    if (!this.isConfigured()) {
+      throw new Error('Instagram Account ID or Access Token is missing in .env.local.');
+    }
+
+    // Step 1: Create Story Media Container
+    console.log('📡 Step 1/2: Creating Instagram STORY Media Container...');
+    const containerUrl = new URL(`${this.baseUrl}/${this.accountId}/media`);
+    containerUrl.searchParams.append('image_url', publicImageUrl);
+    containerUrl.searchParams.append('media_type', 'STORIES');
+    containerUrl.searchParams.append('access_token', this.accessToken);
+
+    const containerRes = await fetch(containerUrl.toString(), { method: 'POST' });
+    const containerData = await containerRes.json();
+
+    if (!containerRes.ok || !containerData.id) {
+      throw new Error(`Failed to create Story container: ${JSON.stringify(containerData)}`);
+    }
+
+    const creationId = containerData.id;
+    console.log(`✅ Story Container created with ID: ${creationId}`);
+
+    // Wait for Meta to process image
+    console.log('⏳ Waiting for Meta to process Story image...');
+    let isReady = false;
+    let attempts = 0;
+    while (!isReady && attempts < 6) {
+      attempts++;
+      await new Promise(r => setTimeout(r, 2500));
+      try {
+        const statusUrl = new URL(`${this.baseUrl}/${creationId}`);
+        statusUrl.searchParams.append('fields', 'status_code');
+        statusUrl.searchParams.append('access_token', this.accessToken);
+        const statusRes = await fetch(statusUrl.toString());
+        const statusData = await statusRes.json();
+        if (statusData.status_code === 'FINISHED' || !statusData.status_code) {
+          isReady = true;
+        } else if (statusData.status_code === 'ERROR') {
+          throw new Error(`Story container processing failed: ${JSON.stringify(statusData)}`);
+        }
+      } catch (e) {
+        isReady = true;
+      }
+    }
+
+    // Step 2: Publish Story
+    console.log('🚀 Step 2/2: Publishing Story to Instagram...');
+    const publishUrl = new URL(`${this.baseUrl}/${this.accountId}/media_publish`);
+    publishUrl.searchParams.append('creation_id', creationId);
+    publishUrl.searchParams.append('access_token', this.accessToken);
+
+    const publishRes = await fetch(publishUrl.toString(), { method: 'POST' });
+    const publishData = await publishRes.json();
+
+    if (!publishRes.ok || !publishData.id) {
+      throw new Error(`Failed to publish Story: ${JSON.stringify(publishData)}`);
+    }
+
+    console.log(`🎉 Successfully published Story to Instagram! Story ID: ${publishData.id}`);
+    return publishData;
+  }
+
   async publishReel(publicVideoUrl, caption, shareToFeed = true) {
     if (!this.isConfigured()) {
       throw new Error('Instagram Account ID or Access Token is missing in .env.local.');
@@ -686,8 +748,74 @@ Get PS5, Xbox Series X, DJ Consoles, & VR headsets delivered directly to your do
     } else {
       await publisher.publishMedia(publicUrl, customCaption);
     }
+  } else if (command === 'post-listing' || command === 'story-listing' || command === 'preview-listing') {
+    const listingIdOrQuery = args[1];
+    const isStory = command === 'story-listing';
+    const isPreview = command === 'preview-listing';
+
+    const { createClient } = require('@supabase/supabase-js');
+    const supabaseUrl = process.env.VITE_SUPABASE_URL;
+    const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_ANON_KEY;
+
+    if (!supabaseUrl || !supabaseKey) {
+      console.error('❌ Supabase credentials missing in .env.local');
+      process.exit(1);
+    }
+
+    const supabase = createClient(supabaseUrl, supabaseKey);
+    let query = supabase.from('listings').select('*');
+    if (listingIdOrQuery) {
+      query = query.or(`id.eq.${listingIdOrQuery},title.ilike.%${listingIdOrQuery}%`);
+    } else {
+      query = query.order('created_at', { ascending: false });
+    }
+
+    const { data: listings, error } = await query.limit(1);
+    if (error || !listings || listings.length === 0) {
+      console.error('❌ Listing not found:', error ? error.message : 'No matching listings in DB.');
+      process.exit(1);
+    }
+
+    const listing = listings[0];
+    const photoUrl = (listing.photos && listing.photos[0]) || null;
+    if (!photoUrl) {
+      console.error(`❌ Listing "${listing.title}" does not have any photo uploaded.`);
+      process.exit(1);
+    }
+
+    const formatAdModule = require('../src/lib/instagramListingAd.js');
+    const caption = formatAdModule.formatInstagramListingPost({ listing });
+
+    console.log(`📦 Listing: ${listing.title}`);
+    console.log(`💰 Price: ₹${listing.price_day}/day`);
+    console.log(`📍 Location: ${listing.location}`);
+    console.log(`🖼️  Photo URL: ${photoUrl}\n`);
+
+    if (isPreview) {
+      console.log('--- CAPTION PREVIEW ---');
+      console.log(caption);
+      console.log('-----------------------');
+      return;
+    }
+
+    const publisher = new InstagramPublisher(CONFIG.instagramAccountId, CONFIG.instagramAccessToken);
+    if (!publisher.isConfigured()) {
+      console.error('❌ Cannot publish: Instagram credentials are not configured in .env.local.');
+      process.exit(1);
+    }
+
+    if (isStory) {
+      console.log(`📲 Publishing Story for: "${listing.title}"...`);
+      await publisher.publishStory(photoUrl);
+    } else {
+      console.log(`📸 Publishing Feed Post for: "${listing.title}"...`);
+      await publisher.publishMedia(photoUrl, caption);
+    }
   } else {
     console.log('Usage:');
+    console.log('  node scripts/instagram_agent.cjs preview-listing [listing-id|search-term]');
+    console.log('  node scripts/instagram_agent.cjs post-listing [listing-id|search-term]');
+    console.log('  node scripts/instagram_agent.cjs story-listing [listing-id|search-term]');
     console.log('  node scripts/instagram_agent.cjs preview [contest|genz|weekend|benefits]');
     console.log('  node scripts/instagram_agent.cjs publish [contest|genz|weekend|benefits]');
     console.log('  node scripts/instagram_agent.cjs post-image <filePath> [caption]');

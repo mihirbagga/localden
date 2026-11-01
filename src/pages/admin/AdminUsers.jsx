@@ -1,15 +1,19 @@
 import { useMemo, useState } from 'react'
-import { Ban, ShieldCheck, ShieldAlert } from 'lucide-react'
+import { Ban, ShieldCheck, ShieldAlert, MessageSquare, Send, Copy, ExternalLink, Bell, X, CheckCheck } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import { useToast } from '../../contexts/ToastContext'
 import { AdminAction, AdminBadge, AdminConfirm, AdminEmpty, AdminSearch, matchesQuery } from './AdminShared'
 import { ADMIN_ROLES, KYC_LABEL, KYC_OPTIONS, ROLE_LABEL, displayName, explainAdminError, formatDate } from './adminHelpers'
+import { buildWhatsAppLink, cleanPhoneNumber, formatWelcomeUserMessage, sendWelcomeUserNotification } from '../../lib/whatsappSmsService'
 
 export default function AdminUsers({ users, patchUser, isSuperAdmin, currentUserId }) {
   const { showToast } = useToast()
   const [query, setQuery] = useState('')
   const [userFilter, setUserFilter] = useState('all')
   const [banTarget, setBanTarget] = useState(null)
+  const [welcomeTarget, setWelcomeTarget] = useState(null)
+  const [welcomePhone, setWelcomePhone] = useState('')
+  const [sendingWelcome, setSendingWelcome] = useState(false)
   const [busy, setBusy] = useState(false)
 
   const filtered = useMemo(() => (
@@ -187,6 +191,16 @@ export default function AdminUsers({ users, patchUser, isSuperAdmin, currentUser
                     </td>
                     <td>
                       <div className="admin-actions">
+                        <AdminAction
+                          tip="Send welcome message"
+                          ariaLabel={`Send welcome message to ${displayName(user)}`}
+                          onClick={() => {
+                            setWelcomeTarget(user)
+                            setWelcomePhone(user.phone || '')
+                          }}
+                        >
+                          <MessageSquare size={14} style={{ color: '#00e5ff' }} />
+                        </AdminAction>
                         {user.kyc_status !== 'verified' && user.kyc_status !== 'required' && user.kyc_status !== 'submitted' ? (
                           <AdminAction
                             tip="Request KYC"
@@ -237,6 +251,130 @@ export default function AdminUsers({ users, patchUser, isSuperAdmin, currentUser
           onCancel={() => setBanTarget(null)}
         />
       ) : null}
+
+      {welcomeTarget ? (() => {
+        const message = formatWelcomeUserMessage({ user: welcomeTarget, couponCode: 'WELCOME10', discountPercent: 10 })
+        const clean = cleanPhoneNumber(welcomePhone)
+        const waLink = buildWhatsAppLink(clean, message)
+
+        const handleCopy = () => {
+          navigator.clipboard.writeText(message).then(() => {
+            showToast('Welcome message copied to clipboard!', 'success')
+          })
+        }
+
+        const handleSendInApp = async () => {
+          setSendingWelcome(true)
+          try {
+            await sendWelcomeUserNotification({ user: welcomeTarget, customPhone: welcomePhone })
+            showToast(`In-app welcome alert dispatched to ${displayName(welcomeTarget)}!`, 'success')
+          } catch (err) {
+            showToast(err.message || 'Failed to dispatch in-app notification', 'error')
+          } finally {
+            setSendingWelcome(false)
+          }
+        }
+
+        const handleOpenWhatsApp = async () => {
+          if (!clean || clean.length < 10) {
+            showToast('Enter a valid 10-digit phone number first.', 'error')
+            return
+          }
+          window.open(waLink, '_blank')
+          showToast(`Opening WhatsApp chat with ${displayName(welcomeTarget)}…`, 'success')
+        }
+
+        return (
+          <div className="admin-confirm-backdrop" onClick={() => setWelcomeTarget(null)} role="presentation">
+            <div
+              className="admin-confirm"
+              style={{ maxWidth: '32rem', textAlign: 'left' }}
+              role="dialog"
+              aria-modal="true"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <AdminAction tip="Close" ariaLabel="Close dialog" onClick={() => setWelcomeTarget(null)}>
+                <X size={14} />
+              </AdminAction>
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '0.4rem' }}>
+                <span style={{ fontSize: '1.4rem' }}>🎉</span>
+                <h2 className="admin-confirm__title" style={{ margin: 0, textAlign: 'left' }}>
+                  WELCOME MESSAGE
+                </h2>
+              </div>
+
+              <p className="admin-muted" style={{ fontSize: '0.82rem', marginBottom: '1rem' }}>
+                Send a personalized welcome gift and onboarding greeting to <strong>{displayName(welcomeTarget)}</strong> ({welcomeTarget.email || 'no email'}).
+              </p>
+
+              <div style={{ marginBottom: '1rem' }}>
+                <label className="field-label" style={{ fontSize: '0.75rem', marginBottom: '0.3rem', display: 'block' }}>
+                  WhatsApp / Phone Number
+                </label>
+                <input
+                  type="tel"
+                  className="input-dark"
+                  value={welcomePhone}
+                  onChange={(e) => setWelcomePhone(e.target.value)}
+                  placeholder="e.g. 9876543210 (10 digits)"
+                  style={{ width: '100%', fontSize: '0.9rem' }}
+                />
+              </div>
+
+              <div style={{ marginBottom: '1.2rem' }}>
+                <label className="field-label" style={{ fontSize: '0.75rem', marginBottom: '0.3rem', display: 'flex', justifyContent: 'space-between' }}>
+                  <span>Message Preview</span>
+                  <button
+                    type="button"
+                    onClick={handleCopy}
+                    style={{ background: 'none', border: 'none', color: '#00e5ff', cursor: 'pointer', fontSize: '0.75rem', display: 'inline-flex', alignItems: 'center', gap: '0.3rem' }}
+                  >
+                    <Copy size={12} /> Copy Text
+                  </button>
+                </label>
+                <textarea
+                  className="input-dark"
+                  readOnly
+                  rows={8}
+                  value={message}
+                  style={{ width: '100%', fontSize: '0.78rem', lineHeight: '1.4', background: 'rgba(0,0,0,0.45)', color: 'rgba(255,255,255,0.85)', resize: 'none' }}
+                />
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
+                <div style={{ display: 'flex', gap: '0.6rem' }}>
+                  <button
+                    type="button"
+                    className="btn-primary"
+                    style={{ flex: 1, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem', fontSize: '0.85rem', padding: '0.6rem 1rem' }}
+                    onClick={handleOpenWhatsApp}
+                  >
+                    <MessageSquare size={14} /> Open in WhatsApp
+                  </button>
+                  <button
+                    type="button"
+                    className="btn-outline"
+                    style={{ flex: 1, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem', fontSize: '0.85rem', padding: '0.6rem 1rem' }}
+                    onClick={handleSendInApp}
+                    disabled={sendingWelcome}
+                  >
+                    <Bell size={14} /> {sendingWelcome ? 'Sending…' : 'Send In-App Alert'}
+                  </button>
+                </div>
+                <button
+                  type="button"
+                  className="admin-filter-chip"
+                  style={{ alignSelf: 'center', marginTop: '0.2rem', cursor: 'pointer' }}
+                  onClick={() => setWelcomeTarget(null)}
+                >
+                  Done
+                </button>
+              </div>
+            </div>
+          </div>
+        )
+      })() : null}
     </div>
   )
 }
