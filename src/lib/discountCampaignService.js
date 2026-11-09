@@ -29,6 +29,15 @@ export const DEFAULT_CAMPAIGN_SETTINGS = {
 
 export const CAMPAIGN_PRESETS = [
   {
+    title: 'GTA 6 PS5 Drop 🌴 Vice City Rush',
+    badge: 'GTA 6 DROP',
+    code: 'VICECITY',
+    discount_percent: 15,
+    min_subtotal: 800,
+    max_discount: 1200,
+    description: 'Rent the GTA 6 PS5 Bundle starting @ ₹800/day. Use code VICECITY for 15% OFF!',
+  },
+  {
     title: 'Weekend Flash Sale ⚡',
     badge: 'WEEKEND DEAL',
     code: 'WEEKEND15',

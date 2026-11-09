@@ -28,7 +28,8 @@ export default function AdminPlatformFee() {
     fee_type: feeType,
     fee_value: Number(feeValue) || 0,
   }
-  const sampleFee = computePlatformFee(SAMPLE_SUBTOTAL, draftFee)
+  const sampleFee = computePlatformFee(SAMPLE_SUBTOTAL, draftFee, false)
+  const sampleHubFee = computePlatformFee(SAMPLE_SUBTOTAL, draftFee, true)
 
   const saveFee = async () => {
     const value = Number(feeValue)
@@ -124,6 +125,18 @@ export default function AdminPlatformFee() {
           ? ` Example: ₹${SAMPLE_SUBTOTAL} rental → fee ₹${sampleFee}.`
           : ''}
       </p>
+
+      <div className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/25 text-xs text-amber-200/90 space-y-1.5 my-3">
+        <div className="font-bold flex items-center gap-1.5 text-amber-300">
+          <span>🏬 LocalDen Hub Storage &amp; Fulfillment Surcharge (+5%)</span>
+        </div>
+        <p className="text-[11px] text-white/70">
+          Listings stored at LocalDen Hubs automatically incur an extra 5% platform take because we manage warehouse storage, climate control, hardware testing, and dispatch.
+        </p>
+        <p className="text-[11px] font-mono text-amber-300">
+          Example: ₹{SAMPLE_SUBTOTAL} rental → Direct Host keeps ₹{SAMPLE_SUBTOTAL - sampleFee} · Hub Host keeps ₹{SAMPLE_SUBTOTAL - sampleHubFee} (Platform keeps ₹{sampleHubFee})
+        </p>
+      </div>
 
       <div className="admin-form-actions">
         <button

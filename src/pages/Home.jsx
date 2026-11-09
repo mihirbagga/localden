@@ -12,14 +12,10 @@ import { platformFeeCopy } from '../lib/platformFee'
 import { shiftIso, todayIso } from '../lib/bookingDates'
 import SEOHead from '../components/SEOHead'
 import HomeDeals from '../components/HomeDeals'
-import {
-  BENGALURU_LOCALITIES,
-  GURUGRAM_LOCALITIES,
-} from '../lib/cities'
+import { useCities } from '../hooks/useCities'
 import './home.css'
 
 const POPULAR_HUBS = ['Koramangala', 'Cyber City', 'Indiranagar', 'Golf Course Road', 'HSR Layout', 'DLF Phase 2', 'Whitefield']
-const ALL_AREAS = ['All Cities', 'Bengaluru', 'Gurugram', ...BENGALURU_LOCALITIES, ...GURUGRAM_LOCALITIES]
 
 const HERO_GEAR = [
   { src: '/hero/guitar.png', className: 'is-guitar' },
@@ -113,6 +109,7 @@ function Planner() {
   const [area, setArea] = useState('All Cities')
   const [from, setFrom] = useState(today)
   const [to, setTo] = useState(shiftIso(today, 2))
+  const { activeCities } = useCities()
 
   const go = (e) => {
     e.preventDefault()
@@ -137,14 +134,17 @@ function Planner() {
           aria-label="Rental city or area"
         >
           <option value="All Cities">All Cities & Locations</option>
-          <optgroup label="🏙️ Bengaluru">
-            <option value="Bengaluru">Entire Bengaluru</option>
-            {BENGALURU_LOCALITIES.map((item) => <option key={item} value={item}>{item}</option>)}
-          </optgroup>
-          <optgroup label="🏢 Gurugram (NCR)">
-            <option value="Gurugram">Entire Gurugram</option>
-            {GURUGRAM_LOCALITIES.map((item) => <option key={item} value={item}>{item}</option>)}
-          </optgroup>
+          {activeCities.map((c) => {
+            const locs = c.popularLocalities || c.popular_localities || []
+            return (
+              <optgroup key={c.id} label={`${c.displayName || c.name}`}>
+                <option value={c.name}>Entire {c.name}</option>
+                {locs.map((item) => (
+                  <option key={item} value={item}>{item}</option>
+                ))}
+              </optgroup>
+            )
+          })}
         </select>
       </label>
       <label className="home-plan__cell">
@@ -208,11 +208,13 @@ export default function Home() {
     return featured.filter((row) => row.category === featFilter)
   }, [featured, featFilter])
 
+  const { activeCities } = useCities()
+
   return (
     <div className="home">
       <SEOHead
-        title="Rent Gaming & Music Gear in Bengaluru & Gurugram"
-        description="P2P rental for PS5, guitars, DJ equipment & more in Bengaluru and Gurugram. Rent by the day from real people near you."
+        title={`Rent Gaming & Music Gear in ${activeCities.map((c) => c.name).join(' & ')}`}
+        description={`P2P rental for PS5, guitars, DJ equipment & more in ${activeCities.map((c) => c.name).join(' and ')}. Rent by the day from real people near you.`}
       />
       <div className="grid-floor" />
       <GameBackground />
@@ -247,7 +249,7 @@ export default function Home() {
 
           <p className="home-lead">
             Peer-to-peer <strong className="magenta">consoles</strong> and{' '}
-            <strong className="cyan">instruments</strong> across Bengaluru & Gurugram.
+            <strong className="cyan">instruments</strong> across {activeCities.map((c) => c.name).join(' & ')}.
           </p>
 
           <Planner />
@@ -379,7 +381,7 @@ export default function Home() {
             <div className="home-empty">
               <div className="text-6xl" aria-hidden="true">🎮</div>
               <h3>Nothing live yet</h3>
-              <p>Be first in Bengaluru or Gurugram. List a console or a guitar.</p>
+              <p>Be first in {activeCities.map((c) => c.name).join(' or ')}. List a console or a guitar.</p>
               <Link to="/list-item" className="btn-primary">+ List Your Gear</Link>
             </div>
           ) : null}
@@ -516,7 +518,7 @@ export default function Home() {
           </div>
           <div className="home-trust-card">
             <MapPin size={16} />
-            <div><strong>Bengaluru & Gurugram</strong><span>Pickup or drop</span></div>
+            <div><strong>{activeCities.map((c) => c.name).join(' & ')}</strong><span>Pickup or drop</span></div>
           </div>
         </div>
       </section>

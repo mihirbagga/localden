@@ -1,8 +1,9 @@
 import { useState, useEffect, useRef } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import {
-  Menu, X, ChevronRight, LogOut, User, Shield, Search,
+  Menu, X, ChevronRight, ChevronDown, LogOut, User, Shield, Search,
   PlusCircle, CheckCircle, AlertCircle, Sparkles, Compass, Calendar,
+  HelpCircle, Info, Mail, FileText,
 } from 'lucide-react'
 import LogoMark from './LogoMark'
 import NotificationBell from './NotificationBell'
@@ -11,14 +12,112 @@ import ThemeToggle from './ThemeToggle'
 import { useAuth } from '../contexts/AuthContext'
 import './navbar.css'
 
-const navLinks = [
+// Streamlined desktop navigation (core high-frequency links)
+const desktopNavLinks = [
   { to: '/',             label: 'Home'             },
   { to: '/browse',       label: 'Browse Gear'      },
+  { to: '/games',        label: 'Games'            },
+  { to: '/live',         label: 'Events & Artists' },
+  { to: '/how-it-works', label: 'How It Works',    className: 'hidden xl:inline-flex' },
+]
+
+// Comprehensive list for mobile drawer
+const mobileNavLinks = [
+  { to: '/',             label: 'Home'             },
+  { to: '/browse',       label: 'Browse Gear'      },
+  { to: '/games',        label: 'Games Hub'        },
   { to: '/live',         label: 'Events & Artists' },
   { to: '/how-it-works', label: 'How It Works'     },
-  { to: '/about',        label: 'About'            },
-  { to: '/contact',      label: 'Contact'          },
+  { to: '/about',        label: 'About LocalDen'   },
+  { to: '/contact',      label: 'Contact Support'  },
+  { to: '/terms',        label: 'Damage & Rental Policy' },
 ]
+
+function MoreDropdown() {
+  const [open, setOpen] = useState(false)
+  const menuRef = useRef(null)
+  const { pathname } = useLocation()
+
+  useEffect(() => {
+    if (!open) return
+    function handleOutside(e) {
+      if (menuRef.current && !menuRef.current.contains(e.target)) {
+        setOpen(false)
+      }
+    }
+    function handleKey(e) {
+      if (e.key === 'Escape') setOpen(false)
+    }
+    document.addEventListener('mousedown', handleOutside)
+    document.addEventListener('keydown', handleKey)
+    return () => {
+      document.removeEventListener('mousedown', handleOutside)
+      document.removeEventListener('keydown', handleKey)
+    }
+  }, [open])
+
+  useEffect(() => setOpen(false), [pathname])
+
+  const isMoreActive =
+    pathname.startsWith('/about') ||
+    pathname.startsWith('/contact') ||
+    pathname.startsWith('/terms')
+
+  return (
+    <div className="relative" ref={menuRef}>
+      <button
+        type="button"
+        onClick={() => setOpen(!open)}
+        className={`nav-link cursor-pointer flex items-center gap-1${isMoreActive ? ' is-on' : ''}`}
+        aria-expanded={open}
+        aria-label="More navigation links"
+      >
+        <span>More</span>
+        <ChevronDown
+          size={12}
+          className={`transition-transform duration-200 opacity-70 ${open ? 'rotate-180' : ''}`}
+        />
+      </button>
+
+      {open && (
+        <div className="nav-dropdown nav-more-dropdown rounded-2xl p-2 z-50">
+          <Link
+            to="/how-it-works"
+            className="nav-dropdown__item xl:hidden"
+            onClick={() => setOpen(false)}
+          >
+            <HelpCircle size={15} style={{ color: 'var(--cyan)' }} />
+            <span>How It Works</span>
+          </Link>
+          <Link
+            to="/about"
+            className="nav-dropdown__item"
+            onClick={() => setOpen(false)}
+          >
+            <Info size={15} style={{ color: 'var(--cyan)' }} />
+            <span>About Us</span>
+          </Link>
+          <Link
+            to="/contact"
+            className="nav-dropdown__item"
+            onClick={() => setOpen(false)}
+          >
+            <Mail size={15} style={{ color: 'var(--magenta)' }} />
+            <span>Contact & Support</span>
+          </Link>
+          <Link
+            to="/terms"
+            className="nav-dropdown__item"
+            onClick={() => setOpen(false)}
+          >
+            <FileText size={15} style={{ color: 'var(--gold)' }} />
+            <span>Damage & Rental Policy</span>
+          </Link>
+        </div>
+      )}
+    </div>
+  )
+}
 
 function NavbarAuth() {
   const { isAuthenticated, profile, signOut, isAdmin, kycStatus } = useAuth()
@@ -73,7 +172,7 @@ function NavbarAuth() {
         </button>
 
         {open && (
-          <div className="nav-dropdown glass rounded-2xl p-3 z-50">
+          <div className="nav-dropdown rounded-2xl p-3 z-50">
             <div className="nav-dropdown__header">
               <p className="font-display font-bold text-sm truncate" style={{ color: 'var(--text)' }}>
                 {profile?.full_name || 'Den Member'}
@@ -237,28 +336,20 @@ export default function Navbar() {
 
           {/* ── Desktop Links ──────────────────────── */}
           <div className="nav-links">
-            {navLinks.map(({ to, label }) => {
+            {desktopNavLinks.map(({ to, label, className = '' }) => {
               const active = pathname === to || (to !== '/' && pathname.startsWith(to))
               return (
                 <Link
                   key={to}
                   to={to}
-                  className={`nav-link${active ? ' is-on' : ''}`}
+                  className={`nav-link${active ? ' is-on' : ''} ${className}`}
                   aria-current={active ? 'page' : undefined}
                 >
                   {label}
                 </Link>
               )
             })}
-            {isAdmin && (
-              <Link
-                to="/admin"
-                className={`nav-link is-admin-pill${pathname.startsWith('/admin') ? ' is-on' : ''}`}
-              >
-                <Shield size={13} />
-                <span>Admin</span>
-              </Link>
-            )}
+            <MoreDropdown />
           </div>
 
           {/* ── Right Actions ──────────────────────── */}
@@ -272,6 +363,19 @@ export default function Navbar() {
               <Search size={15} />
               <span className="nav-search-pill__text">Search gear…</span>
             </Link>
+
+            {isAdmin && (
+              <Link
+                to="/admin"
+                className={`nav-admin-badge${pathname.startsWith('/admin') ? ' is-on' : ''}`}
+                title="Admin Command Center"
+                aria-label="Open Admin Command Center"
+              >
+                <Shield size={13} className="shrink-0" />
+                <span className="nav-admin-badge__text">Admin</span>
+              </Link>
+            )}
+
             <ThemeToggle />
             {isAuthenticated ? <NotificationBell /> : null}
             <NavbarAuth />
@@ -308,7 +412,7 @@ export default function Navbar() {
             </div>
           )}
 
-          {navLinks.map(({ to, label }) => (
+          {mobileNavLinks.map(({ to, label }) => (
             <Link
               key={to}
               to={to}

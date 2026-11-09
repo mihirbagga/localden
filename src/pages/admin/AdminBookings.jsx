@@ -13,14 +13,43 @@ import { getHandoverPin, getReturnPin } from '../../lib/messages'
 import {
   formatNewOrderAdminMessage,
   buildWhatsAppLink,
-  sendWhatsAppNotification,
-  fetchWhatsAppSettings
+  fetchWhatsAppSettings,
+  cleanPhoneNumber
 } from '../../lib/whatsappSmsService'
 
 import LiveTrackingModal from '../../components/LiveTrackingModal'
 import DepositRefundModal from '../../components/DepositRefundModal'
 import DeliveryAddressDisplay from '../../components/DeliveryAddressDisplay'
 import BookingPaymentBreakup, { parseBookingFinancials } from '../../components/BookingPaymentBreakup'
+
+export async function copyTextToClipboard(text) {
+  if (!text) return false
+  if (navigator?.clipboard?.writeText && window.isSecureContext) {
+    try {
+      await navigator.clipboard.writeText(text)
+      return true
+    } catch (e) {
+      console.warn('navigator.clipboard failed, trying fallback', e)
+    }
+  }
+  try {
+    const textArea = document.createElement('textarea')
+    textArea.value = text
+    textArea.style.position = 'fixed'
+    textArea.style.left = '-999999px'
+    textArea.style.top = '-999999px'
+    textArea.setAttribute('readonly', '')
+    document.body.appendChild(textArea)
+    textArea.focus()
+    textArea.select()
+    const successful = document.execCommand('copy')
+    textArea.remove()
+    return successful
+  } catch (err) {
+    console.error('Fallback clipboard copy failed:', err)
+    return false
+  }
+}
 
 export default function AdminBookings({ bookings, patchBooking }) {
   const { showToast } = useToast()
@@ -31,6 +60,7 @@ export default function AdminBookings({ bookings, patchBooking }) {
   const [inspectedId, setInspectedId] = useState(null)
   const [activeTrackingBooking, setActiveTrackingBooking] = useState(null)
   const [activeRefundBooking, setActiveRefundBooking] = useState(null)
+  const [waModal, setWaModal] = useState(null)
 
   const handleCopyRef = (text, label = 'Reference') => {
     if (!text) return
@@ -178,6 +208,10 @@ export default function AdminBookings({ bookings, patchBooking }) {
         const name = displayName(booking.renter, 'there')
         const gearTitle = booking.listings?.title || 'gear'
         const msg = `Hi ${name}! 🎉 Your Local Den booking for *${gearTitle}* (#${shortId(booking.id)}) is *CONFIRMED & PAID*!\n\n📅 Dates: ${booking.start_date} → ${booking.end_date} (${booking.total_days}d)\n🔐 *4-Digit Handover OTP:* *${handoverPin}*\n\nShare this 4-digit PIN when receiving your gear. Let us know if you need anything! ⚡`
+        try {
+          await navigator.clipboard.writeText(msg)
+          showToast('Confirmation WhatsApp message copied with all emojis! 📋', 'info')
+        } catch {}
         window.open(buildWhatsAppLink(renterPhone, msg), '_blank', 'noopener,noreferrer')
       }
     } catch (err) {
@@ -218,43 +252,74 @@ export default function AdminBookings({ bookings, patchBooking }) {
     }
   }
 
+  const getRenterMessage = (booking) => {
+    const name = displayName(booking.renter, 'Customer')
+    const gearTitle = booking.listings?.title || 'gear'
+    const handoverPin = getHandoverPin(booking.id)
+    const returnPin = getReturnPin(booking.id)
+    return `Hi ${name}! LocalDen team here regarding your rental for *${gearTitle}* (Booking #${shortId(booking.id)}).\n\n📅 Dates: ${booking.start_date} → ${booking.end_date}\n📌 Status: ${booking.status.toUpperCase()}\n🔐 *Handover PIN:* *${handoverPin}* · *Return PIN:* *${returnPin}*\n\nHow can we help you today? ⚡`
+  }
+
+  const getHostMessage = (booking) => {
+    const hostName = displayName(booking.lister, 'Host')
+    const renterName = displayName(booking.renter, 'Verified Renter')
+    const gearTitle = booking.listings?.title || 'your gear'
+    const fin = parseBookingFinancials(booking)
+    const netEarningsVal = fin.listerNetEarnings ?? fin.hostEarnings ?? 0
+    const handoverPin = getHandoverPin(booking.id)
+    const returnPin = getReturnPin(booking.id)
+    return `Hi ${hostName}! LocalDen Admin here regarding Booking #${shortId(booking.id)} for *${gearTitle}*.\n\n👤 Renter: *${renterName}*\n📅 Dates: ${booking.start_date} → ${booking.end_date} (${booking.total_days}d · ${booking.delivery_type || 'pickup'})\n💵 Your Net Earnings: *₹${Number(netEarningsVal).toLocaleString('en-IN')}*\n🔐 *Handover PIN:* *${handoverPin}* · *Return PIN:* *${returnPin}*\n\nPlease confirm readiness or verify the PIN on handover in your Host Dashboard! ⚡`
+  }
+
+  const getAdminOrderAlertMessage = (booking) => {
+    const fin = parseBookingFinancials(booking)
+    return formatNewOrderAdminMessage({
+      bookingId: booking.id,
+      listing: booking.listings,
+      renter: booking.renter,
+      startDate: booking.start_date,
+      endDate: booking.end_date,
+      days: booking.total_days,
+      subtotal: fin.subtotal,
+      deliveryFee: fin.deliveryFee,
+      deliveryDistanceKm: fin.deliveryDistanceKm,
+      warehouseNote: fin.warehouseNote,
+      deposit: fin.deposit,
+      walletAmount: fin.walletAmount,
+      paidAmount: fin.paidAmount,
+      total: fin.totalAmount,
+      paymentStatus: booking.payment_status,
+      paymentMethod: booking.payment_method,
+      deliveryType: booking.delivery_type,
+      deliveryAddress: booking.delivery_address,
+      couponCode: booking.coupon_code,
+    })
+  }
+
+  const copyWhatsAppMessage = async (msg, label = 'WhatsApp message') => {
+    const ok = await copyTextToClipboard(msg)
+    if (ok) {
+      showToast(`${label} copied to clipboard with all emojis! 📋`, 'success')
+    } else {
+      showToast('Could not copy to clipboard. Please select and copy text.', 'error')
+    }
+  }
+
   const handleWhatsAppAlert = async (booking) => {
     try {
       const settings = await fetchWhatsAppSettings()
       const adminPhone = settings.admin_phone || '919034695091'
-      const fin = parseBookingFinancials(booking)
-      const msg = formatNewOrderAdminMessage({
-        bookingId: booking.id,
-        listing: booking.listings,
-        renter: booking.renter,
-        startDate: booking.start_date,
-        endDate: booking.end_date,
-        days: booking.total_days,
-        subtotal: fin.subtotal,
-        deliveryFee: fin.deliveryFee,
-        deliveryDistanceKm: fin.deliveryDistanceKm,
-        warehouseNote: fin.warehouseNote,
-        deposit: fin.deposit,
-        walletAmount: fin.walletAmount,
-        paidAmount: fin.paidAmount,
-        total: fin.totalAmount,
-        paymentStatus: booking.payment_status,
-        paymentMethod: booking.payment_method,
-        deliveryType: booking.delivery_type,
-        deliveryAddress: booking.delivery_address,
-        couponCode: booking.coupon_code,
-      })
-
-      await sendWhatsAppNotification({
+      const msg = getAdminOrderAlertMessage(booking)
+      setWaModal({
+        title: 'Admin WhatsApp Order Alert',
+        recipientName: 'Admin Desk',
+        recipientRole: 'System Alert',
         phone: adminPhone,
         message: msg,
-        event: 'admin_order_alert',
-        payload: { webhook_url: settings.webhook_url, data: booking },
+        bookingId: booking.id,
+        isAlert: true,
+        booking,
       })
-
-      const waLink = buildWhatsAppLink(adminPhone, msg)
-      window.open(waLink, '_blank')
-      showToast('WhatsApp order alert opened!', 'success')
     } catch (err) {
       showToast(err.message || 'WhatsApp alert failed', 'error')
     }
@@ -266,13 +331,15 @@ export default function AdminBookings({ bookings, patchBooking }) {
       showToast('No phone number on renter profile. Contact via email.', 'info')
       return
     }
-    const name = displayName(booking.renter, 'Customer')
-    const gearTitle = booking.listings?.title || 'gear'
-    const handoverPin = getHandoverPin(booking.id)
-    const returnPin = getReturnPin(booking.id)
-    const msg = `Hi ${name}! LocalDen team here regarding your rental for *${gearTitle}* (Booking #${shortId(booking.id)}).\n\n📅 Dates: ${booking.start_date} → ${booking.end_date}\n📌 Status: ${booking.status.toUpperCase()}\n🔐 *Handover PIN:* *${handoverPin}* · *Return PIN:* *${returnPin}*\n\nHow can we help you today? ⚡`
-    const link = buildWhatsAppLink(renterPhone, msg)
-    window.open(link, '_blank')
+    const msg = getRenterMessage(booking)
+    setWaModal({
+      title: 'WhatsApp Renter',
+      recipientName: displayName(booking.renter, 'Customer'),
+      recipientRole: 'Renter',
+      phone: renterPhone,
+      message: msg,
+      bookingId: booking.id,
+    })
   }
 
   const handleWhatsAppHost = (booking) => {
@@ -281,15 +348,15 @@ export default function AdminBookings({ bookings, patchBooking }) {
       showToast('No phone number on host profile or listing. Contact via email.', 'info')
       return
     }
-    const hostName = displayName(booking.lister, 'Host')
-    const renterName = displayName(booking.renter, 'Verified Renter')
-    const gearTitle = booking.listings?.title || 'your gear'
-    const fin = parseBookingFinancials(booking)
-    const netEarningsVal = fin.listerNetEarnings ?? fin.hostEarnings ?? 0
-    const handoverPin = getHandoverPin(booking.id)
-    const returnPin = getReturnPin(booking.id)
-    const msg = `Hi ${hostName}! LocalDen Admin here regarding Booking #${shortId(booking.id)} for *${gearTitle}*.\n\n👤 Renter: *${renterName}*\n📅 Dates: ${booking.start_date} → ${booking.end_date} (${booking.total_days}d · ${booking.delivery_type || 'pickup'})\n💵 Your Net Earnings: *₹${Number(netEarningsVal).toLocaleString('en-IN')}*\n🔐 *Handover PIN:* *${handoverPin}* · *Return PIN:* *${returnPin}*\n\nPlease confirm readiness or verify the PIN on handover in your Host Dashboard! ⚡`
-    window.open(buildWhatsAppLink(hostPhone, msg), '_blank')
+    const msg = getHostMessage(booking)
+    setWaModal({
+      title: 'WhatsApp Host',
+      recipientName: displayName(booking.lister, 'Host'),
+      recipientRole: 'Host / Lister',
+      phone: hostPhone,
+      message: msg,
+      bookingId: booking.id,
+    })
   }
 
   const handleDownloadAgreement = async (booking) => {
@@ -548,24 +615,44 @@ export default function AdminBookings({ bookings, patchBooking }) {
                       📄 Pact
                     </button>
                     {booking.renter?.phone && (
-                      <button
-                        type="button"
-                        onClick={() => handleWhatsAppRenter(booking)}
-                        className="px-2 py-1.5 rounded-lg bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 text-[11px] font-bold hover:bg-emerald-500/30 transition-all flex items-center gap-1"
-                        title="WhatsApp Renter"
-                      >
-                        <Send size={10} /> WA Renter
-                      </button>
+                      <div className="inline-flex rounded-lg overflow-hidden border border-emerald-500/40">
+                        <button
+                          type="button"
+                          onClick={() => handleWhatsAppRenter(booking)}
+                          className="px-2 py-1.5 bg-emerald-500/20 text-emerald-300 text-[11px] font-bold hover:bg-emerald-500/30 transition-all flex items-center gap-1"
+                          title="Preview & Send WhatsApp to Renter"
+                        >
+                          <Send size={10} /> WA Renter
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => copyWhatsAppMessage(getRenterMessage(booking), 'Renter WhatsApp message')}
+                          className="px-1.5 py-1.5 bg-emerald-500/30 text-emerald-200 border-l border-emerald-500/40 hover:bg-emerald-500/50 transition-all flex items-center justify-center"
+                          title="1-Click Copy Renter message (with all emojis)"
+                        >
+                          <Copy size={10} />
+                        </button>
+                      </div>
                     )}
                     {(booking.lister?.phone || booking.listings?.contact_phone) && (
-                      <button
-                        type="button"
-                        onClick={() => handleWhatsAppHost(booking)}
-                        className="px-2 py-1.5 rounded-lg bg-amber-500/20 text-amber-300 border border-amber-500/40 text-[11px] font-bold hover:bg-amber-500/30 transition-all flex items-center gap-1"
-                        title="WhatsApp Host / Lister"
-                      >
-                        <Send size={10} /> WA Host
-                      </button>
+                      <div className="inline-flex rounded-lg overflow-hidden border border-amber-500/40">
+                        <button
+                          type="button"
+                          onClick={() => handleWhatsAppHost(booking)}
+                          className="px-2 py-1.5 bg-amber-500/20 text-amber-300 text-[11px] font-bold hover:bg-amber-500/30 transition-all flex items-center gap-1"
+                          title="Preview & Send WhatsApp to Host"
+                        >
+                          <Send size={10} /> WA Host
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => copyWhatsAppMessage(getHostMessage(booking), 'Host WhatsApp message')}
+                          className="px-1.5 py-1.5 bg-amber-500/30 text-amber-200 border-l border-amber-500/40 hover:bg-amber-500/50 transition-all flex items-center justify-center"
+                          title="1-Click Copy Host message (with all emojis)"
+                        >
+                          <Copy size={10} />
+                        </button>
+                      </div>
                     )}
                   </div>
                 </div>
@@ -965,27 +1052,61 @@ export default function AdminBookings({ bookings, patchBooking }) {
               >
                 📄 Download Pact PDF
               </button>
-              <button
-                type="button"
-                onClick={() => handleWhatsAppRenter(inspectedBooking)}
-                className="py-2.5 px-3 rounded-xl bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 font-bold hover:bg-emerald-500/30 transition-all flex items-center justify-center gap-1.5"
-              >
-                <Send size={12} /> WhatsApp Renter
-              </button>
-              <button
-                type="button"
-                onClick={() => handleWhatsAppHost(inspectedBooking)}
-                className="py-2.5 px-3 rounded-xl bg-amber-500/20 text-amber-300 border border-amber-500/40 font-bold hover:bg-amber-500/30 transition-all flex items-center justify-center gap-1.5"
-              >
-                <Send size={12} /> WhatsApp Host
-              </button>
-              <button
-                type="button"
-                onClick={() => handleWhatsAppAlert(inspectedBooking)}
-                className="py-2.5 px-3 rounded-xl bg-white/10 text-white border border-white/15 font-bold hover:bg-white/15 transition-all flex items-center justify-center gap-1.5 col-span-2"
-              >
-                <MessageSquare size={12} /> Send Full Order Summary to Admin WhatsApp
-              </button>
+              <div className="flex gap-1">
+                <button
+                  type="button"
+                  onClick={() => handleWhatsAppRenter(inspectedBooking)}
+                  className="flex-1 py-2.5 px-3 rounded-xl bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 font-bold hover:bg-emerald-500/30 transition-all flex items-center justify-center gap-1.5"
+                  title="WhatsApp Renter"
+                >
+                  <Send size={12} /> WhatsApp Renter
+                </button>
+                <button
+                  type="button"
+                  onClick={() => copyWhatsAppMessage(getRenterMessage(inspectedBooking), 'Renter message')}
+                  className="px-3 rounded-xl bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 hover:bg-emerald-500/30 transition-all flex items-center justify-center"
+                  title="Copy Renter WhatsApp message with all emojis"
+                >
+                  <Copy size={13} />
+                </button>
+              </div>
+
+              <div className="flex gap-1">
+                <button
+                  type="button"
+                  onClick={() => handleWhatsAppHost(inspectedBooking)}
+                  className="flex-1 py-2.5 px-3 rounded-xl bg-amber-500/20 text-amber-300 border border-amber-500/40 font-bold hover:bg-amber-500/30 transition-all flex items-center justify-center gap-1.5"
+                  title="WhatsApp Host"
+                >
+                  <Send size={12} /> WhatsApp Host
+                </button>
+                <button
+                  type="button"
+                  onClick={() => copyWhatsAppMessage(getHostMessage(inspectedBooking), 'Host message')}
+                  className="px-3 rounded-xl bg-amber-500/20 text-amber-300 border border-amber-500/40 hover:bg-amber-500/30 transition-all flex items-center justify-center"
+                  title="Copy Host WhatsApp message with all emojis"
+                >
+                  <Copy size={13} />
+                </button>
+              </div>
+
+              <div className="col-span-2 flex gap-1">
+                <button
+                  type="button"
+                  onClick={() => handleWhatsAppAlert(inspectedBooking)}
+                  className="flex-1 py-2.5 px-3 rounded-xl bg-white/10 text-white border border-white/15 font-bold hover:bg-white/15 transition-all flex items-center justify-center gap-1.5"
+                >
+                  <MessageSquare size={12} /> Send Full Order Summary to Admin WhatsApp
+                </button>
+                <button
+                  type="button"
+                  onClick={() => copyWhatsAppMessage(getAdminOrderAlertMessage(inspectedBooking), 'Admin order summary')}
+                  className="px-3 rounded-xl bg-white/10 text-white border border-white/15 hover:bg-white/15 transition-all flex items-center justify-center"
+                  title="Copy Admin Summary with all emojis"
+                >
+                  <Copy size={13} />
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -1007,6 +1128,116 @@ export default function AdminBookings({ bookings, patchBooking }) {
             setActiveRefundBooking(null)
           }}
         />
+      )}
+
+      {/* WHATSAPP MESSAGE PREVIEW & HIGH-FIDELITY EMOJI COPY MODAL */}
+      {waModal && (
+        <div
+          className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4"
+          onClick={() => setWaModal(null)}
+          role="dialog"
+          aria-modal="true"
+          aria-label="WhatsApp Message Preview"
+        >
+          <div
+            className="w-full max-w-lg bg-[#0e121d] border border-white/15 rounded-2xl p-6 shadow-2xl space-y-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div className="flex items-center justify-between pb-3 border-b border-white/10">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-xl bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center justify-center">
+                  <Send size={15} />
+                </div>
+                <div>
+                  <h3 className="font-extrabold text-sm text-white flex items-center gap-2">
+                    {waModal.title}
+                    <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-white/10 text-white/70">
+                      #{shortId(waModal.bookingId)}
+                    </span>
+                  </h3>
+                  <p className="text-[11px] text-white/50">
+                    {waModal.recipientRole}: <span className="text-white/80 font-semibold">{waModal.recipientName}</span>
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setWaModal(null)}
+                className="w-8 h-8 rounded-lg bg-white/5 hover:bg-white/10 text-white/60 hover:text-white flex items-center justify-center transition-all"
+                title="Close"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            {/* Recipient Phone */}
+            <div>
+              <label className="text-[11px] font-bold text-white/70 mb-1.5 block">
+                Recipient WhatsApp Number
+              </label>
+              <input
+                type="text"
+                value={waModal.phone}
+                onChange={(e) => setWaModal({ ...waModal, phone: e.target.value })}
+                className="input-dark w-full text-xs font-mono py-2 px-3 rounded-xl bg-black/40 border border-white/15 text-white focus:border-emerald-500"
+                placeholder="e.g. 919876543210"
+              />
+            </div>
+
+            {/* Message Preview Textarea */}
+            <div>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="text-[11px] font-bold text-white/70">
+                  Message Preview (all emojis visible)
+                </label>
+                <button
+                  type="button"
+                  onClick={() => copyWhatsAppMessage(waModal.message, 'Formatted message')}
+                  className="text-[11px] font-bold text-cyan-400 hover:text-cyan-300 flex items-center gap-1 transition-all"
+                >
+                  <Copy size={12} /> Copy Message
+                </button>
+              </div>
+              <textarea
+                rows={7}
+                value={waModal.message}
+                onChange={(e) => setWaModal({ ...waModal, message: e.target.value })}
+                className="input-dark w-full text-xs font-mono leading-relaxed p-3 rounded-xl bg-black/50 border border-white/15 text-white/90 focus:border-cyan-500 resize-none selection:bg-cyan-500/30"
+              />
+              <p className="text-[10px] text-white/40 mt-1">
+                Tip: If WhatsApp Web renders emojis as replacement boxes () due to browser URL encoding, use <strong className="text-cyan-300">Copy Message</strong> and paste directly into chat for 100% crisp emojis.
+              </p>
+            </div>
+
+            {/* Actions */}
+            <div className="pt-2 flex items-center justify-end gap-2.5">
+              <button
+                type="button"
+                onClick={() => copyWhatsAppMessage(waModal.message, 'Formatted message')}
+                className="px-3.5 py-2 rounded-xl bg-white/10 hover:bg-white/15 text-white font-bold text-xs flex items-center gap-1.5 border border-white/10 transition-all"
+              >
+                <Copy size={13} /> Copy Text Only
+              </button>
+
+              <a
+                href={buildWhatsAppLink(waModal.phone, waModal.message)}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={() => {
+                  copyTextToClipboard(waModal.message)
+                  showToast('Message copied with all emojis! Opening WhatsApp… 💬', 'success')
+                  setTimeout(() => {
+                    setWaModal(null)
+                  }, 150)
+                }}
+                className="px-4 py-2 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:brightness-110 text-black font-extrabold text-xs flex items-center gap-1.5 shadow-lg shadow-emerald-500/20 transition-all no-underline cursor-pointer"
+              >
+                <Send size={13} /> Copy &amp; Open WhatsApp
+              </a>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   )

@@ -1,6 +1,7 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { Star, MapPin, Shield } from 'lucide-react'
+import { getListingPhotos, getDefaultPhotoForListing } from '../lib/listingPhotos'
 import './listingCard.css'
 
 /**
@@ -42,8 +43,29 @@ export default function ListingCard({
   const rating       = listing.rating        ?? 0
   const listerName   = listing.profiles?.full_name ?? listing.lister   ?? 'Lister'
   const subcat       = listing.subcategory   ?? ''
-  const heroPhoto    = listing.photos?.[0]   ?? null
   const emoji        = listing.emoji         ?? (isGaming ? '🎮' : '🎵')
+
+  const candidatePhotos = useMemo(() => {
+    const list = getListingPhotos(listing)
+    const fallback = getDefaultPhotoForListing(listing)
+    if (fallback && !list.includes(fallback)) {
+      return [...list, fallback]
+    }
+    return list
+  }, [listing])
+
+  const [photoIndex, setPhotoIndex] = useState(0)
+  const [imgFailed, setImgFailed] = useState(false)
+
+  const activePhoto = !imgFailed && candidatePhotos.length > 0 ? candidatePhotos[photoIndex] : null
+
+  const handleImageError = () => {
+    if (photoIndex + 1 < candidatePhotos.length) {
+      setPhotoIndex((i) => i + 1)
+    } else {
+      setImgFailed(true)
+    }
+  }
 
   /* ──────────── LIST VIEW ──────────────── */
   if (listView) {
@@ -63,8 +85,17 @@ export default function ListingCard({
           {/* Thumbnail */}
           <div className="w-20 h-20 rounded-xl overflow-hidden flex-shrink-0 flex items-center justify-center text-3xl relative"
             style={{ background: `linear-gradient(135deg, ${accent}18, rgba(10,10,20,0.6))` }}>
-            {heroPhoto
-              ? <img src={heroPhoto} alt={listing.title} className="w-full h-full object-cover" />
+            {activePhoto
+              ? (
+                <img
+                  src={activePhoto}
+                  alt={listing.title}
+                  onError={handleImageError}
+                  loading="lazy"
+                  decoding="async"
+                  className="w-full h-full object-cover"
+                />
+              )
               : emoji}
             {isBookedOut && (
               <div className="absolute inset-0 bg-black/60 flex items-center justify-center text-[10px] font-bold text-red-400 uppercase tracking-wider text-center px-1">
@@ -133,10 +164,16 @@ export default function ListingCard({
         onMouseLeave={() => setHovered(false)}
       >
         {/* ── Full background photo / emoji ── */}
-        {heroPhoto ? (
-          <img src={heroPhoto} alt={listing.title}
+        {activePhoto ? (
+          <img
+            src={activePhoto}
+            alt={listing.title}
+            onError={handleImageError}
+            loading="lazy"
+            decoding="async"
             className={`absolute inset-0 w-full h-full object-cover transition-transform duration-500 ${isBookedOut ? 'grayscale-[40%]' : ''}`}
-            style={{ transform: hovered ? 'scale(1.06)' : 'scale(1)' }} />
+            style={{ transform: hovered ? 'scale(1.06)' : 'scale(1)' }}
+          />
         ) : (
           <div className="absolute inset-0 flex items-center justify-center"
             style={{
@@ -155,7 +192,7 @@ export default function ListingCard({
         {/* ── Dark gradient overlay (always) ── */}
         <div className="absolute inset-0"
           style={{
-            background: heroPhoto
+            background: activePhoto
               ? `linear-gradient(to top, rgba(6,6,16,0.97) 0%, rgba(6,6,16,0.55) 50%, rgba(6,6,16,0.1) 100%)`
               : `linear-gradient(to top, rgba(6,6,16,0.98) 0%, rgba(6,6,16,0.3) 60%, transparent 100%)`,
           }} />

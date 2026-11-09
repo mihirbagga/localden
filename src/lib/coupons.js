@@ -1,4 +1,4 @@
-import { computePlatformFee } from './platformFee'
+import { computePlatformFee, getPlatformFeeBreakdown } from './platformFee'
 
 export function normalizeCouponCode(code) {
   return String(code || '').trim().toUpperCase()
@@ -111,6 +111,7 @@ export function priceWithCoupon({
   fee,
   protectionCost = 0,
   durationDiscounts = null,
+  isHubStored = false,
 }) {
   const d = Math.max(0, Number(days) || 0)
   const pd = Math.max(0, Number(priceDay) || 0)
@@ -138,7 +139,8 @@ export function priceWithCoupon({
   const couponDiscount = computeDiscount(coupon, subtotalAfterDuration)
   const netRent = Math.max(0, subtotalAfterDuration - couponDiscount)
 
-  const platformFee = computePlatformFee(netRent, fee)
+  const feeBreakdown = getPlatformFeeBreakdown(netRent, fee, isHubStored)
+  const platformFee = feeBreakdown.totalFee
   const safeDeposit = Math.max(0, Number(deposit) || 0)
   const safeProtection = Math.max(0, Number(protectionCost) || 0)
   const totalDiscount = durationDiscount + couponDiscount
@@ -156,6 +158,9 @@ export function priceWithCoupon({
     discountedSubtotal: netRent,
     netRent,
     platformFee,
+    basePlatformFee: feeBreakdown.baseFee,
+    hubStorageFee: feeBreakdown.storageFee,
+    isHubStored: feeBreakdown.isHubStored,
     deposit: safeDeposit,
     protectionCost: safeProtection,
     total: netRent + platformFee + safeDeposit + safeProtection,

@@ -2,7 +2,6 @@ import { createContext, useContext, useEffect, useState, useRef } from 'react'
 import { supabase } from '../lib/supabase'
 import { applyStoredReferral, captureReferralFromSearch, storeReferralCode } from '../lib/referrals'
 import { issueWelcomeCouponForUser } from '../lib/signupCouponSetting'
-import { sendWelcomeUserNotification } from '../lib/whatsappSmsService'
 
 const AuthContext = createContext(null)
 
@@ -40,13 +39,7 @@ export function AuthProvider({ children }) {
           body: `Hey ${fullName || 'there'}, your account is all set! Use promo code WELCOME10 for 10% off your first gaming or audio setup rental.`,
           link: '/browse',
         })
-
-        // Also trigger background webhook dispatch if configured
-        sendWelcomeUserNotification({
-          user: { id: targetId, full_name: fullName, phone },
-          couponCode: 'WELCOME10',
-          discountPercent: 10,
-        }).catch(() => {})
+        // The WhatsApp welcome is queued server-side by the wa_profile_events trigger
       }
     } catch (err) {
       console.warn('Welcome notification error:', err?.message)
@@ -271,8 +264,12 @@ export function AuthProvider({ children }) {
   }
 
   const adminRole = profile?.admin_role
-  const isAdmin = Boolean(profile?.is_admin) || adminRole === 'admin' || adminRole === 'super_admin'
-  const isSuperAdmin = adminRole === 'super_admin' || (Boolean(profile?.is_admin) && adminRole !== 'admin')
+  const isSuperAdmin = adminRole === 'super_admin' || (Boolean(profile?.is_admin) && adminRole !== 'admin' && adminRole !== 'regional_admin' && adminRole !== 'hub_manager')
+  const isRegionalAdmin = adminRole === 'regional_admin'
+  const isHubManager = adminRole === 'hub_manager'
+  const isAdmin = Boolean(profile?.is_admin) || ['admin', 'super_admin', 'regional_admin', 'hub_manager'].includes(adminRole)
+  const assignedCities = Array.isArray(profile?.assigned_cities) ? profile.assigned_cities : []
+  const assignedHubId = profile?.assigned_hub_id || null
 
   return (
     <AuthContext.Provider value={{
@@ -283,6 +280,11 @@ export function AuthProvider({ children }) {
       isAuthenticated: !!user,
       isAdmin,
       isSuperAdmin,
+      isRegionalAdmin,
+      isHubManager,
+      adminRole,
+      assignedCities,
+      assignedHubId,
       isBanned: Boolean(profile?.is_banned),
     }}>
       {children}

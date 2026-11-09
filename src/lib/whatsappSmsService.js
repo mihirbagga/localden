@@ -404,7 +404,7 @@ Need any assistance? We're here to help you earn!
 /**
  * Sends or prepares an in-app notification + WhatsApp alert when a listing goes live
  */
-export async function sendListingLiveNotification({ listing, lister, customPhone = null }) {
+export async function sendListingLiveNotification({ listing, lister, customPhone = null, dispatch = true }) {
   const targetUserId = listing?.user_id || lister?.id
   const gearTitle = listing?.title || 'Gear'
   const phone = customPhone || listing?.contact_phone || lister?.phone || listing?.profiles?.phone || ''
@@ -425,7 +425,8 @@ export async function sendListingLiveNotification({ listing, lister, customPhone
     }
   }
 
-  // 2. Dispatch WhatsApp notification / Webhook
+  // 2. WhatsApp — the listing_live DB trigger sends this automatically; admins can re-send manually
+  if (!dispatch) return { success: true, phone, message, waUrl: buildWhatsAppLink(phone, message) }
   const result = await sendWhatsAppNotification({
     phone,
     message,
@@ -439,7 +440,7 @@ export async function sendListingLiveNotification({ listing, lister, customPhone
 /**
  * Sends or prepares an in-app notification + WhatsApp alert to welcome a user
  */
-export async function sendWelcomeUserNotification({ user, couponCode = 'WELCOME10', discountPercent = 10, customPhone = null }) {
+export async function sendWelcomeUserNotification({ user, couponCode = 'WELCOME10', discountPercent = 10, customPhone = null, dispatch = true }) {
   const targetUserId = user?.id
   const name = user?.full_name || user?.user_metadata?.full_name || 'there'
   const phone = customPhone || user?.phone || user?.user_metadata?.phone || ''
@@ -460,7 +461,8 @@ export async function sendWelcomeUserNotification({ user, couponCode = 'WELCOME1
     }
   }
 
-  // 2. Dispatch WhatsApp notification / Webhook
+  // 2. WhatsApp — the welcome DB trigger sends this automatically; admins can re-send manually
+  if (!dispatch) return { success: true, phone, message, waUrl: buildWhatsAppLink(phone, message) }
   const result = await sendWhatsAppNotification({
     phone,
     message,
@@ -516,69 +518,26 @@ export async function saveWhatsAppSettings(settings) {
 }
 
 /**
- * Dispatches a WhatsApp notification:
- * 1. If webhook_url is configured, sends background POST request (e.g. Zapier, Make, n8n, Twilio, Evolution API)
- * 2. Generates wa.me link for instant manual trigger
- * 3. Logs dispatch to localStorage for auditing
+ * Sends a WhatsApp message right now through the whatsapp-dispatch edge function
+ * (admins only — the webhook URL is a server secret). Everyone else, and any
+ * failure, still gets a wa.me link to send it by hand.
  */
-export async function sendWhatsAppNotification({ phone, message, event = 'new_order', payload = {} }) {
+export async function sendWhatsAppNotification({ phone, message, event = 'admin_direct', payload = {} }) {
   const cleanPhone = cleanPhoneNumber(phone)
   const waUrl = buildWhatsAppLink(cleanPhone, message)
   let webhookSuccess = false
   let webhookError = null
 
-  // If webhook is configured, attempt background dispatch
-  let hookUrl = payload?.webhook_url
-  if (!hookUrl) {
+  if (cleanPhone) {
     try {
-      const cfg = await fetchWhatsAppSettings()
-      if (cfg?.enabled && cfg?.webhook_url) {
-        hookUrl = cfg.webhook_url
-      }
-    } catch {
-      // fallback
-    }
-  }
-
-  if (hookUrl && cleanPhone) {
-    try {
-      const res = await fetch(hookUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          event,
-          recipient_phone: cleanPhone,
-          message,
-          data: payload.data || payload || {},
-          timestamp: new Date().toISOString(),
-        }),
+      const { data, error } = await supabase.functions.invoke('whatsapp-dispatch', {
+        body: { action: 'direct', phone: cleanPhone, message, event, data: payload?.data || payload || {} },
       })
-      webhookSuccess = res.ok
-      if (!res.ok) {
-        webhookError = `HTTP ${res.status}`
-      }
+      webhookSuccess = Boolean(data?.ok)
+      webhookError = error?.message || data?.error || null
     } catch (err) {
-      console.warn('WhatsApp webhook dispatch error:', err?.message)
-      webhookError = err?.message
+      webhookError = err?.message || 'Dispatch failed'
     }
-  }
-
-  // Store log in localStorage
-  try {
-    const existingLogs = JSON.parse(localStorage.getItem('localden_wa_logs') || '[]')
-    const newLog = {
-      id: crypto.randomUUID(),
-      timestamp: new Date().toISOString(),
-      event,
-      phone: cleanPhone,
-      messagePreview: message.slice(0, 120),
-      webhookSuccess,
-      webhookError,
-    }
-    const updatedLogs = [newLog, ...existingLogs].slice(0, 50)
-    localStorage.setItem('localden_wa_logs', JSON.stringify(updatedLogs))
-  } catch (e) {
-    // localStorage might fail in private browsing, safely ignore
   }
 
   return {
@@ -590,39 +549,73 @@ export async function sendWhatsAppNotification({ phone, message, event = 'new_or
   }
 }
 
-/**
- * Primary trigger: Called upon new order creation to alert Admin on WhatsApp
- */
-export async function notifyAdminOnNewOrder(orderData) {
-  try {
-    const settings = await fetchWhatsAppSettings()
-    if (!settings.enabled || !settings.notify_on_new_order) {
-      return { skipped: true, reason: 'Notifications disabled in settings' }
+// ── Admin: automated outbox ───────────────────────────────
+
+export const WA_EVENTS = [
+  { group: 'Booking', id: 'booking_placed', label: 'Request sent', to: 'Renter' },
+  { group: 'Booking', id: 'booking_requested', label: 'New booking request', to: 'Host' },
+  { group: 'Booking', id: 'admin_new_order', label: 'New order alert', to: 'Admin' },
+  { group: 'Booking', id: 'booking_confirmed', label: 'Confirmed + handover PIN', to: 'Both' },
+  { group: 'Booking', id: 'booking_active', label: 'Handed over + return PIN', to: 'Both' },
+  { group: 'Booking', id: 'booking_completed', label: 'Completed + review link', to: 'Both' },
+  { group: 'Booking', id: 'booking_cancelled', label: 'Cancelled', to: 'Both' },
+  { group: 'Money', id: 'payment_verified', label: 'Payment received', to: 'Renter' },
+  { group: 'Money', id: 'deposit_settled', label: 'Deposit refunded / held', to: 'Renter' },
+  { group: 'Money', id: 'payout_update', label: 'Payout sent / rejected', to: 'Host' },
+  { group: 'Trust', id: 'review_received', label: 'New review received', to: 'Reviewed user' },
+  { group: 'Trust', id: 'kyc_update', label: 'KYC verified / rejected', to: 'User' },
+  { group: 'Trust', id: 'admin_kyc_submitted', label: 'KYC submitted', to: 'Admin' },
+  { group: 'Trust', id: 'welcome', label: 'Welcome on signup', to: 'User' },
+  { group: 'Trust', id: 'listing_live', label: 'Listing is live', to: 'Host' },
+  { group: 'Reminders', id: 'pickup_reminder', label: 'Pickup tomorrow', to: 'Both' },
+  { group: 'Reminders', id: 'return_reminder', label: 'Return due tomorrow', to: 'Renter' },
+  { group: 'Reminders', id: 'return_overdue', label: 'Return overdue (3 days)', to: 'Both' },
+  { group: 'Reminders', id: 'review_nudge', label: 'Review nudge (2 days later)', to: 'Whoever hasn\'t reviewed' },
+]
+
+// Mirrors wa_event_enabled() in whatsapp_automation_migration.sql
+const LEGACY_TOGGLE = {
+  admin_new_order: 'notify_on_new_order',
+  payment_verified: 'notify_on_payment_verified',
+  admin_kyc_submitted: 'notify_on_kyc_submit',
+  welcome: 'notify_on_user_signup',
+  listing_live: 'notify_on_listing_live',
+}
+
+export function isEventEnabled(settings, id) {
+  const explicit = settings?.events?.[id]
+  if (typeof explicit === 'boolean') return explicit
+  const legacy = settings?.[LEGACY_TOGGLE[id]]
+  if (typeof legacy === 'boolean') return legacy
+  return id !== 'admin_kyc_submitted'
+}
+
+export async function fetchOutbox({ limit = 50, status = 'all' } = {}) {
+  let query = supabase
+    .from('whatsapp_outbox')
+    .select('*')
+    .order('created_at', { ascending: false })
+    .limit(limit)
+  if (status !== 'all') query = query.eq('status', status)
+  const { data, error } = await query
+  if (error) throw error
+  return data || []
+}
+
+export async function runDispatch(action = 'process', extra = {}) {
+  const { data, error } = await supabase.functions.invoke('whatsapp-dispatch', { body: { action, ...extra } })
+  if (error) {
+    // Surface the function's JSON error instead of the generic "non-2xx" message
+    let detail = error.message
+    try {
+      const body = await error.context?.json?.()
+      if (body?.error) detail = body.error
+    } catch {
+      /* keep generic message */
     }
-
-    const adminPhone = settings.admin_phone || SUPPORT_PHONE_TEL
-    const message = formatNewOrderAdminMessage(orderData)
-
-    const result = await sendWhatsAppNotification({
-      phone: adminPhone,
-      message,
-      event: 'new_order',
-      payload: {
-        webhook_url: settings.webhook_url,
-        data: orderData,
-      },
-    })
-
-    return {
-      ...result,
-      message,
-      adminPhone,
-      autoOpen: settings.auto_open_tab,
-    }
-  } catch (err) {
-    console.warn('notifyAdminOnNewOrder error:', err?.message)
-    return { success: false, error: err?.message }
+    throw new Error(detail)
   }
+  return data
 }
 
 /**

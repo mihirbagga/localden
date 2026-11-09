@@ -14,6 +14,7 @@ import '../pages/contact.css'
 const footerLinks = {
   Platform: [
     { label: 'Browse Listings',   to: '/browse'       },
+    { label: '🎮 Games Hub (Rent/Buy)', to: '/games'  },
     { label: 'Events & Artists',  to: '/live'         },
     { label: 'List Your Gear',    to: '/list-item'    },
     { label: 'How It Works',      to: '/how-it-works' },

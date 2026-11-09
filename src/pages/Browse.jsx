@@ -7,14 +7,9 @@ import { useListings } from '../hooks/useListings'
 import SEOHead from '../components/SEOHead'
 import { supabase } from '../lib/supabase'
 import { todayIso, shiftIso, formatDayLabel } from '../lib/bookingDates'
-import {
-  BENGALURU_LOCALITIES,
-  GURUGRAM_LOCALITIES,
-  ALL_LOCALITIES,
-  getCityForLocation,
-} from '../lib/cities'
+import { useCities } from '../hooks/useCities'
+import { getCityForLocation } from '../lib/cities'
 
-const LOCATIONS = ['All Locations', 'Bengaluru', ...BENGALURU_LOCALITIES, 'Gurugram', ...GURUGRAM_LOCALITIES]
 const SORT_OPTIONS = ['Newest','Price: Low to High','Price: High to Low','Top Rated', 'Most Popular']
 const GAMING_SUBS  = ['All','Console','Controller','VR Headset','Gaming Mouse','Racing Wheel','Gaming Chair','Monitor','Headset']
 const MUSIC_SUBS   = ['All','Guitar','Bass','Piano / Keyboard','Drums','DJ Controller','Microphone','Amplifier','Synthesizer','Violin','Saxophone']
@@ -32,6 +27,12 @@ export default function Browse() {
   const [viewMode, setViewMode]       = useState('grid') // 'grid' | 'list'
   const [fulfillment, setFulfillment] = useState('All Fulfillment')
   const [inStockOnly, setInStockOnly] = useState(false)
+  const { activeCities } = useCities()
+
+  const activeCityNames = useMemo(
+    () => new Set(activeCities.map((c) => (c.name || '').toLowerCase())),
+    [activeCities]
+  )
 
   // Date-wise filtering
   const [fromDate, setFromDate] = useState(() => {
@@ -63,7 +64,7 @@ export default function Browse() {
     const f = params.get('from')
     const t = params.get('to')
     if (cat) setActiveCategory(cat)
-    if (loc && LOCATIONS.includes(loc)) setLocation(loc)
+    if (loc) setLocation(loc)
     if (sub) setActiveSub(sub)
     if (q) setSearch(q)
     if (f) setFromDate(f)
@@ -71,7 +72,7 @@ export default function Browse() {
   }, [params])
 
   /* ── Real data from Supabase ────────────────── */
-  const isCityFilter = location === 'Bengaluru' || location === 'Gurugram'
+  const isCityFilter = activeCityNames.has((location || '').toLowerCase())
   const { listings, loading, error } = useListings({
     category: activeCategory,
     location: (location !== 'All Locations' && !isCityFilter) ? location : undefined,
@@ -120,10 +121,8 @@ export default function Browse() {
   const filtered = useMemo(() => {
     let result = listings
 
-    if (location === 'Bengaluru') {
-      result = result.filter(l => getCityForLocation(l.location) === 'Bengaluru')
-    } else if (location === 'Gurugram') {
-      result = result.filter(l => getCityForLocation(l.location) === 'Gurugram')
+    if (isCityFilter) {
+      result = result.filter(l => getCityForLocation(l.location, activeCities).toLowerCase() === location.toLowerCase())
     } else if (location !== 'All Locations') {
       result = result.filter(l => (l.location || '').toLowerCase().includes(location.toLowerCase()))
     }
@@ -227,7 +226,7 @@ export default function Browse() {
 
         {/* Header */}
         <div className="mb-8">
-          <p className="section-label mb-2">Bengaluru & Gurugram Gear Marketplace</p>
+          <p className="section-label mb-2">{activeCities.map((c) => c.name).join(' & ')} Gear Marketplace</p>
           <div className="flex items-end justify-between">
             <h1 className="font-bungee text-4xl">
               Browse <span className="gradient-text">Listings</span>
@@ -310,14 +309,17 @@ export default function Browse() {
             aria-label="Filter by City or Location"
           >
             <option value="All Locations">All Cities & Locations</option>
-            <optgroup label="🏙️ Bengaluru">
-              <option value="Bengaluru">Entire Bengaluru</option>
-              {BENGALURU_LOCALITIES.map(l => <option key={l} value={l}>{l}</option>)}
-            </optgroup>
-            <optgroup label="🏢 Gurugram (NCR)">
-              <option value="Gurugram">Entire Gurugram</option>
-              {GURUGRAM_LOCALITIES.map(l => <option key={l} value={l}>{l}</option>)}
-            </optgroup>
+            {activeCities.map((c) => {
+              const locs = c.popularLocalities || c.popular_localities || []
+              return (
+                <optgroup key={c.id} label={`${c.displayName || c.display_name || c.name}`}>
+                  <option value={c.name}>Entire {c.name}</option>
+                  {locs.map((l) => (
+                    <option key={l} value={l}>{l}</option>
+                  ))}
+                </optgroup>
+              )
+            })}
           </select>
           <select value={sortBy} onChange={e => setSortBy(e.target.value)}
             className="select-dark text-sm h-10 flex-shrink-0" style={{ minWidth: 150 }}>
@@ -535,6 +537,7 @@ export default function Browse() {
             
             <div className="flex flex-wrap justify-center gap-3 mb-8">
               {[
+                { icon: '🌴', label: 'GTA 6 PS5 Bundle', query: 'GTA' },
                 { icon: '🎮', label: 'PS5 Consoles', query: 'PS5' },
                 { icon: '🎸', label: 'Guitars & Amps', query: 'Guitar' },
                 { icon: '💻', label: 'RTX 4090 GPUs', query: '4090' },

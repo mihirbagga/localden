@@ -15,22 +15,23 @@
 .nav-tools {
   display: flex;
   align-items: center;
-  gap: 0.55rem;
+  gap: 0.5rem;
 }
 
 .nav-search-pill {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 0.45rem;
   height: 2.35rem;
-  padding: 0 0.75rem;
+  padding: 0 0.8rem;
   border-radius: 999px;
   background: var(--surface-2);
   color: var(--text-muted);
   border: 1px solid var(--border);
   text-decoration: none;
   font-family: 'Rajdhani', sans-serif;
-  font-size: 0.8rem;
+  font-size: 0.82rem;
   font-weight: 600;
   transition: all 0.2s ease;
 }
@@ -45,9 +46,62 @@
   display: none;
 }
 
-@media (min-width: 640px) {
+@media (min-width: 1280px) {
   .nav-search-pill__text {
     display: inline;
+  }
+}
+
+@media (max-width: 1279px) {
+  .nav-search-pill {
+    width: 2.35rem;
+    padding: 0;
+  }
+}
+
+/* Admin Quick Badge in Nav Tools */
+.nav-admin-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  height: 2.35rem;
+  padding: 0 0.75rem;
+  border-radius: 999px;
+  background: rgba(255, 210, 63, 0.09);
+  border: 1px solid rgba(255, 210, 63, 0.3);
+  color: var(--gold);
+  text-decoration: none;
+  font-family: 'Rajdhani', sans-serif;
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.025em;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.nav-admin-badge:hover,
+.nav-admin-badge.is-on {
+  background: rgba(255, 210, 63, 0.2);
+  border-color: rgba(255, 210, 63, 0.65);
+  box-shadow: 0 0 14px rgba(255, 210, 63, 0.25);
+  color: #fff;
+}
+
+.nav-admin-badge__text {
+  display: none;
+}
+
+@media (min-width: 1200px) {
+  .nav-admin-badge__text {
+    display: inline;
+  }
+}
+
+@media (max-width: 1199px) {
+  .nav-admin-badge {
+    width: 2.35rem;
+    padding: 0;
+    justify-content: center;
   }
 }
 
@@ -74,14 +128,14 @@
   display: none;
 }
 
-@media (min-width: 1080px) {
+@media (min-width: 1024px) {
   .nav-links,
   .nav-auth {
     display: flex;
     align-items: center;
   }
 
-  .nav-links { gap: 0.2rem; }
+  .nav-links { gap: 0.35rem; }
   .nav-auth { gap: 0.65rem; }
 
   .nav-toggle,
@@ -188,9 +242,26 @@
   top: calc(100% + 0.6rem);
   right: 0;
   width: 15.5rem;
+  /* Solid surface: a nested backdrop-filter can't blur through the already-blurred nav bar,
+     so a translucent fill let page imagery show straight through the menu */
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--magenta) 7%, transparent), transparent 45%),
+    var(--bg-800);
   border: 1px solid rgba(255, 46, 109, 0.24);
-  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.55);
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.06);
   animation: navDropIn 0.2s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.nav-dropdown.nav-more-dropdown {
+  left: 50%;
+  right: auto;
+  transform: translateX(-50%);
+  width: 14rem;
+  border-color: rgba(0, 229, 255, 0.22);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nav-dropdown { animation: none; }
 }
 
 @keyframes navDropIn {

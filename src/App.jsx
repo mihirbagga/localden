@@ -17,6 +17,7 @@ import InstallPrompt from './components/InstallPrompt'
 import VisitTracker from './components/VisitTracker'
 import Home from './pages/Home'
 import Browse from './pages/Browse'
+const Games = lazy(() => import('./pages/Games'))
 const Live = lazy(() => import('./pages/Live'))
 const ListItem = lazy(() => import('./pages/ListItem'))
 const HowItWorks = lazy(() => import('./pages/HowItWorks'))
@@ -53,6 +54,7 @@ function AnimatedRoutes() {
           {/* Public routes */}
           <Route path="/"             element={<Home />} />
           <Route path="/browse"       element={<Browse />} />
+          <Route path="/games"        element={<Games />} />
           <Route path="/live"         element={<Live />} />
           <Route path="/how-it-works" element={<HowItWorks />} />
           <Route path="/contact"      element={<Contact />} />
@@ -106,6 +108,39 @@ const LoadingFallback = () => (
   </div>
 )
 
+function AppContent() {
+  const location = useLocation()
+  const isAdminRoute = location.pathname.startsWith('/admin')
+
+  if (isAdminRoute) {
+    return (
+      <div className="h-screen w-screen overflow-hidden bg-[#080c14]">
+        <Suspense fallback={<LoadingFallback />}>
+          <Routes>
+            <Route path="/admin" element={
+              <AdminRoute><Admin /></AdminRoute>
+            } />
+          </Routes>
+        </Suspense>
+      </div>
+    )
+  }
+
+  return (
+    <div className="min-h-screen flex flex-col">
+      <Navbar />
+      <main className="flex-1">
+        <Suspense fallback={<LoadingFallback />}>
+          <AnimatedRoutes />
+        </Suspense>
+      </main>
+      <Footer />
+      <BottomNav />
+      <InstallPrompt />
+    </div>
+  )
+}
+
 export default function App() {
   return (
     <ThemeProvider>
@@ -116,17 +151,7 @@ export default function App() {
               <BrowserRouter>
                 <ScrollToTop />
                 <VisitTracker />
-                <div className="min-h-screen flex flex-col">
-                  <Navbar />
-                  <main className="flex-1">
-                    <Suspense fallback={<LoadingFallback />}>
-                      <AnimatedRoutes />
-                    </Suspense>
-                  </main>
-                  <Footer />
-                  <BottomNav />
-                  <InstallPrompt />
-                </div>
+                <AppContent />
               </BrowserRouter>
             </ConfirmProvider>
           </NotificationProvider>

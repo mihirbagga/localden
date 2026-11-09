@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { Upload, X, AlertCircle, Gamepad2, Music, ChevronRight, Shield, MessageSquare, ExternalLink } from 'lucide-react'
 import GameBackground from '../components/GameBackground'
 import { useAuth } from '../contexts/AuthContext'
@@ -14,28 +14,27 @@ import { computePlatformFee, platformFeeCopy } from '../lib/platformFee'
 import { calculateSuggestedPricing } from '../lib/dynamicPricing'
 import { MESSAGES, friendlyError } from '../lib/messages'
 import { buildWhatsAppLink, formatListingLiveMessage, sendListingLiveNotification } from '../lib/whatsappSmsService'
+import { useCities } from '../hooks/useCities'
 import './couponApply.css'
 import './listItem.css'
 import {
   CITIES,
-  BENGALURU_LOCALITIES,
-  GURUGRAM_LOCALITIES,
   getCityForLocation,
 } from '../lib/cities'
 
-const GAMING_TYPES = ['Console','Controller','VR Headset','Gaming Mouse','Racing Wheel','Gaming Chair','Monitor','Headset','Other']
+const GAMING_TYPES = ['Console','Game Disc','Controller','VR Headset','Gaming Mouse','Racing Wheel','Gaming Chair','Monitor','Headset','Other']
 const MUSIC_TYPES  = ['Guitar','Bass','Piano / Keyboard','Drums','DJ Controller','Microphone','Amplifier','Synthesizer','Violin','Saxophone','Other']
 const CONDITIONS   = [
   { value: 'like_new', label: '✨ Like New',  desc: 'Barely used, mint condition' },
   { value: 'good',     label: '👍 Good',      desc: 'Normal wear, works perfectly' },
   { value: 'fair',     label: '🔧 Fair',      desc: 'Visible wear, fully functional' },
 ]
-const PRICE_PRESETS = [199, 299, 499, 799, 999]
+const PRICE_PRESETS = [199, 299, 499, 799, 800, 999]
 const DEPOSIT_PRESETS = [0, 2000, 5000, 10000]
 const STEP_LABELS = ['1. Gear Details & Photos', '2. Pricing & Publish']
 
 const CATEGORY_EMOJI = {
-  Console: '🎮', Controller: '🕹️', 'VR Headset': '🥽', 'Gaming Mouse': '🖱️',
+  Console: '🎮', 'Game Disc': '💿', Controller: '🕹️', 'VR Headset': '🥽', 'Gaming Mouse': '🖱️',
   'Racing Wheel': '🏎️', 'Gaming Chair': '🪑', Monitor: '🖥️', Headset: '🎧',
   Guitar: '🎸', Bass: '🎸', 'Piano / Keyboard': '🎹', Drums: '🥁',
   'DJ Controller': '🎛️', Microphone: '🎤', Amplifier: '🔊', Synthesizer: '🎹',
@@ -48,6 +47,7 @@ const EMPTY_FORM = {
   city: 'Bengaluru',
   location: 'Koramangala',
   priceDay: '', priceWeekend: '', priceWeek: '',
+  salePrice: '',
   deposit: '0',
   hasDeposit: false,
   phone: '',
@@ -56,6 +56,27 @@ const EMPTY_FORM = {
 }
 
 const POPULAR_GEAR_TEMPLATES = [
+  {
+    id: 'ps5-gta6-bundle',
+    badge: '🌴 GTA 6 + PS5 Bundle',
+    category: 'gaming',
+    itemType: 'Console',
+    title: 'Sony PlayStation 5 + GTA 6 Pre-Loaded Edition + 2 Controllers',
+    brand: 'Sony',
+    model: 'PS5 Disc Edition (1TB)',
+    condition: 'like_new',
+    description: 'Vice City ready! Sony PlayStation 5 Disc Edition bundled with Grand Theft Auto VI (GTA 6). Includes 2 original DualSense wireless controllers with haptic feedback, Ultra High Speed HDMI 2.1 cable, power cord, USB-C charging cable, and premium carry case. Pre-loaded and tested for 4K 60FPS ray-traced action.',
+    priceDay: '800',
+    priceWeekend: '1899',
+    priceWeek: '4499',
+    deposit: '5000',
+    games: [
+      { title: 'Grand Theft Auto VI', format: 'Digital', genre: 'Open World Action' },
+      { title: 'Grand Theft Auto V', format: 'Disc', genre: 'Open World' },
+      { title: "Marvel's Spider-Man 2", format: 'Disc', genre: 'Action' },
+      { title: 'FIFA', format: 'Digital', genre: 'Sports' },
+    ],
+  },
   {
     id: 'ps5-bundle',
     badge: '🎮 PS5 + 2 Controllers',
@@ -178,9 +199,9 @@ const POPULAR_GEAR_TEMPLATES = [
   },
 ]
 
-function keepAfterFee(amount, fee) {
+function keepAfterFee(amount, fee, isHub = false) {
   const n = Number(amount) || 0
-  return Math.max(0, n - computePlatformFee(n, fee))
+  return Math.max(0, n - computePlatformFee(n, fee, isHub))
 }
 
 export default function ListItem() {
@@ -200,10 +221,32 @@ export default function ListItem() {
   const [error, setError] = useState('')
   const [games, setGames] = useState([])
   const [createdListing, setCreatedListing] = useState(null)
+  const { activeCities } = useCities()
+  const [searchParams] = useSearchParams()
   const [form, setForm] = useState({
     ...EMPTY_FORM,
     phone: profile?.phone || '',
   })
+
+  // Auto-fill from URL params (e.g. from Games Hub Sell/Trade modal)
+  useEffect(() => {
+    if (editId) return
+    const cat = searchParams.get('cat')
+    const type = searchParams.get('type')
+    const title = searchParams.get('title')
+    const rent = searchParams.get('rent')
+    const sale = searchParams.get('sale')
+    if (cat) setCategory(cat)
+    if (type || title || rent || sale) {
+      setForm((f) => ({
+        ...f,
+        itemType: type || f.itemType,
+        title: title || f.title,
+        priceDay: rent || f.priceDay,
+        salePrice: sale || f.salePrice || '',
+      }))
+    }
+  }, [searchParams, editId])
 
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }))
   const types = category === 'gaming' ? GAMING_TYPES : MUSIC_TYPES
@@ -229,26 +272,48 @@ export default function ListItem() {
         setCategory(data.category)
         setStep(1)
         const loadedDeposit = data.deposit_amount != null ? Number(data.deposit_amount) : 0
-        const detectedCity = getCityForLocation(data.location || '')
+        const detectedCity = getCityForLocation(data.location || '', activeCities)
+        const matchedCityObj = activeCities.find((c) => c.name.toLowerCase() === detectedCity.toLowerCase())
+        const defaultCityLoc = (matchedCityObj?.popularLocalities || matchedCityObj?.popular_localities || [])[0] || 'Koramangala'
+        const saleMatch = (data.description || '').match(/\[SALE_PRICE:\s*(\d+)\]/i)
+        const loadedSalePrice = data.sale_price != null ? String(data.sale_price) : (saleMatch ? saleMatch[1] : '')
+        const cleanDesc = (data.description || '')
+          .replace(/\s*\[GAMES:.*?\]/gi, '')
+          .replace(/\s*\[SALE_PRICE:.*?\]/gi, '')
+          .trim()
         setForm({
           title:        data.title         || '',
-          description:  (data.description || '').replace(/\s*\[GAMES:.*?\]/gi, '').trim(),
+          description:  cleanDesc,
           itemType:     data.subcategory   || '',
           brand:        data.brand         || '',
           model:        data.model         || '',
           condition:    data.condition     || 'good',
           city:         detectedCity,
-          location:     data.location      || (detectedCity === 'Gurugram' ? 'Cyber City' : 'Koramangala'),
+          location:     data.location      || defaultCityLoc,
           priceDay:     String(data.price_day     || ''),
           priceWeekend: String(data.price_weekend || ''),
           priceWeek:    String(data.price_week    || ''),
+          salePrice:    loadedSalePrice,
           deposit:      String(loadedDeposit),
           hasDeposit:   loadedDeposit > 0,
           phone:        data.contact_phone || profile?.phone || '',
           stockQty:     String(data.stock_qty || '1'),
           fulfillmentType: data.fulfillment_type || 'direct',
         })
-        if (data.photos?.length) setExistingPhotos(data.photos)
+        let rawPhotos = []
+        if (Array.isArray(data.photos)) {
+          rawPhotos = data.photos
+        } else if (typeof data.photos === 'string' && data.photos.trim()) {
+          try {
+            const parsed = JSON.parse(data.photos)
+            if (Array.isArray(parsed)) rawPhotos = parsed
+            else rawPhotos = [data.photos]
+          } catch {
+            const clean = data.photos.replace(/^\{|\}$/g, '')
+            rawPhotos = clean ? clean.split(',').map((s) => s.trim().replace(/^"|"$/g, '')).filter(Boolean) : []
+          }
+        }
+        setExistingPhotos(rawPhotos)
         fetchListingGames(editId, data).then((loadedGames) => {
           if (Array.isArray(loadedGames) && loadedGames.length > 0) {
             setGames(loadedGames)
@@ -260,11 +325,12 @@ export default function ListItem() {
   const addFiles = (fileList) => {
     const incoming = Array.from(fileList || []).filter((f) => f.type.startsWith('image/'))
     if (!incoming.length) return
+    const maxAllowed = Math.max(0, 5 - existingPhotos.length)
+    if (incoming.length + photos.length > maxAllowed) {
+      showToast(`You can upload up to 5 photos total per listing (${existingPhotos.length} already saved).`, 'error')
+    }
     setPhotos((prev) => {
-      const next = [...prev, ...incoming].slice(0, 5)
-      if (prev.length + incoming.length > 5) {
-        showToast('You can upload up to 5 photos per listing.', 'error')
-      }
+      const next = [...prev, ...incoming].slice(0, maxAllowed)
       return next
     })
   }
@@ -275,6 +341,7 @@ export default function ListItem() {
   }
 
   const removePhoto = (i) => setPhotos((p) => p.filter((_, idx) => idx !== i))
+  const removeExistingPhoto = (i) => setExistingPhotos((p) => p.filter((_, idx) => idx !== i))
 
   const uploadPhotos = async (listingId) => {
     const urls = []
@@ -347,6 +414,11 @@ export default function ListItem() {
         const gamesTag = `[GAMES: ${games.map((g) => `${g.title} (${g.format || 'Digital'})`).join(' | ')}]`
         finalDescription = finalDescription ? `${finalDescription}\n\n${gamesTag}` : gamesTag
       }
+      if (form.salePrice && parseInt(form.salePrice, 10) > 0) {
+        finalDescription = finalDescription.replace(/\s*\[SALE_PRICE:.*?\]/gi, '').trim()
+        const saleTag = `[SALE_PRICE: ${parseInt(form.salePrice, 10)}]`
+        finalDescription = finalDescription ? `${finalDescription}\n\n${saleTag}` : saleTag
+      }
 
       if (isEdit) {
         let photoUrls = existingPhotos
@@ -356,9 +428,11 @@ export default function ListItem() {
         }
         const parsedDeposit = parseInt(form.deposit, 10)
         const computedDeposit = (form.hasDeposit && !isNaN(parsedDeposit)) ? Math.max(0, parsedDeposit) : 0
-        const savedLocation = form.city === 'Gurugram' && !form.location.toLowerCase().includes('gurugram')
-          ? `${form.location.trim()}, Gurugram`
-          : form.location.trim()
+        const locTrim = form.location.trim()
+        const cityTrim = (form.city || '').trim()
+        const savedLocation = (cityTrim && !locTrim.toLowerCase().includes(cityTrim.toLowerCase()))
+          ? `${locTrim}, ${cityTrim}`
+          : locTrim
 
         let updQuery = supabase.from('listings').update({
           title:          form.title.trim(),
@@ -396,9 +470,11 @@ export default function ListItem() {
         }
         const parsedDeposit = parseInt(form.deposit, 10)
         const computedDeposit = (form.hasDeposit && !isNaN(parsedDeposit)) ? Math.max(0, parsedDeposit) : 0
-        const savedLocation = form.city === 'Gurugram' && !form.location.toLowerCase().includes('gurugram')
-          ? `${form.location.trim()}, Gurugram`
-          : form.location.trim()
+        const locTrim = form.location.trim()
+        const cityTrim = (form.city || '').trim()
+        const savedLocation = (cityTrim && !locTrim.toLowerCase().includes(cityTrim.toLowerCase()))
+          ? `${locTrim}, ${cityTrim}`
+          : locTrim
 
         const { error: insErr } = await supabase.from('listings').insert({
           id: listingId,
@@ -441,9 +517,11 @@ export default function ListItem() {
         }
         setCreatedListing(newListingObj)
 
+        // In-app notice only; the WhatsApp message is queued by the wa_listing_events trigger
         sendListingLiveNotification({
           listing: newListingObj,
           lister: { ...profile, ...user },
+          dispatch: false,
         }).catch((err) => console.warn('Listing live notification dispatch failed:', err?.message))
 
         showToast(MESSAGES.listing.published, 'success')
@@ -462,14 +540,17 @@ export default function ListItem() {
     setStep(1)
     setCategory('')
     setPhotos([])
+    setExistingPhotos([])
     setGames([])
+    setCreatedListing(null)
     setForm({ ...EMPTY_FORM, phone: profile?.phone || '' })
     setError('')
   }
 
-  const dayKeep = keepAfterFee(form.priceDay, platformFeeSetting)
-  const weekKeep = keepAfterFee(form.priceWeek || (Number(form.priceDay) || 0) * 7, platformFeeSetting)
-  const monthKeep = keepAfterFee((Number(form.priceDay) || 0) * 20, platformFeeSetting)
+  const isHubFulfillment = form.fulfillmentType === 'warehouse'
+  const dayKeep = keepAfterFee(form.priceDay, platformFeeSetting, isHubFulfillment)
+  const weekKeep = keepAfterFee(form.priceWeek || (Number(form.priceDay) || 0) * 7, platformFeeSetting, isHubFulfillment)
+  const monthKeep = keepAfterFee((Number(form.priceDay) || 0) * 20, platformFeeSetting, isHubFulfillment)
 
   if (authLoading || (user && !profile)) {
     return (
@@ -506,7 +587,7 @@ export default function ListItem() {
         <div className="list-success">
           <div className="text-6xl" aria-hidden="true">🎉</div>
           <h2>Your Gear is Live in the Den!</h2>
-          <p>Renters across Bengaluru and Gurugram can now discover, reserve, and book your gear.</p>
+          <p>Renters across {activeCities.map((c) => c.name).join(' & ')} can now discover, reserve, and book your gear.</p>
 
           <div style={{ margin: '1.2rem auto', maxWidth: '30rem', padding: '1rem 1.25rem', background: 'rgba(0, 229, 255, 0.08)', borderRadius: '1rem', border: '1px solid rgba(0, 229, 255, 0.25)', textAlign: 'left' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.6rem', flexWrap: 'wrap' }}>
@@ -638,6 +719,9 @@ export default function ListItem() {
                                 deposit: tpl.deposit,
                                 hasDeposit: Number(tpl.deposit) > 0,
                               }))
+                              if (Array.isArray(tpl.games) && tpl.games.length > 0) {
+                                setGames(tpl.games)
+                              }
                               setError('')
                               showToast(`⚡ Auto-filled "${tpl.badge}" — just add photos or tweak anything!`, 'success')
                             }}
@@ -773,62 +857,84 @@ export default function ListItem() {
                 <div className="list-field">
                   <p className="field-label">City *</p>
                   <div className="list-chips" role="group" aria-label="City">
-                    {CITIES.map((c) => (
-                      <button
-                        key={c.id}
-                        type="button"
-                        className={`list-chip${form.city === c.name ? ' is-on' : ''}`}
-                        onClick={() => {
-                          const defaultLoc = c.id === 'gurugram' ? 'Cyber City' : 'Koramangala'
-                          setForm((f) => ({ ...f, city: c.name, location: defaultLoc }))
-                        }}
-                        aria-pressed={form.city === c.name}
-                        aria-label={`City ${c.name}`}
-                      >
-                        {c.name === 'Gurugram' ? '🏢 Gurugram (NCR)' : '🏙️ Bengaluru'}
-                      </button>
-                    ))}
+                    {activeCities.map((c) => {
+                      const isSelected = (form.city || '').toLowerCase() === c.name.toLowerCase()
+                      const locs = c.popularLocalities || c.popular_localities || []
+                      const defaultLoc = locs[0] || c.name
+                      return (
+                        <button
+                          key={c.id}
+                          type="button"
+                          className={`list-chip${isSelected ? ' is-on' : ''}`}
+                          onClick={() => {
+                            setForm((f) => ({ ...f, city: c.name, location: defaultLoc }))
+                          }}
+                          aria-pressed={isSelected}
+                          aria-label={`City ${c.name}`}
+                        >
+                          {c.displayName || c.display_name || c.name}
+                        </button>
+                      )
+                    })}
                   </div>
                 </div>
 
                 {/* Area in selected City */}
-                <div className="list-field">
-                  <div className="flex items-center justify-between mb-1.5">
-                    <p className="field-label mb-0">Area / Locality in {form.city || 'City'} *</p>
-                    <span className="text-[11px] font-mono text-cyan-400">
-                      {form.city === 'Gurugram' ? 'Cyber City · DLF · Golf Course Rd' : 'Koramangala · Indiranagar · HSR'}
-                    </span>
-                  </div>
-                  <div className="list-chips" role="group" aria-label={`Area in ${form.city}`}>
-                    {(form.city === 'Gurugram' ? GURUGRAM_LOCALITIES : BENGALURU_LOCALITIES).map((loc) => (
-                      <button
-                        key={loc}
-                        type="button"
-                        className={`list-chip${form.location === loc || form.location.startsWith(loc) ? ' is-on' : ''}`}
-                        onClick={() => setForm((f) => ({ ...f, location: loc }))}
-                        aria-pressed={form.location === loc}
-                        aria-label={`Area ${loc}`}
-                      >
-                        {loc}
-                      </button>
-                    ))}
-                  </div>
-                  <div className="mt-2">
-                    <input
-                      type="text"
-                      value={form.location}
-                      onChange={set('location')}
-                      placeholder={`Or enter specific sector, society or landmark in ${form.city}...`}
-                      className="input-dark text-xs py-2"
-                      aria-label={`Custom area in ${form.city}`}
-                    />
-                  </div>
-                </div>
+                {(() => {
+                  const currentCityObj = activeCities.find(
+                    (c) => c.name.toLowerCase() === (form.city || '').toLowerCase()
+                  ) || activeCities[0]
+                  const currentLocalities = currentCityObj?.popularLocalities || currentCityObj?.popular_localities || []
+
+                  return (
+                    <div className="list-field">
+                      <div className="flex items-center justify-between mb-1.5">
+                        <p className="field-label mb-0">Area / Locality in {form.city || currentCityObj?.name || 'City'} *</p>
+                        {currentLocalities.length > 0 && (
+                          <span className="text-[11px] font-mono text-cyan-400">
+                            {currentLocalities.slice(0, 3).join(' · ')}
+                          </span>
+                        )}
+                      </div>
+                      {currentLocalities.length > 0 && (
+                        <div className="list-chips" role="group" aria-label={`Area in ${form.city}`}>
+                          {currentLocalities.map((loc) => (
+                            <button
+                              key={loc}
+                              type="button"
+                              className={`list-chip${form.location === loc || form.location.startsWith(loc) ? ' is-on' : ''}`}
+                              onClick={() => setForm((f) => ({ ...f, location: loc }))}
+                              aria-pressed={form.location === loc}
+                              aria-label={`Area ${loc}`}
+                            >
+                              {loc}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                      <div className="mt-2">
+                        <input
+                          type="text"
+                          value={form.location}
+                          onChange={set('location')}
+                          placeholder={`Or enter specific sector, society or landmark in ${form.city || 'your city'}...`}
+                          className="input-dark text-xs py-2"
+                          aria-label={`Custom area in ${form.city}`}
+                        />
+                      </div>
+                    </div>
+                  )
+                })()}
 
                 <div className="list-field">
-                  <p className="field-label">Photos (up to 5)</p>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <p className="field-label mb-0">Photos (up to 5)</p>
+                    <span className="text-[11px] font-mono text-white/50">
+                      {existingPhotos.length + photos.length} / 5 photos
+                    </span>
+                  </div>
                   <label
-                    className={`list-drop${dragOver ? ' is-over' : ''}`}
+                    className={`list-drop${dragOver ? ' is-over' : ''}${existingPhotos.length + photos.length >= 5 ? ' opacity-50 cursor-not-allowed pointer-events-none' : ''}`}
                     htmlFor="list-photos"
                     onDragOver={(e) => { e.preventDefault(); setDragOver(true) }}
                     onDragLeave={() => setDragOver(false)}
@@ -839,22 +945,49 @@ export default function ListItem() {
                     }}
                   >
                     <Upload size={22} aria-hidden="true" />
-                    Drag photos here or click to upload
+                    {existingPhotos.length + photos.length >= 5
+                      ? 'Maximum 5 photos reached (delete one below to replace)'
+                      : 'Drag photos here or click to upload'}
                     <input
                       id="list-photos"
                       type="file"
                       accept="image/*"
                       multiple
+                      disabled={existingPhotos.length + photos.length >= 5}
                       onChange={handlePhotos}
                       aria-label="Upload listing photos"
                     />
                   </label>
-                  {previews.length > 0 ? (
+                  {(existingPhotos.length > 0 || previews.length > 0) ? (
                     <div className="list-thumbs">
+                      {existingPhotos.map((src, i) => (
+                        <div key={`existing-${src}-${i}`} className="list-thumb relative group">
+                          <img src={src} alt={`Uploaded listing photo ${i + 1}`} />
+                          <span className="absolute bottom-1 left-1 px-1.5 py-0.5 rounded text-[9px] font-mono font-bold bg-black/80 text-cyan-300 border border-cyan-500/30 uppercase leading-none">
+                            Saved
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => removeExistingPhoto(i)}
+                            aria-label={`Remove saved photo ${i + 1}`}
+                            title="Remove photo"
+                          >
+                            <X size={10} aria-hidden="true" />
+                          </button>
+                        </div>
+                      ))}
                       {previews.map((src, i) => (
-                        <div key={src} className="list-thumb">
-                          <img src={src} alt={`Listing photo ${i + 1}`} />
-                          <button type="button" onClick={() => removePhoto(i)} aria-label={`Remove photo ${i + 1}`}>
+                        <div key={`new-${src}-${i}`} className="list-thumb relative group">
+                          <img src={src} alt={`New photo ${i + 1}`} />
+                          <span className="absolute bottom-1 left-1 px-1.5 py-0.5 rounded text-[9px] font-mono font-bold bg-black/80 text-pink-300 border border-pink-500/30 uppercase leading-none">
+                            New
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => removePhoto(i)}
+                            aria-label={`Remove new photo ${i + 1}`}
+                            title="Remove photo"
+                          >
                             <X size={10} aria-hidden="true" />
                           </button>
                         </div>
@@ -915,17 +1048,20 @@ export default function ListItem() {
                           : 'bg-white/5 border-white/10 text-white/60 hover:bg-white/10'
                       }`}
                     >
-                      <div className="flex items-center gap-2 font-display font-bold text-sm text-white mb-1">
+                      <div className="flex items-center gap-2 font-display font-bold text-sm text-white mb-1 flex-wrap">
                         <span>🏬</span> Store at लोकल Den Hub
+                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 font-mono font-bold border border-amber-500/30">
+                          +5% storage cut
+                        </span>
                       </div>
                       <div className="text-xs font-display text-white/50 leading-relaxed">
-                        Store gear at our Koramangala Warehouse. We manage inspection, storage, and dispatch.
+                        Store gear at our Koramangala Warehouse. We manage inspection, storage, and dispatch (LocalDen retains an extra 5% storage fee).
                       </div>
                     </button>
                   </div>
                 </div>
 
-                <p className="list-fee-note">{platformFeeCopy(platformFeeSetting)}</p>
+                <p className="list-fee-note">{platformFeeCopy(platformFeeSetting, isHubFulfillment)}</p>
 
                 {/* Smart Dynamic Pricing Recommendation Card */}
                 <div className="mb-4 p-3.5 rounded-2xl bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-between text-xs font-display">
@@ -1085,6 +1221,31 @@ export default function ListItem() {
                   </div>
                 ) : null}
 
+                {/* Outright Buy / Sale Price */}
+                <div className="list-field mt-3">
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="field-label mb-0" htmlFor="price-sale">
+                      Outright Buy / Sale Price (₹) (Optional)
+                    </label>
+                    <span className="text-[11px] font-mono text-pink-400">
+                      Gamers can buy pre-owned to own forever
+                    </span>
+                  </div>
+                  <div className="list-rupee">
+                    <span aria-hidden="true">₹</span>
+                    <input
+                      id="price-sale"
+                      type="number"
+                      min={50}
+                      placeholder={form.itemType === 'Game Disc' ? '2499' : 'e.g. 2999 (Leave empty if rent only)'}
+                      value={form.salePrice || ''}
+                      onChange={set('salePrice')}
+                      className="input-dark"
+                      aria-label="Outright sale price"
+                    />
+                  </div>
+                </div>
+
                 <div className="list-field">
                   <div className="flex items-center justify-between mb-2">
                     <p className="field-label mb-0">Security deposit</p>
@@ -1227,7 +1388,11 @@ export default function ListItem() {
           <aside className="list-preview" aria-label="Listing preview">
             <p className="list-preview__kicker">Live preview</p>
             <div className="list-preview__art">
-              {previews[0] ? <img src={previews[0]} alt="" /> : emoji}
+              {previews[0] || existingPhotos[0] ? (
+                <img src={previews[0] || existingPhotos[0]} alt="" />
+              ) : (
+                emoji
+              )}
             </div>
             <h3>{form.title || 'Your listing title'}</h3>
             <p>{form.itemType || 'Pick a type'} · {form.location}</p>

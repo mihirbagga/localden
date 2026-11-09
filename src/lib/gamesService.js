@@ -1,6 +1,7 @@
 import { supabase } from './supabase'
 
 export const POPULAR_PS5_GAMES = [
+  { title: 'Grand Theft Auto VI', format: 'Digital', genre: 'Open World Action' },
   { title: 'Grand Theft Auto V', format: 'Disc', genre: 'Open World' },
   { title: 'FIFA', format: 'Digital', genre: 'Sports' },
   { title: "Marvel's Spider-Man 2", format: 'Disc', genre: 'Action' },
@@ -16,6 +17,7 @@ export const POPULAR_PS5_GAMES = [
 ]
 
 export const DEFAULT_PS5_STARTER_GAMES = [
+  { title: 'Grand Theft Auto VI', format: 'Digital', genre: 'Open World Action' },
   { title: 'Grand Theft Auto V', format: 'Disc', genre: 'Open World' },
   { title: 'FIFA', format: 'Digital', genre: 'Sports' },
   { title: "Marvel's Spider-Man 2", format: 'Disc', genre: 'Action' },

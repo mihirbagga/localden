@@ -39,6 +39,90 @@ const CONFIG = {
 
 // Available Content Campaigns
 const CAMPAIGNS = {
+  gta6_800: {
+    name: 'GTA 6 PS5 Setup — ₹800/Day',
+    target: 'Gamers in Bangalore & Gurugram',
+    postImage: 'gta6_ps5_setup_800.jpg',
+    storyImage: 'gta6_ps5_setup_800.jpg',
+    captionVariants: [
+      {
+        hook: '🌴🚨 VICE CITY CALLING: PLAY GTA 6 ON PS5 FOR JUST ₹800/DAY! 🎮🚗💥',
+        body: `Ready for the biggest drop in gaming history?! Don't buy a ₹55,000 console when you can rent the complete PS5 setup for just ₹800/day on लोकल DEN! 🔥
+
+What you get with your setup:
+🎮 Sony PlayStation 5 Console (Disc Edition, 4K HDR Ray Tracing)
+🕹️ DualSense Wireless Controllers with Haptic Feedback
+🌴 GTA 6 Ready + Pre-loaded titles (GTA V, Spider-Man 2, EA Sports FC)
+🔌 High-Speed HDMI 2.1 cable + Sanitized Gear Bag
+
+━━━━━━━━━━━━━━━━━━━━━
+💰 Just ₹800/day
+⚡ 100% Verified Hardware • Zero Deposit Drama • Same-Day Doorstep Delivery
+📍 Available across Bangalore & Gurugram
+━━━━━━━━━━━━━━━━━━━━━
+
+👉 Book your PS5 setup directly here:
+https://localden.online/listing/11111111-2222-3333-4444-555555555555`,
+        cta: 'Tap link in bio or visit https://localden.online/listing/11111111-2222-3333-4444-555555555555 to rent now! 🔗',
+        hashtags: [
+          '#localDen',
+          '#GTA6',
+          '#GrandTheftAuto6',
+          '#PS5',
+          '#PS5Rental',
+          '#ViceCity',
+          '#BangaloreGamers',
+          '#GurgaonGamers',
+          '#PS5Bangalore',
+          '#PS5Gurgaon',
+          '#GameNight',
+          '#RentYourSystem',
+          '#GamersOfIndia'
+        ]
+      }
+    ]
+  },
+  gta6: {
+    name: 'GTA 6 PS5 Bundle Drop — ₹800/Day',
+    target: 'Bangalore & Gurugram Gamers, Vice City Fans, Techies & Weekend Squads',
+    postImage: 'gta6_countdown_ps5.png',
+    storyImage: 'gta6_countdown_ps5.png',
+    captionVariants: [
+      {
+        hook: '🌴🚨 GTA 6 COUNTDOWN IS ON: BOOK YOUR PS5 BEFORE SLOTS SELL OUT! 🎮🚗💥',
+        body: `Vice City vibes are coming! Don't wait until launch week when PS5 prices skyrocket and stock dries up. Book your battle-ready setup now on लोकल DEN! 🔥
+
+What's in the PS5 Experience Setup:
+🎮 Sony PlayStation 5 Disc Edition (1TB SSD, 4K 60FPS HDR Ray Tracing)
+🕹️ 2x Original DualSense Wireless Controllers with Haptic Feedback
+🌴 GTA 6 Ready + Pre-loaded co-op titles (GTA V, Spider-Man 2, FIFA)
+🎒 Sanitized travel bag + Ultra High Speed HDMI 2.1 cable
+
+━━━━━━━━━━━━━━━━━━━━━
+⚡ 100% Verified Hardware • Zero Deposit Drama • Doorstep Delivery
+📍 Bangalore & Gurugram
+━━━━━━━━━━━━━━━━━━━━━
+
+👉 Reserve your PS5 now directly here:
+https://localden.online/listing/11111111-2222-3333-4444-555555555555`,
+        cta: 'Tap link in bio or visit https://localden.online/listing/11111111-2222-3333-4444-555555555555 to book! 🔗',
+        hashtags: [
+          '#localDen',
+          '#GTA6',
+          '#GrandTheftAuto6',
+          '#GTA6PS5',
+          '#ViceCity',
+          '#PS5Bangalore',
+          '#PS5Gurgaon',
+          '#BangaloreGamers',
+          '#GurgaonGamers',
+          '#GameNight',
+          '#RentPS5',
+          '#ConsoleGaming'
+        ]
+      }
+    ]
+  },
   gurugram: {
     name: 'Gurugram City Launch Announcement',
     target: 'Gurugram / NCR Gamers, Techies, House Party Hosts & Gear Owners (CyberHub, DLF Phase 1-5, Golf Course Road, Sohna Road)',

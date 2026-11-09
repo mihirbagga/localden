@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
+import { getListingPhotos } from '../lib/listingPhotos'
 
 /**
  * useListings — fetches listings from Supabase with optional filters.
@@ -71,7 +72,13 @@ export function useListings(filters = {}) {
         const { data, error: qErr } = await query
 
         if (qErr) throw qErr
-        if (!cancelled) setListings(data || [])
+        if (!cancelled) {
+          const normalized = (data || []).map((row) => ({
+            ...row,
+            photos: getListingPhotos(row),
+          }))
+          setListings(normalized)
+        }
       } catch (err) {
         if (!cancelled) {
           console.warn('Supabase fetch failed (are your env vars set?):', err.message)
@@ -112,7 +119,12 @@ export function useListingById(id) {
 
       if (!cancelled) {
         if (qErr) setError(qErr.message)
-        else setListing(data)
+        else {
+          setListing({
+            ...data,
+            photos: getListingPhotos(data),
+          })
+        }
         setLoading(false)
       }
     }

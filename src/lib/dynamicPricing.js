@@ -8,8 +8,10 @@ export function calculateSuggestedPricing({ gpu = '', cpu = '', ram = 16, storag
   const gpuLower = gpu.toLowerCase()
   const cpuLower = cpu.toLowerCase()
 
-  // GPU Tier Pricing Boost
-  if (gpuLower.includes('4090') || gpuLower.includes('7900 xtx')) basePrice += 2000
+  // GPU / Special Bundle Tier Pricing Boost
+  if (gpuLower.includes('gta 6') || gpuLower.includes('gta vi') || gpuLower.includes('grand theft auto vi')) {
+    basePrice = 800
+  } else if (gpuLower.includes('4090') || gpuLower.includes('7900 xtx')) basePrice += 2000
   else if (gpuLower.includes('4080') || gpuLower.includes('7900 xt')) basePrice += 1400
   else if (gpuLower.includes('4070') || gpuLower.includes('3080') || gpuLower.includes('6800')) basePrice += 900
   else if (gpuLower.includes('4060') || gpuLower.includes('3070') || gpuLower.includes('6700')) basePrice += 600

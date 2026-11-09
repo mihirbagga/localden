@@ -46,7 +46,7 @@ async function fetchAll() {
   const settled = await Promise.allSettled([
     loadRows('profiles', '*'),
     loadRows('listings', '*, profiles(id, full_name, email, phone, kyc_status)'),
-    loadRows('bookings', '*, listings(id, title, emoji, category)'),
+    loadRows('bookings', '*, listings(id, title, emoji, category, fulfillment_type, hub_id)'),
     loadRows('reviews', '*, listings(id, title, emoji)'),
     loadRows('coupons', '*'),
     loadRows('payment_methods', '*', 'sort_order'),
@@ -120,6 +120,10 @@ export function useAdminData() {
     setUsers((prev) => prev.map((row) => (row.id === id ? { ...row, ...patch } : row)))
   }, [])
 
+  const removeUser = useCallback((id) => {
+    setUsers((prev) => prev.filter((row) => row.id !== id))
+  }, [])
+
   const patchListing = useCallback((id, patch) => {
     setListings((prev) => prev.map((row) => (row.id === id ? { ...row, ...patch } : row)))
   }, [])
@@ -165,6 +169,7 @@ export function useAdminData() {
     loading,
     reload,
     patchUser,
+    removeUser,
     patchListing,
     removeListing,
     patchBooking,

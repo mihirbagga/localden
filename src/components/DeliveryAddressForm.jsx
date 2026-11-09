@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import {
   Home, Briefcase, MapPin, Navigation, ExternalLink,
   Clock, Check, Trash2, BookmarkPlus, AlertTriangle,
@@ -6,7 +6,7 @@ import {
 import DeliveryAddressDisplay from './DeliveryAddressDisplay'
 import { reverseGeocode, formatDeliveryAddress, parseDeliveryAddress } from '../lib/deliveryAddress'
 import { lookupPincode } from '../lib/deliveryFee'
-import { BENGALURU_LOCALITIES, GURUGRAM_LOCALITIES } from '../lib/cities'
+import { useCities } from '../hooks/useCities'
 
 const POPULAR_QUICK_LOCALITIES = [
   'Koramangala',
@@ -60,6 +60,7 @@ function readSavedAddresses() {
 }
 
 export default function DeliveryAddressForm({ value = '', onChange }) {
+  const { activeCities } = useCities()
   const [flat, setFlat] = useState('')
   const [street, setStreet] = useState('')
   const [locality, setLocality] = useState('')
@@ -68,6 +69,15 @@ export default function DeliveryAddressForm({ value = '', onChange }) {
   const [mapsUrl, setMapsUrl] = useState('')
   const [slot, setSlot] = useState('Morning (10 AM – 1 PM)')
   const [instructions, setInstructions] = useState('')
+
+  const quickLocalities = useMemo(() => {
+    const list = []
+    for (const c of activeCities) {
+      const locs = c.popularLocalities || c.popular_localities || []
+      list.push(...locs.slice(0, 4))
+    }
+    return list.length > 0 ? list.slice(0, 10) : POPULAR_QUICK_LOCALITIES
+  }, [activeCities])
   const [saveLabel, setSaveLabel] = useState('Home')
   const [justSaved, setJustSaved] = useState(false)
 
@@ -115,7 +125,7 @@ export default function DeliveryAddressForm({ value = '', onChange }) {
       if (digits.length === 6) {
         const info = lookupPincode(digits)
         if (info?.unsupportedCity) {
-          setPinHint({ tone: 'warn', text: 'Doorstep delivery is currently live in Bengaluru (560xxx) & Gurugram (122xxx).' })
+          setPinHint({ tone: 'warn', text: `Doorstep delivery is currently live in ${activeCities.map((c) => c.name).join(' & ')}.` })
         } else if (info) {
           if (info.locality && !locality) {
             setLocality(info.locality)
@@ -374,20 +384,18 @@ export default function DeliveryAddressForm({ value = '', onChange }) {
               onChange={(e) => handleFieldChange('locality', e.target.value)}
             >
               <option value="">-- Select Locality --</option>
-              <optgroup label="🏙️ Bengaluru">
-                {BENGALURU_LOCALITIES.map((loc) => (
-                  <option key={loc} value={loc}>
-                    {loc}
-                  </option>
-                ))}
-              </optgroup>
-              <optgroup label="🏢 Gurugram (NCR)">
-                {GURUGRAM_LOCALITIES.map((loc) => (
-                  <option key={loc} value={loc}>
-                    {loc}
-                  </option>
-                ))}
-              </optgroup>
+              {activeCities.map((c) => {
+                const locs = c.popularLocalities || c.popular_localities || []
+                return (
+                  <optgroup key={c.id} label={`${c.displayName || c.name}`}>
+                    {locs.map((loc) => (
+                      <option key={loc} value={loc}>
+                        {loc}
+                      </option>
+                    ))}
+                  </optgroup>
+                )
+              })}
             </select>
           </div>
         </div>
@@ -409,7 +417,7 @@ export default function DeliveryAddressForm({ value = '', onChange }) {
         <div>
           <span className="text-[10px] text-white/45 block mb-1">Quick Area Pick:</span>
           <div className="flex flex-wrap gap-1">
-            {POPULAR_QUICK_LOCALITIES.map((loc) => (
+            {quickLocalities.map((loc) => (
               <button
                 key={loc}
                 type="button"

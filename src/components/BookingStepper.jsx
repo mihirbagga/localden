@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
   Check, ShieldCheck, FileSignature, KeyRound, CalendarPlus,
-  Copy, MessageCircle, X, CheckCircle2, AlertTriangle
+  Copy, MessageCircle, X, CheckCircle2, AlertTriangle, XCircle
 } from 'lucide-react'
 import { getHandoverPin, getReturnPin } from '../lib/messages'
 import { verifySinglePinHandover } from '../lib/trackingService'
@@ -149,44 +149,44 @@ export default function BookingStepper({
   }
 
   return (
-    <div className="booking-stepper rounded-2xl bg-black/40 border border-white/10 p-4 my-3 text-xs">
-      {/* 5-Step Visual Progress Bar */}
-      <div className="relative flex items-center justify-between mb-4 px-2">
-        {/* Connecting progress line */}
-        <div className="absolute left-6 right-6 top-1/2 -translate-y-1/2 h-0.5 bg-white/10 -z-0">
-          <div
-            className={`h-full transition-all duration-500 ${
-              isCancelled ? 'bg-red-500/50' : 'bg-gradient-to-r from-cyan-500 to-emerald-400'
-            }`}
-            style={{
-              width: isCancelled ? '100%' : `${(activeStep / (STEPS.length - 1)) * 100}%`,
-            }}
-          />
+    <div className="booking-stepper rounded-2xl bg-black/30 border border-white/10 p-4 text-xs">
+      {/* 5-Step Visual Progress Bar — equal columns so the line runs centre-to-centre */}
+      <div className="relative grid grid-cols-5 mb-4">
+        {/* Connecting progress line, aligned to circle centres (h-7 → 0.875rem) */}
+        <div className="absolute left-[10%] right-[10%] top-[0.875rem] -translate-y-1/2 h-0.5 bg-white/10">
+          {!isCancelled && (
+            <div
+              className="h-full bg-gradient-to-r from-cyan-500 to-emerald-400 transition-all duration-500"
+              style={{ width: `${(activeStep / (STEPS.length - 1)) * 100}%` }}
+            />
+          )}
         </div>
 
         {STEPS.map((step, idx) => {
           const isDone = !isCancelled && idx < activeStep
           const isCurrent = !isCancelled && idx === activeStep
+          const isCancelPoint = isCancelled && idx === 0
 
-          let circleClass = 'bg-white/10 text-white/40 border-white/20'
+          // Solid base fill keeps the connecting line from showing through
+          let circleClass = 'bg-[#16162a] text-white/45 border-white/20'
           if (isDone) {
             circleClass = 'bg-emerald-500 border-emerald-400 text-black shadow-lg shadow-emerald-500/20'
           } else if (isCurrent) {
             circleClass = 'bg-cyan-500 border-cyan-300 text-black shadow-lg shadow-cyan-500/30 ring-4 ring-cyan-500/20 animate-pulse'
-          } else if (isCancelled) {
-            circleClass = 'bg-red-500/20 border-red-500/40 text-red-300'
+          } else if (isCancelPoint) {
+            circleClass = 'bg-[#ff2e6d] border-[#ff2e6d] text-white shadow-lg shadow-[#ff2e6d]/30'
           }
 
           return (
-            <div key={step.id} className="relative z-10 flex flex-col items-center">
+            <div key={step.id} className="relative z-10 flex flex-col items-center min-w-0">
               <div
                 className={`w-7 h-7 rounded-full flex items-center justify-center font-bold text-xs border transition-all ${circleClass}`}
               >
                 {isDone ? <Check size={14} strokeWidth={3} /> : step.num}
               </div>
               <span
-                className={`mt-1.5 text-[11px] font-display whitespace-nowrap transition-colors ${
-                  isCurrent ? 'text-cyan-300 font-bold' : isDone ? 'text-white/80' : 'text-white/40'
+                className={`mt-1.5 text-[11px] font-display text-center leading-tight transition-colors ${
+                  isCurrent ? 'text-cyan-300 font-bold' : isDone || isCancelPoint ? 'text-white/85' : 'text-white/40'
                 }`}
               >
                 {step.label}
@@ -343,18 +343,23 @@ export default function BookingStepper({
         </div>
       )}
 
-      {/* Clear Next Action Banner */}
+      {/* Cancelled bookings get a closed-state banner instead of a next action */}
+      {isCancelled ? (
+        <div className="p-3 rounded-xl bg-[#ff2e6d]/10 border border-[#ff2e6d]/35 flex items-center gap-3">
+          <XCircle size={22} className="text-[#ff2e6d] shrink-0" />
+          <div>
+            <p className="text-sm font-bold text-[#ff5c8a]">Booking cancelled</p>
+            <p className="text-[11px] text-white/60">No action required. This booking was cancelled and its dates are open again.</p>
+          </div>
+        </div>
+      ) : (
       <div className="p-3 rounded-xl bg-white/[0.04] border border-white/10 flex items-center justify-between gap-3 flex-wrap">
         <div className="space-y-0.5 min-w-[200px]">
           <span className="text-[10px] uppercase font-bold tracking-wider text-cyan-400 block">
             Next Action Required
           </span>
 
-          {isCancelled ? (
-            <div className="text-red-400 font-bold">
-              ✕ Booking cancelled. No further actions needed.
-            </div>
-          ) : activeStep === 0 ? (
+          {activeStep === 0 ? (
             /* Step 1: Requested */
             <div>
               <p className="text-white font-medium">
@@ -557,6 +562,7 @@ export default function BookingStepper({
           </div>
         )}
       </div>
+      )}
     </div>
   )
 }

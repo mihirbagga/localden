@@ -22,11 +22,12 @@ import { usePlatformFee } from '../hooks/usePlatformFee'
 import { supabase } from '../lib/supabase'
 import { normalizeCouponCode, priceWithCoupon, validateCoupon } from '../lib/coupons'
 import { useDiscountCampaigns } from '../lib/discountCampaignService'
-import { platformFeeLabel } from '../lib/platformFee'
+import { isListingHubStored, platformFeeLabel } from '../lib/platformFee'
 import { isOnlineMethod, methodConfig, payButtonLabel } from '../lib/payments'
 import { listingUnits, rangeHasBusy, shiftIso, todayIso } from '../lib/bookingDates'
 import { needsKyc } from '../lib/kyc'
 import { formatLocationDisplay } from '../lib/cities'
+import { getListingPhotos, getDefaultPhotoForListing } from '../lib/listingPhotos'
 import { rupee } from '../lib/wallet'
 import { useWallet } from '../hooks/useWallet'
 import { useBusyDates } from '../hooks/useBusyDates'
@@ -52,7 +53,6 @@ import {
   formatCustomerConfirmationMessage,
   formatListerNewOrderMessage,
   buildWhatsAppLink,
-  notifyAdminOnNewOrder,
 } from '../lib/whatsappSmsService'
 import './terms.css'
 import './couponApply.css'
@@ -91,36 +91,62 @@ function readSaved() {
   }
 }
 
-function PhotoGallery({ photos, emoji, title }) {
+function PhotoGallery({ photos, emoji, title, listing }) {
   const [idx, setIdx] = useState(0)
   const [open, setOpen] = useState(false)
-  const hasPhotos = photos?.length > 0
+  const [failedImgs, setFailedImgs] = useState(() => new Set())
+
+  const candidatePhotos = useMemo(() => {
+    const list = getListingPhotos({ photos, ...(listing || {}) })
+    if (list.length === 0) {
+      const fallback = getDefaultPhotoForListing(listing || { title })
+      if (fallback) return [fallback]
+    }
+    return list
+  }, [photos, listing, title])
+
+  const validPhotos = candidatePhotos.filter((p) => !failedImgs.has(p))
+  const hasPhotos = validPhotos.length > 0
+  const activeIdx = Math.min(idx, Math.max(0, validPhotos.length - 1))
+  const currentPhoto = validPhotos[activeIdx]
 
   useEffect(() => {
     if (!open) return undefined
     const onKey = (e) => {
       if (e.key === 'Escape') setOpen(false)
-      if (e.key === 'ArrowLeft') setIdx((i) => (i - 1 + photos.length) % photos.length)
-      if (e.key === 'ArrowRight') setIdx((i) => (i + 1) % photos.length)
+      if (e.key === 'ArrowLeft') setIdx((i) => (i - 1 + validPhotos.length) % validPhotos.length)
+      if (e.key === 'ArrowRight') setIdx((i) => (i + 1) % validPhotos.length)
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [open, photos?.length])
+  }, [open, validPhotos.length])
 
-  if (!hasPhotos) {
+  if (!hasPhotos || !currentPhoto) {
     return (
       <div className="ld-gallery__empty" aria-hidden="true">{emoji || '🎮'}</div>
     )
   }
 
-  const prev = () => setIdx((i) => (i - 1 + photos.length) % photos.length)
-  const next = () => setIdx((i) => (i + 1) % photos.length)
+  const prev = () => setIdx((i) => (i - 1 + validPhotos.length) % validPhotos.length)
+  const next = () => setIdx((i) => (i + 1) % validPhotos.length)
+
+  const handleImgError = (photoSrc) => {
+    if (photoSrc) {
+      setFailedImgs((prev) => new Set([...prev, photoSrc]))
+    }
+  }
 
   return (
     <div className="ld-gallery">
       <div className="ld-gallery__main">
-        <img src={photos[idx]} alt={`${title || 'Listing'} photo ${idx + 1}`} />
-        {photos.length > 1 ? (
+        <img
+          src={currentPhoto}
+          alt={`${title || 'Listing'} photo ${activeIdx + 1}`}
+          loading="eager"
+          decoding="async"
+          onError={() => handleImgError(currentPhoto)}
+        />
+        {validPhotos.length > 1 ? (
           <>
             <button type="button" className="ld-gallery__nav is-prev" onClick={prev} aria-label="Previous photo">
               <ChevronLeft size={18} />
@@ -129,11 +155,11 @@ function PhotoGallery({ photos, emoji, title }) {
               <ChevronRight size={18} />
             </button>
             <div className="ld-gallery__dots">
-              {photos.map((_, i) => (
+              {validPhotos.map((_, i) => (
                 <button
-                  key={photos[i]}
+                  key={validPhotos[i]}
                   type="button"
-                  className={`ld-gallery__dot${i === idx ? ' is-on' : ''}`}
+                  className={`ld-gallery__dot${i === activeIdx ? ' is-on' : ''}`}
                   onClick={() => setIdx(i)}
                   aria-label={`Show photo ${i + 1}`}
                 />
@@ -145,17 +171,23 @@ function PhotoGallery({ photos, emoji, title }) {
           Full view
         </button>
       </div>
-      {photos.length > 1 ? (
+      {validPhotos.length > 1 ? (
         <div className="ld-thumbs">
-          {photos.map((src, i) => (
+          {validPhotos.map((src, i) => (
             <button
               key={src}
               type="button"
-              className={i === idx ? 'is-on' : ''}
+              className={i === activeIdx ? 'is-on' : ''}
               onClick={() => setIdx(i)}
               aria-label={`Thumbnail ${i + 1}`}
             >
-              <img src={src} alt="" />
+              <img
+                src={src}
+                alt=""
+                loading="lazy"
+                decoding="async"
+                onError={() => handleImgError(src)}
+              />
             </button>
           ))}
         </div>
@@ -165,7 +197,7 @@ function PhotoGallery({ photos, emoji, title }) {
           <button type="button" className="ld-icon-btn ld-lightbox__x" onClick={() => setOpen(false)} aria-label="Close photo">
             <X size={16} />
           </button>
-          {photos.length > 1 ? (
+          {validPhotos.length > 1 ? (
             <>
               <button type="button" className="ld-gallery__nav is-prev" onClick={prev} aria-label="Previous photo">
                 <ChevronLeft size={18} />
@@ -175,7 +207,7 @@ function PhotoGallery({ photos, emoji, title }) {
               </button>
             </>
           ) : null}
-          <img src={photos[idx]} alt={`${title || 'Listing'} full view`} />
+          <img src={currentPhoto} alt={`${title || 'Listing'} full view`} />
         </div>,
         document.body
       ) : null}
@@ -313,6 +345,7 @@ function BookingWidget({ listing, mobile = false, forceOpen = false }) {
     ? Math.max(1, Math.ceil((new Date(endDate) - new Date(startDate)) / 86400000))
     : 0
   const deposit = listing.deposit_amount != null ? Math.max(0, Number(listing.deposit_amount)) : 0
+  const isHubStored = isListingHubStored(listing)
   const protectionCost = calculateProtectionCost(protectionPlan, days, protectionSettings)
   const priced = priceWithCoupon({
     days,
@@ -324,6 +357,7 @@ function BookingWidget({ listing, mobile = false, forceOpen = false }) {
     fee: platformFeeSetting,
     protectionCost,
     durationDiscounts,
+    isHubStored,
   })
 
   // Proactively fetch official server quote so client is always 100% in sync with database
@@ -476,20 +510,7 @@ function BookingWidget({ listing, mobile = false, forceOpen = false }) {
     setSaving(false)
     setBooking(confirmation)
 
-    notifyAdminOnNewOrder({
-      bookingId: confirmation.id,
-      listing,
-      renter: user,
-      startDate,
-      endDate,
-      days: confirmation.days,
-      total: confirmation.total,
-      paymentStatus: confirmation.paymentStatus,
-      paymentMethod: method?.name || method?.id,
-      deliveryType: handover,
-      deliveryAddress: handover === 'delivery' ? address : null,
-      couponCode: confirmation.couponCode,
-    }).catch((err) => console.warn('WhatsApp notify error:', err))
+    // Admin, host and renter WhatsApp messages are queued by the wa_booking_events DB trigger
 
     if (confirmation.paid) {
       showToast('Booking confirmed & paid!', 'success')
@@ -740,6 +761,7 @@ function BookingWidget({ listing, mobile = false, forceOpen = false }) {
         coupon: c,
         fee: platformFeeSetting,
         protectionCost,
+        isHubStored,
       }).couponDiscount
       if (off > bestOff) { best = c; bestOff = off }
     }
@@ -1539,7 +1561,7 @@ function BookingWidget({ listing, mobile = false, forceOpen = false }) {
                 )}
                 {platformFee > 0 && (
                   <div className="flex justify-between">
-                    <span>Platform Fee</span>
+                    <span>{platformFeeLabel(platformFeeSetting, isHubStored)}</span>
                     <b>₹{platformFee}</b>
                   </div>
                 )}
@@ -1842,7 +1864,7 @@ export default function ListingDetail() {
       <SEOHead
         title={listing?.title}
         description={listing?.description || `Rent ${listing?.title} in ${formatLocationDisplay(listing?.location)} for ₹${listing?.price_day}/day.`}
-        image={listing?.photos?.[0]}
+        image={getListingPhotos(listing)[0] || getDefaultPhotoForListing(listing)}
       />
       <div className="grid-floor" />
       <GameBackground />
@@ -1864,7 +1886,7 @@ export default function ListingDetail() {
 
         <div className="ld-grid">
           <div className="ld-main">
-            <PhotoGallery photos={listing.photos} emoji={listing.emoji} title={listing.title} />
+            <PhotoGallery photos={listing.photos} emoji={listing.emoji} title={listing.title} listing={listing} />
 
             <div className="ld-pills">
               <span className={isGaming ? 'tag-gaming' : 'tag-music'}>

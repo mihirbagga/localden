@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { ChevronDown, ChevronUp, ShieldCheck, Wallet, Truck, Tag, Info } from 'lucide-react'
+import { ChevronDown, ChevronUp, ShieldCheck, Wallet, Truck, Tag, Info, Warehouse } from 'lucide-react'
+import { isListingHubStored, HUB_STORAGE_FEE_PERCENT } from '../lib/platformFee'
 
 /**
  * Robust extractor for financial breakup details from a booking row,
@@ -20,6 +21,9 @@ export function parseBookingFinancials(booking) {
       paidAmount: 0,
       platformFee: 0,
       hostEarnings: 0,
+      isHubStored: false,
+      hubStorageFee: 0,
+      basePlatformFee: 0,
       couponCode: null,
       paymentMethod: 'upi',
       paymentStatus: 'pending',
@@ -43,6 +47,11 @@ export function parseBookingFinancials(booking) {
   let walletAmount = Number(booking.wallet_amount ?? 0)
   let totalAmount = Number(booking.total_amount ?? 0)
   let platformFee = Number(booking.platform_fee ?? 0)
+
+  // Hub stored check: localden keeps 5% extra for warehouse storage
+  const isHubStored = isListingHubStored(booking)
+  const hubStorageFee = isHubStored ? Math.round((subtotal * HUB_STORAGE_FEE_PERCENT) / 100) : 0
+  const basePlatformFee = Math.max(0, platformFee - hubStorageFee)
 
   // Fallback extraction from renter_note if dedicated columns weren't populated
   if (booking.renter_note && typeof booking.renter_note === 'string') {
@@ -89,6 +98,10 @@ export function parseBookingFinancials(booking) {
     platformFee,
     hostEarnings,
     listerNetEarnings: hostEarnings,
+    isHubStored,
+    hubStorageFee,
+    basePlatformFee,
+    hubStorageFeePercent: HUB_STORAGE_FEE_PERCENT,
     couponCode: booking.coupon_code || null,
     paymentMethod: booking.payment_method || 'upi',
     paymentStatus: booking.payment_status || 'pending',
@@ -129,6 +142,11 @@ export default function BookingPaymentBreakup({
           {fin.deliveryFee > 0 && (
             <span className="px-1.5 py-0.5 rounded text-[10px] bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 font-bold flex items-center gap-1">
               <Truck size={10} /> ₹{fin.deliveryFee} Delivery
+            </span>
+          )}
+          {fin.isHubStored && (
+            <span className="px-1.5 py-0.5 rounded text-[10px] bg-amber-500/20 text-amber-300 border border-amber-500/30 font-bold flex items-center gap-1">
+              <Warehouse size={10} /> Hub Stored (5% cut)
             </span>
           )}
           {isLister && (
@@ -251,9 +269,18 @@ export default function BookingPaymentBreakup({
                 <span className="font-mono text-sm">₹{fin.hostEarnings}</span>
               </div>
               <p className="text-[10px] text-white/60">
-                Base rental ₹{fin.subtotal}{fin.platformFee > 0 ? ` − platform fee ₹${fin.platformFee}` : ' (0% fee)'}.
+                Base rental ₹{fin.subtotal}
+                {fin.platformFee > 0
+                  ? ` − platform fee ₹${fin.platformFee}${fin.isHubStored ? ` (incl. 5% Hub Storage cut ₹${fin.hubStorageFee})` : ''}`
+                  : ' (0% fee)'}.
                 {fin.deposit > 0 ? ` Deposit ₹${fin.deposit} held in escrow for safe return.` : ''}
               </p>
+              {fin.isHubStored && (
+                <div className="flex items-center gap-1 text-[10px] text-amber-300/90 pt-0.5">
+                  <Warehouse size={10} className="shrink-0" />
+                  <span>Stored at LocalDen Hub: 5% extra platform take applied for storage & handling.</span>
+                </div>
+              )}
             </div>
           )}
 
@@ -264,6 +291,14 @@ export default function BookingPaymentBreakup({
                 <span>Platform Payout Split:</span>
                 <span>Host: ₹{fin.hostEarnings} · Admin Fee: ₹{fin.platformFee}</span>
               </div>
+              {fin.isHubStored && (
+                <div className="flex items-center justify-between text-amber-300/90 font-medium">
+                  <span className="flex items-center gap-1">
+                    <Warehouse size={10} /> Hub Storage Cut (5%):
+                  </span>
+                  <span>₹{fin.hubStorageFee} (Base Fee: ₹{fin.basePlatformFee})</span>
+                </div>
+              )}
               {fin.deliveryFee > 0 && (
                 <div className="flex items-center justify-between text-white/60">
                   <span>Delivery Allocation:</span>

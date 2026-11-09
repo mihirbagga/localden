@@ -1,6 +1,6 @@
 export const KYC_OPTIONS = ['not_required', 'required', 'submitted', 'verified', 'rejected']
 export const BOOKING_STATUSES = ['pending', 'confirmed', 'active', 'completed', 'cancelled', 'disputed']
-export const ADMIN_ROLES = ['none', 'admin', 'super_admin']
+export const ADMIN_ROLES = ['none', 'admin', 'regional_admin', 'hub_manager', 'super_admin']
 export const LOW_STOCK_THRESHOLD = 1
 
 export const KYC_LABEL = {
@@ -14,8 +14,10 @@ export const KYC_LABEL = {
 
 export const ROLE_LABEL = {
   none: 'User',
-  admin: 'User Admin',
-  super_admin: 'Overall Admin',
+  admin: 'Operations Admin',
+  regional_admin: 'Regional Admin (City Head)',
+  hub_manager: 'Hub Manager (Warehouse Lead)',
+  super_admin: 'Super Admin (Owner)',
 }
 
 export const BOOKING_LABEL = {

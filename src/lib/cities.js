@@ -62,32 +62,85 @@ export const ALL_LOCALITIES = [
   ...GURUGRAM_LOCALITIES,
 ]
 
+// Global cache for dynamically configured operational cities
+let dynamicCities = null
+
+export function setGlobalCities(citiesList) {
+  if (Array.isArray(citiesList) && citiesList.length > 0) {
+    dynamicCities = citiesList.map((c) => ({
+      id: c.id,
+      name: c.name,
+      displayName: c.display_name || c.displayName || c.name,
+      shortName: c.short_name || c.shortName || c.name,
+      state: c.state || '',
+      popularLocalities: Array.isArray(c.popular_localities)
+        ? c.popular_localities
+        : (Array.isArray(c.popularLocalities) ? c.popularLocalities : []),
+      isActive: c.is_active !== false && c.isActive !== false,
+    }))
+  }
+}
+
+export function getGlobalCities() {
+  if (dynamicCities && dynamicCities.length > 0) {
+    return dynamicCities
+  }
+  return CITIES
+}
+
+const CITY_ALIASES = {
+  Bengaluru: ['bengaluru', 'bangalore', 'blr', 'karnataka'],
+  Gurugram: ['gurugram', 'gurgaon', 'ggn', 'haryana', 'ncr'],
+  Mumbai: ['mumbai', 'bombay', 'maharashtra'],
+  Delhi: ['delhi', 'new delhi', 'ncr'],
+  Hyderabad: ['hyderabad', 'secunderabad', 'telangana'],
+  Pune: ['pune', 'poona', 'maharashtra'],
+  Chennai: ['chennai', 'madras', 'tamil nadu'],
+  Kolkata: ['kolkata', 'calcutta', 'west bengal'],
+  Ahmedabad: ['ahmedabad', 'amdavad', 'gujarat'],
+}
+
 /**
- * Determine which city a locality belongs to.
+ * Determine which city a locality or address string belongs to.
  */
-export function getCityForLocation(locName = '') {
+export function getCityForLocation(locName = '', customCities = null) {
   if (!locName) return 'Bengaluru'
   const str = String(locName).toLowerCase()
 
-  if (str.includes('gurugram') || str.includes('gurgaon') || str.includes('haryana') || str.includes('ncr')) {
-    return 'Gurugram'
-  }
-  for (const loc of GURUGRAM_LOCALITIES) {
-    if (str.includes(loc.toLowerCase())) {
-      return 'Gurugram'
+  const citiesPool = (customCities && customCities.length > 0)
+    ? customCities
+    : getGlobalCities()
+
+  const activePool = citiesPool.filter((c) => c.is_active !== false && c.isActive !== false)
+  const candidatePool = activePool.length > 0 ? activePool : citiesPool
+
+  // 1. Direct name or alias match
+  for (const c of candidatePool) {
+    const cName = (c.name || '').toLowerCase()
+    const cDisplay = (c.displayName || c.display_name || '').toLowerCase()
+    const cShort = (c.shortName || c.short_name || '').toLowerCase()
+    if (str.includes(cName) || (cShort && str.includes(cShort)) || (cDisplay && str.includes(cDisplay))) {
+      return c.name
+    }
+    const aliases = CITY_ALIASES[c.name] || []
+    for (const alias of aliases) {
+      if (str.includes(alias)) {
+        return c.name
+      }
     }
   }
 
-  if (str.includes('bengaluru') || str.includes('bangalore') || str.includes('karnataka')) {
-    return 'Bengaluru'
-  }
-  for (const loc of BENGALURU_LOCALITIES) {
-    if (str.includes(loc.toLowerCase())) {
-      return 'Bengaluru'
+  // 2. Locality match across popularLocalities
+  for (const c of candidatePool) {
+    const locs = c.popularLocalities || c.popular_localities || []
+    for (const loc of locs) {
+      if (loc && str.includes(String(loc).toLowerCase())) {
+        return c.name
+      }
     }
   }
 
-  return 'Bengaluru'
+  return candidatePool[0]?.name || 'Bengaluru'
 }
 
 /**
@@ -96,13 +149,16 @@ export function getCityForLocation(locName = '') {
  * e.g. "Cyber City" -> "Cyber City, Gurugram"
  * e.g. "DLF Phase 2, Gurugram" -> "DLF Phase 2, Gurugram"
  */
-export function formatLocationDisplay(location = '') {
+export function formatLocationDisplay(location = '', customCities = null) {
   if (!location) return 'Bengaluru & Gurugram'
-  const city = getCityForLocation(location)
+  const city = getCityForLocation(location, customCities)
   const locLower = location.toLowerCase()
   const cityLower = city.toLowerCase()
 
-  if (locLower.includes(cityLower) || (city === 'Bengaluru' && locLower.includes('bangalore'))) {
+  const aliases = [cityLower, ...(CITY_ALIASES[city] || [])]
+  const alreadyHasCity = aliases.some((a) => locLower.includes(a))
+
+  if (alreadyHasCity) {
     return location
   }
 

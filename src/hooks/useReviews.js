@@ -25,8 +25,13 @@ export function useReviews(listingId) {
   return { reviews, loading, avgRating, count: reviews.length }
 }
 
-export async function submitReview({ bookingId, listingId, reviewerId, revieweeId, rating, comment }) {
-  const { error } = await supabase.from('reviews').insert({
+// Returns { saved: true, feedbackSaved } — feedbackSaved is false when the
+// review_feedback_migration columns aren't deployed yet and only rating/comment were stored.
+export async function submitReview({
+  bookingId, listingId, reviewerId, revieweeId, rating, comment,
+  reviewType = null, highlights = [], improvement = '',
+}) {
+  const base = {
     id:          crypto.randomUUID(),
     booking_id:  bookingId,
     listing_id:  listingId,
@@ -34,7 +39,25 @@ export async function submitReview({ bookingId, listingId, reviewerId, revieweeI
     reviewee_id: revieweeId,
     rating,
     comment:     comment?.trim() || null,
+    review_type: reviewType,
     created_at:  new Date().toISOString(),
-  })
-  if (error) throw error
+  }
+  const feedback = { highlights, improvement: improvement?.trim() || null }
+
+  const { error } = await supabase.from('reviews').insert({ ...base, ...feedback })
+  if (!error) return { saved: true, feedbackSaved: true }
+
+  if (error.code === '23505') throw new Error('You have already reviewed this booking.')
+
+  // Feedback columns missing (migration not run yet) → keep the core review
+  const missingColumn = error.code === '42703' || error.code === 'PGRST204' || /highlights|improvement/i.test(error.message || '')
+  if (!missingColumn) throw error
+
+  const { review_type: _type, ...core } = base
+  const retry = await supabase.from('reviews').insert(core)
+  if (retry.error) {
+    if (retry.error.code === '23505') throw new Error('You have already reviewed this booking.')
+    throw retry.error
+  }
+  return { saved: true, feedbackSaved: false }
 }

@@ -1,5 +1,5 @@
 import { NavLink, useLocation } from 'react-router-dom'
-import { Home, Search, Music2, LayoutDashboard, LogIn } from 'lucide-react'
+import { Home, Search, Gamepad2, Music2, LayoutDashboard, LogIn } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import './bottomNav.css'
 
@@ -12,7 +12,8 @@ export default function BottomNav() {
 
   const tabs = [
     { to: '/',        label: 'Home',   Icon: Home, end: true },
-    { to: '/browse',  label: 'Browse', Icon: Search },
+    { to: '/browse',  label: 'Gear',   Icon: Search },
+    { to: '/games',   label: 'Games',  Icon: Gamepad2 },
     { to: '/live',    label: 'Events', Icon: Music2 },
     isAuthenticated
       ? { to: '/dashboard', label: 'Account', Icon: LayoutDashboard }
