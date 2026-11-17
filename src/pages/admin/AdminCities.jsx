@@ -1,7 +1,7 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import {
   MapPin, Plus, CheckCircle2, XCircle, Edit2, Trash2,
-  Users, Building2, Shield, Search, X, Sparkles,
+  Users, Building2, Shield, Search, X, Sparkles, ChevronDown, Check,
 } from 'lucide-react'
 import { useToast } from '../../contexts/ToastContext'
 import { useConfirm } from '../../contexts/ConfirmContext'
@@ -9,6 +9,13 @@ import { AdminEmpty, AdminBadge } from './AdminShared'
 import { fetchCities, createCity, updateCity, deleteCity } from '../../lib/citiesService'
 import { fetchHubs } from '../../lib/hubService'
 import { logAuditEvent } from '../../lib/auditService'
+import {
+  INDIA_STATES,
+  INDIA_CITIES_BY_STATE,
+  CITY_PRESETS,
+  searchIndiaLocations,
+  getPresetForCity,
+} from '../../data/indiaLocations'
 
 export default function AdminCities({ users = [], isSuperAdmin = false }) {
   const { showToast } = useToast()
@@ -27,6 +34,51 @@ export default function AdminCities({ users = [], isSuperAdmin = false }) {
     is_active: true,
   })
   const [saving, setSaving] = useState(false)
+
+  // Auto-fetch & Autocomplete state
+  const [selectedState, setSelectedState] = useState('')
+  const [locationSearch, setLocationSearch] = useState('')
+  const [showLocationDropdown, setShowLocationDropdown] = useState(false)
+  const searchRef = useRef(null)
+
+  useEffect(() => {
+    function handleClickOutside(e) {
+      if (searchRef.current && !searchRef.current.contains(e.target)) {
+        setShowLocationDropdown(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
+
+  const availableCitiesForState = useMemo(() => {
+    if (!selectedState) return []
+    return INDIA_CITIES_BY_STATE[selectedState] || []
+  }, [selectedState])
+
+  const searchResults = useMemo(() => {
+    if (!locationSearch.trim()) return []
+    return searchIndiaLocations(locationSearch)
+  }, [locationSearch])
+
+  const applyCitySelection = (cityName, stateName = '') => {
+    const finalState = stateName || selectedState || ''
+    const preset = getPresetForCity(cityName, finalState)
+
+    setFormData((prev) => ({
+      ...prev,
+      name: preset?.name || cityName,
+      state: preset?.state || finalState,
+      display_name: preset?.displayName || (finalState ? `${cityName} (${finalState})` : cityName),
+      short_name: preset?.shortName || cityName,
+      popular_localities: preset?.popularLocalities
+        ? preset.popularLocalities.join(', ')
+        : (prev.popular_localities || `${cityName} Central, ${cityName} North, ${cityName} South`),
+    }))
+    setSelectedState(preset?.state || finalState)
+    setLocationSearch('')
+    setShowLocationDropdown(false)
+  }
 
   const loadData = async () => {
     setLoading(true)
@@ -49,6 +101,9 @@ export default function AdminCities({ users = [], isSuperAdmin = false }) {
   }, [])
 
   const openNewCityModal = () => {
+    setSelectedState('')
+    setLocationSearch('')
+    setShowLocationDropdown(false)
     setFormData({
       name: '',
       display_name: '',
@@ -61,6 +116,9 @@ export default function AdminCities({ users = [], isSuperAdmin = false }) {
   }
 
   const openEditModal = (c) => {
+    setSelectedState(c.state || '')
+    setLocationSearch('')
+    setShowLocationDropdown(false)
     setFormData({
       name: c.name,
       display_name: c.display_name || c.name,
@@ -384,7 +442,133 @@ export default function AdminCities({ users = [], isSuperAdmin = false }) {
               </button>
             </div>
 
-            <form onSubmit={handleSave} className="space-y-3.5">
+            <form onSubmit={handleSave} className="space-y-4">
+              {/* Rapid City & State Autocomplete (Only when adding new city) */}
+              {modalCity === 'new' && (
+                <div className="p-3.5 rounded-2xl bg-cyan-950/20 border border-cyan-500/20 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-bold text-cyan-300 uppercase tracking-wider flex items-center gap-1.5">
+                      <Sparkles size={13} className="text-cyan-400" />
+                      Auto-Fetch Indian Cities &amp; States
+                    </span>
+                    <span className="text-[10px] text-white/40">36 States · 300+ Cities</span>
+                  </div>
+
+                  {/* Instant Search Bar */}
+                  <div className="relative" ref={searchRef}>
+                    <div className="relative">
+                      <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-white/40" />
+                      <input
+                        type="text"
+                        placeholder="Search any Indian city or state (e.g. Mumbai, Kochi, Chandigarh, Pune, Lucknow)..."
+                        value={locationSearch}
+                        onChange={(e) => {
+                          setLocationSearch(e.target.value)
+                          setShowLocationDropdown(true)
+                        }}
+                        onFocus={() => setShowLocationDropdown(true)}
+                        className="w-full pl-9 pr-8 py-2 rounded-xl bg-black/60 border border-cyan-500/30 text-xs text-white placeholder-white/40 focus:border-cyan-400 focus:outline-none"
+                      />
+                      {locationSearch && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setLocationSearch('')
+                            setShowLocationDropdown(false)
+                          }}
+                          className="absolute right-2.5 top-1/2 -translate-y-1/2 text-white/40 hover:text-white"
+                        >
+                          <X size={13} />
+                        </button>
+                      )}
+                    </div>
+
+                    {/* Autocomplete Search Dropdown */}
+                    {showLocationDropdown && searchResults.length > 0 && (
+                      <div className="absolute left-0 right-0 top-full mt-1.5 bg-[#0b0f19] border border-cyan-500/30 rounded-xl shadow-2xl max-h-48 overflow-y-auto z-50 p-1 divide-y divide-white/5">
+                        {searchResults.map((loc) => (
+                          <button
+                            key={`${loc.name}-${loc.state}`}
+                            type="button"
+                            onClick={() => applyCitySelection(loc.name, loc.state)}
+                            className="w-full text-left p-2 rounded-lg hover:bg-cyan-500/10 flex items-center justify-between text-xs text-white transition-all group"
+                          >
+                            <div>
+                              <span className="font-bold text-white group-hover:text-cyan-300">{loc.name}</span>
+                              <span className="text-[11px] text-white/50 ml-1.5">({loc.state})</span>
+                            </div>
+                            {loc.isPreset && (
+                              <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">
+                                Verified Localities
+                              </span>
+                            )}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* State & City Filter Dropdowns */}
+                  <div className="grid grid-cols-2 gap-2 pt-1">
+                    <div>
+                      <label className="text-[10px] text-white/50 block mb-1">Filter by State / UT:</label>
+                      <select
+                        value={selectedState}
+                        onChange={(e) => {
+                          const st = e.target.value
+                          setSelectedState(st)
+                          setFormData((prev) => ({ ...prev, state: st }))
+                        }}
+                        className="w-full text-xs py-1.5 px-2.5 rounded-xl bg-black/40 border border-white/15 text-white focus:border-cyan-400"
+                      >
+                        <option value="">— Select State / UT —</option>
+                        {INDIA_STATES.map((st) => (
+                          <option key={st} value={st}>{st}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="text-[10px] text-white/50 block mb-1">Pick City in State:</label>
+                      <select
+                        disabled={!selectedState}
+                        onChange={(e) => {
+                          if (e.target.value) applyCitySelection(e.target.value, selectedState)
+                        }}
+                        value={availableCitiesForState.includes(formData.name) ? formData.name : ''}
+                        className="w-full text-xs py-1.5 px-2.5 rounded-xl bg-black/40 border border-white/15 text-white disabled:opacity-40 focus:border-cyan-400"
+                      >
+                        <option value="">{selectedState ? `— Cities in ${selectedState} —` : 'Select State first'}</option>
+                        {availableCitiesForState.map((ct) => (
+                          <option key={ct} value={ct}>{ct}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+
+                  {/* Popular 1-Tap Presets */}
+                  <div>
+                    <span className="text-[10px] text-white/40 block mb-1.5 font-medium">Quick 1-Tap Expansion Presets:</span>
+                    <div className="flex flex-wrap gap-1">
+                      {['Mumbai', 'Delhi', 'Hyderabad', 'Pune', 'Chennai', 'Kolkata', 'Ahmedabad', 'Jaipur', 'Chandigarh', 'Lucknow', 'Kochi', 'Indore', 'Goa'].map((city) => (
+                        <button
+                          key={city}
+                          type="button"
+                          onClick={() => applyCitySelection(city)}
+                          className={`text-[10px] px-2 py-0.5 rounded-md border transition-all ${
+                            formData.name.toLowerCase() === city.toLowerCase()
+                              ? 'bg-cyan-500 text-black font-bold border-cyan-400 shadow-sm'
+                              : 'bg-white/5 border-white/10 text-white/70 hover:bg-white/10 hover:text-white'
+                          }`}
+                        >
+                          {city}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="text-[11px] font-bold text-white/70 block mb-1">

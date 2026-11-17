@@ -38,3 +38,15 @@
   transform: none;
 }
 
+/* Mobile view: Always display vivid CTA styling */
+@media (max-width: 768px) {
+  .card-rent:not(.is-booked-out) {
+    background: var(--grad-accent);
+    color: #fff;
+    box-shadow: 0 4px 16px rgba(191, 36, 199, 0.4);
+    font-size: 0.72rem;
+    padding: 0.4rem 0.85rem;
+    opacity: 1;
+  }
+}
+

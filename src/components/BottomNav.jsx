@@ -8,7 +8,7 @@ export default function BottomNav() {
   const { isAuthenticated } = useAuth()
   const { pathname } = useLocation()
 
-  if (pathname.startsWith('/admin')) return null
+  if (pathname.startsWith('/admin') || pathname.startsWith('/listing/')) return null
 
   const tabs = [
     { to: '/',        label: 'Home',   Icon: Home, end: true },

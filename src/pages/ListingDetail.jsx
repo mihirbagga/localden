@@ -863,7 +863,29 @@ function BookingWidget({ listing, mobile = false, forceOpen = false }) {
   }
 
   if (isOwner && mobile) {
-    return <p className="ld-hint">Your listing · Share link with renters</p>
+    return (
+      <div className="flex items-center justify-between gap-3 w-full">
+        <div className="ld-bar-price flex-1 min-w-0">
+          <strong>₹{listing.price_day}/day</strong>
+          <span>Your Gear · Active</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <Link
+            to="/dashboard?tab=listings"
+            className="btn-outline text-xs py-2 px-3 whitespace-nowrap"
+          >
+            Manage
+          </Link>
+          <button
+            type="button"
+            onClick={() => setSheetOpen(true)}
+            className="btn-primary text-xs py-2 px-3 whitespace-nowrap"
+          >
+            Rent now
+          </button>
+        </div>
+      </div>
+    )
   }
 
   if (isOwner) {
@@ -1679,15 +1701,14 @@ function BookingWidget({ listing, mobile = false, forceOpen = false }) {
         <div className="flex items-center gap-3">
           <div className="ld-bar-price flex-1 min-w-0">
             <strong>{days > 0 ? `₹${total}` : `₹${listing.price_day}`}</strong>
-            <span>{isBookedOut ? 'Unavailable' : days > 0 ? `${days} day${days === 1 ? '' : 's'} incl. deposit` : '/day · tap to rent'}</span>
+            <span>{isBookedOut ? 'Booked Out (Tap to reserve)' : days > 0 ? `${days} day${days === 1 ? '' : 's'} incl. deposit` : '/day · tap to rent'}</span>
           </div>
           <button
             type="button"
-            className="btn-primary disabled:opacity-40 disabled:cursor-not-allowed"
+            className="btn-primary flex-shrink-0 text-sm font-bold py-2.5 px-6 shadow-lg shadow-pink-500/25 active:scale-95 transition-all"
             onClick={() => {
               if (isBookedOut) {
-                showToast('This item is currently Unavailable.', 'error')
-                return
+                showToast('This item is currently booked out for today. Choose future dates in the calendar to reserve.', 'info')
               }
               if (!isAuthenticated) {
                 navigate('/login', { state: { from: { pathname: `/listing/${listing.id}?rent=1` } } })
@@ -1699,10 +1720,9 @@ function BookingWidget({ listing, mobile = false, forceOpen = false }) {
               }
               setSheetOpen(true)
             }}
-            aria-label={isBookedOut ? 'Item is Unavailable' : isAuthenticated ? 'Open rent form' : 'Sign in to rent'}
-            disabled={isBookedOut}
+            aria-label={isAuthenticated ? 'Open rent form' : 'Sign in to rent'}
           >
-            {isBookedOut ? 'Unavailable' : 'Rent now'}
+            Rent now
           </button>
         </div>
         {sheetOpen ? createPortal(

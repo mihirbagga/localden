@@ -211,7 +211,7 @@ export default function GameCard({
               onClick={() => onRentClick && onRentClick(game)}
               className="flex-1 py-2 px-2.5 rounded-xl text-xs font-bold text-white bg-cyan-500/20 hover:bg-cyan-500/30 border border-cyan-400/40 transition-all flex items-center justify-center gap-1 active:scale-95"
             >
-              <span>Rent</span>
+              <span>Rent now</span>
               <span className="font-mono text-[11px] text-cyan-300">₹{game.rentPriceDay}/d</span>
             </button>
           )}
